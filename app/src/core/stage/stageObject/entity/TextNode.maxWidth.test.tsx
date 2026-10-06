@@ -35,6 +35,9 @@ import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { CollisionBox } from "../collisionBox/collisionBox";
 import { TextNode } from "./TextNode";
+import { SvgUtils } from "@/core/render/svg/SvgUtils";
+import { Color } from "@graphif/data-structures";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const project = {
   syncAssociationManager: { syncFrom: vi.fn() },
@@ -46,6 +49,23 @@ const project = {
 const node = (text: string) => new TextNode(project as never, { text });
 
 describe("Text node maximum width", () => {
+  it("exports wrapped text with the node's chosen font and weight", () => {
+    const markup = renderToStaticMarkup(
+      SvgUtils.multiLineTextFromLeftTopWithWrap(
+        "中".repeat(16),
+        Vector.getZero(),
+        30,
+        Color.White,
+        450,
+        1.5,
+        "Example CJK",
+        "bold",
+      ),
+    );
+    expect(markup.match(/<text /g)).toHaveLength(2);
+    expect(markup).toContain('font-family="Example CJK"');
+    expect(markup).toContain('font-weight="bold"');
+  });
   beforeEach(() => {
     Settings.textNodeMaxCharWidth = 15;
   });

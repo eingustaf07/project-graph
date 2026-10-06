@@ -6,6 +6,23 @@ import {
 } from "./ProjectGraphAppDataPath";
 
 describe("Project Graph app-data paths", () => {
+  it("isolates custom settings while preserving shared project ownership locks", () => {
+    const directories = resolveProjectGraphAppDataDirectories(
+      "win32",
+      { APPDATA: "C:\\Users\\alice\\AppData\\Roaming" },
+      "C:\\Users\\alice",
+      "eingustaf07.project-graph-custom",
+    );
+    expect(directories[0]).toBe("C:\\Users\\alice\\AppData\\Roaming\\eingustaf07.project-graph-custom");
+    expect(directories.every((directory) => !directory.includes("liren.project-graph"))).toBe(true);
+    expect(
+      resolveProjectGraphOwnershipDirectory(
+        "win32",
+        { APPDATA: "C:\\Users\\alice\\AppData\\Roaming" },
+        "C:\\Users\\alice",
+      ),
+    ).toContain("liren.project-graph");
+  });
   it("matches the Tauri bundle-identifier path on macOS", () => {
     expect(resolveProjectGraphAppDataDirectories("darwin", {}, "/Users/alice")).toEqual([
       "/Users/alice/Library/Application Support/liren.project-graph",

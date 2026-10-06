@@ -77,6 +77,8 @@ export class StageExportSvg {
             : colorInvert(this.project.stageStyleManager.currentStyle.Background),
           limitWidth,
           1.5,
+          node.fontFamily,
+          node.fontWeight,
         )}
         {this.dumpEntityDetails(node)}
       </g>
