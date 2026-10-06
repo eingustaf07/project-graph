@@ -15,7 +15,12 @@ export const settingsSchema = z.object({});
 function loadSettings(): Record<string, unknown> {
   if (availableSettings) return availableSettings;
   let savedSettings: Record<string, unknown> = {};
-  for (const directory of resolveProjectGraphAppDataDirectories()) {
+  for (const directory of resolveProjectGraphAppDataDirectories(
+    undefined,
+    undefined,
+    undefined,
+    "eingustaf07.project-graph-custom",
+  )) {
     try {
       const value: unknown = JSON.parse(readFileSync(join(directory, "settings.json"), "utf8"));
       if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid Settings store");

@@ -157,6 +157,10 @@ export class ControllerUtils {
           overflow: "hidden",
           whiteSpace: "pre-wrap",
           wordBreak: "break-all",
+          maxWidth:
+            clickedNode.sizeAdjust === "auto"
+              ? `${(clickedNode.getAutoMaxTextWidth() + clickedNode.getPadding() * 2) * this.project.camera.currentScale * clientScale.x}px`
+              : "none",
           left: `${rectClient.left.toFixed(2)}px`,
           top: `${rectClient.top.toFixed(2)}px`,
           // ====
@@ -168,6 +172,9 @@ export class ControllerUtils {
           // height: `${rectView.height.toFixed(2)}px`,
           padding: `${clickedNode.getPadding() * this.project.camera.currentScale * clientScale.x}px`,
           fontSize: `${clickedNode.getFontSize() * this.project.camera.currentScale * clientScale.x}px`,
+          fontFamily: clickedNode.fontFamily ? `"${clickedNode.fontFamily}"` : Settings.defaultFontFamily,
+          fontWeight: clickedNode.fontWeight || "normal",
+          lineHeight: "1.5",
           backgroundColor: "transparent",
           color: (clickedNode.color.a === 1
             ? colorInvert(clickedNode.color)

@@ -7,7 +7,7 @@ import type { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import type { ResizeAble } from "@/core/stage/stageObject/abstract/StageObjectInterface";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { Section } from "@/core/stage/stageObject/entity/Section";
-import { getMultiLineTextSize } from "@/utils/font";
+import { getMultiLineTextSize, getTextSize } from "@/utils/font";
 import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
@@ -276,12 +276,35 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
    * 调整后的矩形是当前文字加了一圈padding之后的大小
    */
   private adjustSizeByText() {
+    const naturalSize = getMultiLineTextSize(
+      this.text,
+      this.getFontSize(),
+      1.5,
+      undefined,
+      this.fontFamily,
+      this.fontWeight,
+    );
+    const width = Math.min(naturalSize.x, this.getAutoMaxTextWidth());
+    const wrappedSize = getMultiLineTextSize(
+      this.text,
+      this.getFontSize(),
+      1.5,
+      width,
+      this.fontFamily,
+      this.fontWeight,
+    );
     this.collisionBox.shapes[0] = new Rectangle(
       this.rectangle.location.clone(),
-      getMultiLineTextSize(this.text, this.getFontSize(), 1.5, undefined, this.fontFamily, this.fontWeight).add(
-        Vector.same(this.getPadding()).multiply(2),
-      ),
+      new Vector(width, wrappedSize.y).add(Vector.same(this.getPadding()).multiply(2)),
     );
+  }
+
+  public getAutoMaxTextWidth(): number {
+    return getTextSize("中", this.getFontSize(), this.fontFamily, this.fontWeight).x * Settings.textNodeMaxCharWidth;
+  }
+
+  public getTextWrapWidth(): number {
+    return Math.max(0, this.rectangle.size.x - this.getPadding() * 2);
   }
   private adjustHeightByText() {
     const wrapWidth = this.rectangle.size.x - this.getPadding() * 2;

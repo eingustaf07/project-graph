@@ -9,9 +9,10 @@ export function resolveProjectGraphAppDataDirectories(
   platform = process.platform,
   environment: NodeJS.ProcessEnv = process.env,
   homeDirectory = homedir(),
+  appIdentifier = APP_IDENTIFIER,
 ): string[] {
   const path = platform === "win32" ? win32 : posix;
-  const legacyDirectory = path.join(homeDirectory, "Library", "Application Support", APP_IDENTIFIER);
+  const legacyDirectory = path.join(homeDirectory, "Library", "Application Support", appIdentifier);
   let dataDirectory: string;
   if (platform === "darwin") {
     dataDirectory = path.join(homeDirectory, "Library", "Application Support");
@@ -20,7 +21,7 @@ export function resolveProjectGraphAppDataDirectories(
   } else {
     dataDirectory = environment.XDG_DATA_HOME ?? path.join(homeDirectory, ".local", "share");
   }
-  const nativeDirectory = path.join(dataDirectory, APP_IDENTIFIER);
+  const nativeDirectory = path.join(dataDirectory, appIdentifier);
   return nativeDirectory === legacyDirectory ? [nativeDirectory] : [nativeDirectory, legacyDirectory];
 }
 

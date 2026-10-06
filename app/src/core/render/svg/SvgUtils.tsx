@@ -76,8 +76,15 @@ export namespace SvgUtils {
     );
   }
 
-  export function textFromLeftTop(text: string, location: Vector, fontSize: number, color: Color) {
-    const textSize = getTextSize(text, fontSize);
+  export function textFromLeftTop(
+    text: string,
+    location: Vector,
+    fontSize: number,
+    color: Color,
+    fontFamily?: string,
+    fontWeight?: string,
+  ) {
+    const textSize = getTextSize(text, fontSize, fontFamily, fontWeight);
     return (
       <text
         x={(location.x + Renderer.NODE_PADDING).toFixed(1)}
@@ -86,7 +93,8 @@ export namespace SvgUtils {
         fill={color.toString()}
         fontSize={fontSize}
         textAnchor="start"
-        fontFamily={Settings.defaultFontFamily}
+        fontFamily={fontFamily || Settings.defaultFontFamily}
+        fontWeight={fontWeight || "normal"}
       >
         {text}
       </text>
@@ -126,15 +134,27 @@ export namespace SvgUtils {
     color: Color,
     limitWidth: number = Infinity,
     lineHeight: number = 1.5,
+    fontFamily?: string,
+    fontWeight?: string,
   ) {
     // 如果没有宽度限制，使用原来的简单分割逻辑
-    const lines = limitWidth === Infinity ? text.split("\n") : textToTextArray(text, fontSize, limitWidth);
+    const lines =
+      limitWidth === Infinity ? text.split("\n") : textToTextArray(text, fontSize, limitWidth, fontFamily, fontWeight);
 
     const textSizeHeight = getTextSize(text, fontSize).y;
     const result: React.ReactNode[] = [];
     for (let y = 0; y < lines.length; y++) {
       const line = lines[y];
-      result.push(textFromLeftTop(line, location.add(new Vector(0, y * textSizeHeight * lineHeight)), fontSize, color));
+      result.push(
+        textFromLeftTop(
+          line,
+          location.add(new Vector(0, y * textSizeHeight * lineHeight)),
+          fontSize,
+          color,
+          fontFamily,
+          fontWeight,
+        ),
+      );
     }
     return <>{result.map((item) => item)}</>;
   }

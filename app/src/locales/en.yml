@@ -111,6 +111,9 @@ about:
     a team culture that combines logical rationality with humor and fun.
 
 settings:
+  textNodeMaxCharWidth:
+    title: Maximum text node width (CJK characters)
+    description: Auto-sized nodes shrink to fit short text and wrap at this width. Defaults to 15 times the width of 中 in the current font. Changes apply immediately to open auto-sized nodes. Manual widths are preserved.
   title: Settings
   tabs:
     about: About

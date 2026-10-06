@@ -374,6 +374,7 @@ export const categories = {
       "textNodeBigContentThresholdWhenPaste",
       "textNodePasteSizeAdjustMode",
       "textNodeManualDefaultCharWidth",
+      "textNodeMaxCharWidth",
       "newNodeScaleByCamera",
       "newNodeScaleByCameraOffset",
     ],

@@ -74,7 +74,21 @@ export class StageManager {
    */
   public normalizedCrossParentRelationCount: number = 0;
 
-  constructor(private readonly project: Project) {}
+  private readonly unwatchMaxWidth: () => void;
+
+  constructor(private readonly project: Project) {
+    this.unwatchMaxWidth = Settings.watch("textNodeMaxCharWidth", () => {
+      // Settings setters notify before updating their backing value.
+      queueMicrotask(() => {
+        this.refreshAllStageObjects();
+        this.project.controller?.resetCountdownTimer();
+      });
+    });
+  }
+
+  dispose() {
+    this.unwatchMaxWidth();
+  }
 
   public getRootSections(): Section[] {
     return [...this.rootSections];
