@@ -146,6 +146,9 @@ contextMenu:
   cancel: 取消
 
 settings:
+  textNodeMaxCharWidth:
+    title: 文本节点最大宽度（中文字数）
+    description: 自动模式下短文本随内容收缩，达到此宽度后自动换行。默认 15，按当前字体的“中”字宽度计算；修改后立即应用于已打开的自动模式节点。手动宽度节点保留其宽度。
   title: 设置
   categories:
     ai:

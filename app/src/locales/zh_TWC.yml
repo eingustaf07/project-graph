@@ -193,6 +193,9 @@ contextMenu:
   confirm: 確定
   cancel: 取消
 settings:
+  textNodeMaxCharWidth:
+    title: 文字節點最大寬度（中文字數）
+    description: 自動模式的短文字隨內容縮小，到達此寬度就換行。預設 15，以目前字型的「中」字寬度計算；修改後立即套用至已開啟的自動模式節點。手動寬度維持不變。
   title: 設定
   categories:
     ai:

@@ -145,6 +145,9 @@ contextMenu:
   cancel: Batal
 
 settings:
+  textNodeMaxCharWidth:
+    title: Lebar maksimum simpul teks (karakter CJK)
+    description: Simpul otomatis menyesuaikan teks pendek dan membungkus teks panjang. Nilai awal 15 kali lebar 中 pada font saat ini. Perubahan langsung berlaku pada simpul otomatis yang terbuka. Lebar manual dipertahankan.
   title: Pengaturan
   categories:
     ai:

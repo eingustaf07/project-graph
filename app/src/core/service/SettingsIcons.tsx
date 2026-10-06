@@ -166,6 +166,7 @@ export const settingsIcons = {
   textNodeBigContentThresholdWhenPaste: ArrowDownNarrowWide,
   textNodePasteSizeAdjustMode: Scaling,
   textNodeManualDefaultCharWidth: Scaling,
+  textNodeMaxCharWidth: Scaling,
   allowAddCycleEdge: RotateCw,
   enableDragNodeShakeDetachFromEdge: Unlink,
   enableDragEdgeRotateStructure: SplinePointer,

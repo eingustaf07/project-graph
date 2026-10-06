@@ -47,9 +47,7 @@ export class StageExportSvg {
       return <></>;
     }
 
-    // 根据 sizeAdjust 模式确定宽度限制
-    // manual 模式下需要根据容器宽度自动换行
-    const limitWidth = node.sizeAdjust === "manual" ? node.rectangle.size.x - Renderer.NODE_PADDING * 2 : Infinity;
+    const limitWidth = node.getTextWrapWidth();
 
     // 获取节点的实际字体大小（考虑 fontScaleLevel）
     const fontSize = node.getFontSize();

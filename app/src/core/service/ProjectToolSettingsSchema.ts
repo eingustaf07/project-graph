@@ -6,6 +6,7 @@ export const DEFAULT_FONT_FAMILY = "-apple-system, BlinkMacSystemFont, MiSans, s
 export function createProjectToolSettingSchemas(defaultFontFamily: string) {
   return {
     defaultFontFamily: z.string().default(defaultFontFamily),
+    textNodeMaxCharWidth: z.number().int().min(1).max(200).default(15),
     defaultEdgeLineType: z.union([z.literal("solid"), z.literal("dashed"), z.literal("double")]).default("solid"),
     defaultEdgeArrowType: z
       .union([

@@ -74,11 +74,14 @@ export function getMultiLineTextSize(
   text: string,
   fontSize: number,
   lineHeight: number,
-  _limitWidth?: number,
+  limitWidth?: number,
   fontFamily?: string,
   fontWeight?: string,
 ): Vector {
-  const lines = text.split("\n");
+  const lines =
+    limitWidth !== undefined && Number.isFinite(limitWidth)
+      ? textToTextArray(text, fontSize, limitWidth, fontFamily, fontWeight)
+      : text.split("\n");
   let width = 0;
   let height = 0;
   for (const line of lines) {
@@ -162,14 +165,17 @@ export function textToTextArray(
 
   for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex++) {
     const paragraph = paragraphs[paragraphIndex];
+    if (paragraph.length === 0) {
+      lines.push("");
+      continue;
+    }
     const characters = Array.from(paragraph);
     let start = 0;
-    let isFirstWrappedLine = true;
 
     while (start < characters.length) {
       const remaining = characters.slice(start);
       const remainingText = remaining.join("");
-      if (getTextSize(remainingText, fontSize, fontFamily, fontWeight).x <= limitWidth) {
+      if (getTextSize(remainingText, fontSize, fontFamily, fontWeight).x <= limitWidth + 1e-6) {
         lines.push(remainingText);
         start = characters.length;
         break;
@@ -181,7 +187,7 @@ export function textToTextArray(
       while (low <= high) {
         const middle = Math.floor((low + high) / 2);
         const width = getTextSize(remaining.slice(0, middle).join(""), fontSize, fontFamily, fontWeight).x;
-        if (width <= limitWidth) {
+        if (width <= limitWidth + 1e-6) {
           fittingLength = middle;
           low = middle + 1;
         } else {
@@ -190,18 +196,10 @@ export function textToTextArray(
       }
 
       if (fittingLength === 0) {
-        if (isFirstWrappedLine) lines.push("");
         fittingLength = 1;
       }
       lines.push(remaining.slice(0, fittingLength).join(""));
       start += fittingLength;
-      isFirstWrappedLine = false;
-    }
-
-    if (paragraphIndex < paragraphs.length - 1 && paragraph.length === 0) {
-      lines.push("");
-    } else if (paragraphIndex < paragraphs.length - 1 && start === 0) {
-      lines.push(paragraph);
     }
   }
 

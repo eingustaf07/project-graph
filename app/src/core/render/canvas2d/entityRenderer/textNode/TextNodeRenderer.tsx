@@ -648,10 +648,7 @@ export class TextNodeRenderer {
           node.rectangle.location.add(Vector.same(node.getPadding())).add(new Vector(0, node.getFontSize() / 4)),
         ),
         fontSize,
-        // Infinity,
-        node.sizeAdjust === "manual"
-          ? (node.rectangle.size.x - node.getPadding() * 2) * this.project.camera.currentScale
-          : Infinity,
+        node.getTextWrapWidth() * this.project.camera.currentScale,
         node.color.a === 1
           ? colorInvert(node.color)
           : colorInvert(this.project.stageStyleManager.currentStyle.Background),

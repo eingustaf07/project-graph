@@ -215,7 +215,7 @@ export const settingsSchema = z.object({
   textNodeBigContentThresholdWhenPaste: z.number().int().min(1).max(1000).default(20),
   textNodePasteSizeAdjustMode: z
     .union([z.literal("auto"), z.literal("manual"), z.literal("autoByLength")])
-    .default("autoByLength"),
+    .default("auto"),
   clipboardPasteMode: z.union([z.literal("auto"), z.literal("webview"), z.literal("tauri")]).default("auto"),
   resizePastedImages: z.boolean().default(true),
   maxPastedImageSize: projectToolSettingSchemas.maxPastedImageSize,
@@ -225,6 +225,7 @@ export const settingsSchema = z.object({
   blackAndWhiteThreshold: z.number().min(0).max(1).default(0.5),
   wrapImageInGroup: z.boolean().default(false),
   textNodeManualDefaultCharWidth: z.number().int().min(3).max(60).default(10),
+  textNodeMaxCharWidth: projectToolSettingSchemas.textNodeMaxCharWidth,
   allowAddCycleEdge: z.boolean().default(false),
   enableDragNodeShakeDetachFromEdge: z.boolean().default(false),
   autoLayoutWhenTreeGenerate: z.boolean().default(true),

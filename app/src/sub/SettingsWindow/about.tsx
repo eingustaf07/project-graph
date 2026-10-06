@@ -1,5 +1,6 @@
 import logoUrl from "@/assets/icon.png";
 import { Dialog } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-shell";
 import { useEffect, useState } from "react";
@@ -40,7 +41,7 @@ export default function AboutTab() {
       <header className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-semibold">
-            <span>Project Graph</span>
+            <span>Project Graph Custom</span>
             {/* 把版本号调大一些，因为一些用户录屏反馈的时候会主动打开这个页面，展示版本号。如果字太小了，在手机上看用户录屏视频就看不清了 */}
             <a
               href="https://graphif.dev/docs/app/misc/history"
@@ -56,6 +57,16 @@ export default function AboutTab() {
       </header>
 
       <section className="text-sm leading-6">
+        <p>这是你的自定义版本。官方版可独立保留；本版本不会自动下载安装更新。</p>
+        <p>查看官方新版本后，你可以继续使用当前版本，或将官方改动合并到自定义仓库并重新构建，保留最大宽度功能。</p>
+        <div className="my-3 flex flex-wrap gap-2">
+          <Button onClick={() => open("https://github.com/graphif/project-graph/releases")}>
+            查看官方新版本（手动选择）
+          </Button>
+          <Button variant="outline" onClick={() => open("https://github.com/eingustaf07/project-graph/releases")}>
+            查看自定义版安装包
+          </Button>
+        </div>
         <p>
           Project Graph 是一个图形化思维桌面工具和知识管理系统，支持节点连接、图形渲染和自动布局等功能， 基于 Tauri +
           React 技术栈构建。它旨在提供一个高效、直观的方式来组织和管理个人知识。
