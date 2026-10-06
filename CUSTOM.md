@@ -32,5 +32,6 @@
 ## 构建与验证
 
 Windows 构建工作流先运行类型检查和最大宽度回归测试，再生成 NSIS 安装包。
-构建产物在 Actions 的 Project-Graph-Custom-Windows 中，另保存到草稿 Release。
+构建产物在 Actions 的 Project-Graph-Custom-Windows 中。工作流会尝试另存到草稿 Release；若 GitHub 权限不允许，不影响已生成的安装包。此时请从 Actions 构建页面底部的 Artifacts 下载。
+仅修改文档或工作流不会自动重新编译；需要时在 Actions 中手动运行 Custom Windows installer。
 源码位于本仓库 `custom/max-text-width` 分支。每次更新应检查创建、子节点/同级节点、粘贴、编辑、字体缩放、设置变更和文件重开。
