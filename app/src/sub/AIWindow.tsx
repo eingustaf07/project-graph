@@ -174,8 +174,6 @@ function formatSessionUpdatedAt(timestamp: number): string {
 function AIChatWorkspace({ project, tabId }: { project: Project; tabId: string }) {
   const projectUri = project.uri.toString();
   const [model] = Settings.use("aiModel");
-  const [aiConnectionMode] = Settings.use("aiConnectionMode");
-  const { t } = useTranslation("settings");
   const [sessionState, setSessionState] = useState<AIChatSessionProjectState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -503,6 +501,8 @@ function AIChatPanel({
   const [apiBaseUrl] = Settings.use("aiApiBaseUrl");
   const [apiKey] = Settings.use("aiApiKey");
   const [model] = Settings.use("aiModel");
+  const [aiConnectionMode] = Settings.use("aiConnectionMode");
+  const { t } = useTranslation("settings");
   const [manualContextWindow] = Settings.use("aiContextWindow");
   const contextWindowTokenLimitRef = useRef<number | undefined>(undefined);
   const conversation = useMemo(
