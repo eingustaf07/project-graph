@@ -33,7 +33,7 @@ jobs:
           workspaces: app/src-tauri
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @graphif/project-graph type-check
-      - run: cargo test --manifest-path app/src-tauri/Cargo.toml
+      - run: cargo test --manifest-path app/src-tauri/Cargo.toml --lib chatgpt_auth::tests
       - run: pnpm exec vitest run app/src/core/stage/stageObject/entity/TextNode.maxWidth.test.tsx app/src/core/service/ProjectToolSettingsSchema.test.ts app/src/cli/ProjectGraphAppDataPath.test.ts
       - run: pnpm --filter @graphif/project-graph sync-locales
       - name: Build Windows installer
