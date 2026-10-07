@@ -1062,6 +1062,28 @@ settings:
     title: AI API Base URL
     description: |
       Currently only supports OpenAI format API
+  aiConnectionMode:
+    title: AI connection method
+    description: |
+      Existing settings default to Custom API. ChatGPT account mode requires official OpenAI authorization.
+    options:
+      api: Custom API
+      chatgpt: ChatGPT account
+  aiChatGPTModel:
+    title: ChatGPT model
+    description: |
+      Enter a model name shown in the current ChatGPT account model list.
+  chatgpt:
+    title: ChatGPT account connection
+    description: Sign in through OpenAI's official flow. Requests count against ChatGPT plan usage under OpenAI's current rules.
+    connected: ChatGPT connected
+    notConnected: Not connected
+    signIn: Sign in with ChatGPT
+    reconnect: Reconnect
+    disconnect: Disconnect
+    chooseModel: Choose a model
+    authorizationFailed: Authorization failed
+    authorizationRequired: This account has not authorized ChatGPT plan usage
   aiApiKey:
     title: AI API Key
     description: |

@@ -25,6 +25,7 @@ import {
   discoverSkills,
 } from "@/core/service/dataManageService/aiEngine/AISkills";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createChatGPTPlanFetch } from "@/core/service/dataManageService/aiEngine/ChatGPTPlanFetch";
 import { fetch } from "@tauri-apps/plugin-http";
 import {
   convertToModelMessages,
@@ -94,9 +95,11 @@ export class AIEngine {
       const messages = Array.isArray(body.messages) ? (body.messages as UIMessage<AIMessageMetadata>[]) : [];
       const sessionId = typeof body.id === "string" && body.id.length > 0 ? body.id : undefined;
       const modelId = Settings.aiModel;
+      const chatGPTMode = Settings.aiConnectionMode === "chatgpt";
+      const activeModelId = chatGPTMode ? Settings.aiChatGPTModel : modelId;
       const traceRunId = this.requestTraceBuffer.startRun({
         sessionId,
-        model: modelId,
+        model: activeModelId,
         messages,
       });
       const pendingTraceCallIds: number[] = [];
@@ -104,42 +107,44 @@ export class AIEngine {
 
       const provider = createOpenAICompatible({
         name: "project-graph",
-        baseURL: Settings.aiApiBaseUrl,
-        apiKey: Settings.aiApiKey || undefined,
-        fetch: async (url: any, init: any) => {
-          const traceCallId = pendingTraceCallIds.shift();
-          const wireRequestId = this.requestTraceBuffer.recordWireRequest(
-            traceRunId,
-            traceCallId,
-            url.toString(),
-            init?.body,
-          );
-          try {
-            const response = await fetch(url.toString(), {
-              ...init,
-              headers: {
-                ...init?.headers,
-              },
-              mode: "cors",
-            });
-            this.requestTraceBuffer.recordWireResponse(traceRunId, wireRequestId, response.status);
+        baseURL: chatGPTMode ? "https://api.openai.com/v1" : Settings.aiApiBaseUrl,
+        apiKey: chatGPTMode ? "chatgpt-plan-managed" : Settings.aiApiKey || undefined,
+        fetch: chatGPTMode
+          ? createChatGPTPlanFetch()
+          : async (url: any, init: any) => {
+              const traceCallId = pendingTraceCallIds.shift();
+              const wireRequestId = this.requestTraceBuffer.recordWireRequest(
+                traceRunId,
+                traceCallId,
+                url.toString(),
+                init?.body,
+              );
+              try {
+                const response = await fetch(url.toString(), {
+                  ...init,
+                  headers: {
+                    ...init?.headers,
+                  },
+                  mode: "cors",
+                });
+                this.requestTraceBuffer.recordWireResponse(traceRunId, wireRequestId, response.status);
 
-            if (!response.ok) {
-              const errorText = await response.text().catch(() => "unknown error");
-              throw new Error(`API 请求失败 (${response.status}): ${errorText}`);
-            }
+                if (!response.ok) {
+                  const errorText = await response.text().catch(() => "unknown error");
+                  throw new Error(`API 请求失败 (${response.status}): ${errorText}`);
+                }
 
-            return response;
-          } catch (error) {
-            this.requestTraceBuffer.recordWireError(traceRunId, wireRequestId, error);
-            throw error;
-          }
-        },
+                return response;
+              } catch (error) {
+                this.requestTraceBuffer.recordWireError(traceRunId, wireRequestId, error);
+                throw error;
+              }
+            },
         includeUsage: true,
       });
 
       const model = wrapLanguageModel({
-        model: provider.chatModel(modelId),
+        model: provider.chatModel(activeModelId),
         middleware: {
           specificationVersion: "v3",
           wrapGenerate: async ({ doGenerate, params }) => {

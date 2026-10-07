@@ -1,7 +1,7 @@
 name: Custom Windows installer
 on:
   push:
-    branches: [custom/max-text-width]
+    branches: [custom/max-text-width, pg1.1-chatgpt-signin]
     paths-ignore:
       - "**/*.md"
       - ".github/workflows/custom-windows.yml"
@@ -42,7 +42,7 @@ jobs:
           TAURI_BUILD_ARGS: --bundles nsis
       - uses: actions/upload-artifact@v4
         with:
-          name: Project-Graph-Custom-Windows
+          name: Project-Graph-PG1.1-Windows
           path: app/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
       - name: Save installer as a draft release
@@ -52,4 +52,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $installers = @(Get-ChildItem app/src-tauri/target/release/bundle/nsis/*.exe | ForEach-Object FullName)
-          gh release create "custom-build-${{ github.run_number }}" @installers --target "${{ github.sha }}" --draft --title "Project Graph Custom ${{ github.run_number }}" --notes-file CUSTOM.md
+          gh release create "pg1.1-build-${{ github.run_number }}" @installers --target "${{ github.sha }}" --draft --title "Project Graph PG1.1 ${{ github.run_number }}" --notes-file PG1.1.md

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Project Graph Custom",
-  "version": "0.1.0-custom.1",
+  "productName": "Project Graph PG1.1",
+  "version": "1.1.0",
   "identifier": "eingustaf07.project-graph-custom",
   "build": {
     "beforeDevCommand": "",
@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Project Graph Custom",
+        "title": "Project Graph PG1.1",
         "url": "/index.html",
         "width": 1200,
         "height": 800,

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { Settings, settingsSchema } from "@/core/service/Settings";
+import { ChatGPTConnectionSettings } from "@/sub/SettingsWindow/ChatGPTConnectionSettings";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Fuse from "fuse.js";
 import {
@@ -238,7 +239,12 @@ export default function SettingsTab() {
             )}
           </>
         ) : (
-          groupKeys.length > 0 && <SettingFieldVirtualList keys={groupKeys} />
+          groupKeys.length > 0 && (
+            <>
+              {currentCategory === "ai" && currentGroup === "api" && <ChatGPTConnectionSettings />}
+              <SettingFieldVirtualList keys={groupKeys} />
+            </>
+          )
         )}
       </div>
     </div>
@@ -427,7 +433,16 @@ export const categories = {
     experimental: ["compatibilityMode", "isEnableEntityCollision"],
   },
   ai: {
-    api: ["aiApiBaseUrl", "aiApiKey", "aiModel", "aiContextWindow", "aiShowTokenCount", "aiAutoApproveMcpTools"],
+    api: [
+      "aiConnectionMode",
+      "aiChatGPTModel",
+      "aiApiBaseUrl",
+      "aiApiKey",
+      "aiModel",
+      "aiContextWindow",
+      "aiShowTokenCount",
+      "aiAutoApproveMcpTools",
+    ],
     ocr: ["enableOCR"],
   },
 };

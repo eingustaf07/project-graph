@@ -1,6 +1,7 @@
 #[cfg(debug_assertions)]
 mod cli_desktop_acceptance;
 mod cmd;
+mod chatgpt_auth;
 mod project_ownership;
 pub mod project_reference_store;
 mod project_runtime_bridge;
@@ -67,6 +68,8 @@ pub fn run() {
 
     builder
         .manage(PendingOpenFiles::default())
+        .manage(chatgpt_auth::ChatGPTLock::default())
+        .manage(chatgpt_auth::StreamRegistry::default())
         .manage(Arc::new(
             project_ownership::DesktopProjectOwnershipManager::default(),
         ))
@@ -105,6 +108,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            chatgpt_auth::chatgpt_connection_status,
+            chatgpt_auth::chatgpt_start_login,
+            chatgpt_auth::chatgpt_disconnect,
+            chatgpt_auth::chatgpt_list_models,
+            chatgpt_auth::chatgpt_stream_chat_completion,
+            chatgpt_auth::chatgpt_generate_chat_completion,
+            chatgpt_auth::chatgpt_cancel_stream,
             cmd::device::get_device_id,
             #[cfg(debug_assertions)]
             cli_desktop_acceptance::load_cli_desktop_acceptance_manifest,

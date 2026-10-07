@@ -1146,6 +1146,28 @@ settings:
     title: AI API 地址
     description: |
       目前仅支持 OpenAI 格式的 API
+  aiConnectionMode:
+    title: AI 连接方式
+    description: |
+      旧设置默认使用自定义 API。ChatGPT 账号通道需要先完成 OpenAI 官方授权。
+    options:
+      api: 自定义 API
+      chatgpt: ChatGPT 账号
+  aiChatGPTModel:
+    title: ChatGPT 模型
+    description: |
+      仅填写当前 ChatGPT 账号模型列表中显示的模型名称。
+  chatgpt:
+    title: ChatGPT 账号连接
+    description: 通过 OpenAI 官方授权连接；请求按 OpenAI 当前规则计入 ChatGPT 套餐使用额度。
+    connected: ChatGPT 已连接
+    notConnected: 未连接
+    signIn: 使用 ChatGPT 登录
+    reconnect: 重新连接
+    disconnect: 断开连接
+    chooseModel: 选择模型
+    authorizationFailed: 授权失败
+    authorizationRequired: 此账号尚未授权使用 ChatGPT 套餐
   aiApiKey:
     title: AI API 密钥
     description: |

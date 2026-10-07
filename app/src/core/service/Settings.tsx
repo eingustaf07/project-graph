@@ -128,6 +128,8 @@ export const settingsSchema = z.object({
   aiApiBaseUrl: projectToolSettingSchemas.aiApiBaseUrl,
   aiApiKey: projectToolSettingSchemas.aiApiKey,
   aiModel: projectToolSettingSchemas.aiModel,
+  aiConnectionMode: z.union([z.literal("api"), z.literal("chatgpt")]).default("api"),
+  aiChatGPTModel: z.string().default(""),
   aiContextWindow: z.number().int().nonnegative().default(0),
   aiShowTokenCount: z.boolean().default(false),
   enableOCR: z.boolean().default(true),

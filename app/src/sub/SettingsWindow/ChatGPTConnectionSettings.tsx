@@ -1,0 +1,123 @@
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Settings } from "@/core/service/Settings";
+import { invoke } from "@tauri-apps/api/core";
+import { Unplug } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+
+type ConnectionStatus = { connected: boolean; email?: string; hasPlanAccess: boolean };
+type AccountModel = { slug: string; display_name: string };
+
+export function ChatGPTConnectionSettings() {
+  const { t } = useTranslation("settings");
+  const [mode, setMode] = Settings.use("aiConnectionMode");
+  const [selectedModel, setSelectedModel] = Settings.use("aiChatGPTModel");
+  const [status, setStatus] = useState<ConnectionStatus>({ connected: false, hasPlanAccess: false });
+  const [models, setModels] = useState<AccountModel[]>([]);
+  const [busy, setBusy] = useState(false);
+  const selectedModelRef = useRef(selectedModel);
+  const setSelectedModelRef = useRef(setSelectedModel);
+  selectedModelRef.current = selectedModel;
+  setSelectedModelRef.current = setSelectedModel;
+
+  const refreshStatus = useCallback(async () => {
+    try {
+      const next = await invoke<ConnectionStatus>("chatgpt_connection_status");
+      setStatus(next);
+      if (next.connected && next.hasPlanAccess) {
+        const available = await invoke<AccountModel[]>("chatgpt_list_models");
+        setModels(available);
+        if (!selectedModelRef.current && available[0]) setSelectedModelRef.current(available[0].slug);
+      } else {
+        setModels([]);
+      }
+    } catch {
+      setStatus({ connected: false, hasPlanAccess: false });
+      setModels([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
+
+  const connect = async () => {
+    setBusy(true);
+    try {
+      const next = await invoke<ConnectionStatus>("chatgpt_start_login");
+      setStatus(next);
+      if (!next.hasPlanAccess) {
+        toast.error(t("chatgpt.authorizationRequired"));
+      } else {
+        await refreshStatus();
+        toast.success(t("chatgpt.connected"));
+      }
+    } catch (error) {
+      toast.error(`${t("chatgpt.authorizationFailed")}: ${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      await invoke("chatgpt_disconnect");
+      setStatus({ connected: false, hasPlanAccess: false });
+      setModels([]);
+      if (mode === "chatgpt") setMode("api");
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Field
+      title={t("chatgpt.title")}
+      description={t("chatgpt.description")}
+      icon={<Unplug className="h-4 w-4" />}
+      className="border-accent border-b"
+    >
+      <div className="flex flex-col items-end gap-2">
+        <span className="text-sm">
+          {status.connected && status.hasPlanAccess
+            ? `${t("chatgpt.connected")}${status.email ? ` · ${status.email}` : ""}`
+            : t("chatgpt.notConnected")}
+        </span>
+        {status.connected && status.hasPlanAccess && models.length > 0 && (
+          <Select value={selectedModel || models[0].slug} onValueChange={setSelectedModel}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder={t("chatgpt.chooseModel")} />
+            </SelectTrigger>
+            <SelectContent>
+              {models.map((model) => (
+                <SelectItem key={model.slug} value={model.slug}>
+                  {model.display_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {status.connected && status.hasPlanAccess ? (
+          <Button variant="outline" disabled={busy} onClick={() => void disconnect()}>
+            {t("chatgpt.disconnect")}
+          </Button>
+        ) : (
+          <Button disabled={busy} onClick={() => void connect()}>
+            {t("chatgpt.signIn")}
+          </Button>
+        )}
+        {status.connected && status.hasPlanAccess && (
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => void connect()}>
+            {t("chatgpt.reconnect")}
+          </Button>
+        )}
+      </div>
+    </Field>
+  );
+}
