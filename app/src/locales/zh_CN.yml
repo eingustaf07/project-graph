@@ -1159,10 +1159,16 @@ settings:
       仅填写当前 ChatGPT 账号模型列表中显示的模型名称。
   chatgpt:
     title: ChatGPT 账号连接
-    description: 通过 OpenAI 官方授权连接；请求按 OpenAI 当前规则计入 ChatGPT 套餐使用额度。
+    description: 通过 OpenAI 官方授权连接。点击“Continue with ChatGPT”使用 ChatGPT 登录；符合条件的请求按 OpenAI 当前规则计入套餐使用额度。
     connected: ChatGPT 已连接
     notConnected: 未连接
-    signIn: 使用 ChatGPT 登录
+    signIn: Continue with ChatGPT
+    expired: 连接已过期，请重新连接
+    planNoticeTitle: 正在使用你的 ChatGPT 套餐
+    planNoticeDescription: 此应用中符合条件的 AI 请求会使用你的 ChatGPT 套餐额度。你可以在 ChatGPT 设置中查看和管理使用情况。
+    gotIt: 知道了
+    usingPlan: 正在使用 ChatGPT 套餐
+    manageUsage: 管理使用情况
     reconnect: 重新连接
     disconnect: 断开连接
     chooseModel: 选择模型

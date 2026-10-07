@@ -1075,10 +1075,16 @@ settings:
       Enter a model name shown in the current ChatGPT account model list.
   chatgpt:
     title: ChatGPT account connection
-    description: Sign in through OpenAI's official flow. Requests count against ChatGPT plan usage under OpenAI's current rules.
+    description: Sign in through OpenAI's official flow. Eligible requests count against ChatGPT plan usage under OpenAI's current rules.
     connected: ChatGPT connected
     notConnected: Not connected
-    signIn: Sign in with ChatGPT
+    signIn: Continue with ChatGPT
+    expired: Connection expired. Please reconnect.
+    planNoticeTitle: You're using your ChatGPT plan
+    planNoticeDescription: Eligible AI requests in this app use your ChatGPT plan. Manage usage in ChatGPT settings.
+    gotIt: Got it
+    usingPlan: Using ChatGPT plan
+    manageUsage: Manage usage
     reconnect: Reconnect
     disconnect: Disconnect
     chooseModel: Choose a model

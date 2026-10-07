@@ -1,3 +1,12 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-type ConnectionStatus = { connected: boolean; email?: string; hasPlanAccess: boolean };
+type ConnectionStatus = { connected: boolean; email?: string; hasPlanAccess: boolean; expired?: boolean };
 type AccountModel = { slug: string; display_name: string };
 
 export function ChatGPTConnectionSettings() {
@@ -18,6 +27,7 @@ export function ChatGPTConnectionSettings() {
   const [status, setStatus] = useState<ConnectionStatus>({ connected: false, hasPlanAccess: false });
   const [models, setModels] = useState<AccountModel[]>([]);
   const [busy, setBusy] = useState(false);
+  const [showPlanNotice, setShowPlanNotice] = useState(false);
   const selectedModelRef = useRef(selectedModel);
   const setSelectedModelRef = useRef(setSelectedModel);
   selectedModelRef.current = selectedModel;
@@ -34,8 +44,8 @@ export function ChatGPTConnectionSettings() {
       } else {
         setModels([]);
       }
-    } catch {
-      setStatus({ connected: false, hasPlanAccess: false });
+    } catch (error) {
+      setStatus({ connected: false, hasPlanAccess: false, expired: String(error).includes("连接已过期") });
       setModels([]);
     }
   }, []);
@@ -43,6 +53,11 @@ export function ChatGPTConnectionSettings() {
   useEffect(() => {
     void refreshStatus();
   }, [refreshStatus]);
+
+  useEffect(() => {
+    if (mode !== "chatgpt" || !status.connected || !status.hasPlanAccess) return;
+    if (window.localStorage.getItem("project-graph.chatgpt-plan-notice-seen") !== "true") setShowPlanNotice(true);
+  }, [mode, status.connected, status.hasPlanAccess]);
 
   const connect = async () => {
     setBusy(true);
@@ -77,6 +92,7 @@ export function ChatGPTConnectionSettings() {
   };
 
   return (
+    <>
     <Field
       title={t("chatgpt.title")}
       description={t("chatgpt.description")}
@@ -87,7 +103,9 @@ export function ChatGPTConnectionSettings() {
         <span className="text-sm">
           {status.connected && status.hasPlanAccess
             ? `${t("chatgpt.connected")}${status.email ? ` · ${status.email}` : ""}`
-            : t("chatgpt.notConnected")}
+            : status.expired
+              ? t("chatgpt.expired")
+              : t("chatgpt.notConnected")}
         </span>
         {status.connected && status.hasPlanAccess && models.length > 0 && (
           <Select value={selectedModel || models[0].slug} onValueChange={setSelectedModel}>
@@ -119,5 +137,24 @@ export function ChatGPTConnectionSettings() {
         )}
       </div>
     </Field>
+    <AlertDialog open={showPlanNotice} onOpenChange={setShowPlanNotice}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("chatgpt.planNoticeTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("chatgpt.planNoticeDescription")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction
+            onClick={() => {
+              window.localStorage.setItem("project-graph.chatgpt-plan-notice-seen", "true");
+              setShowPlanNotice(false);
+            }}
+          >
+            {t("chatgpt.gotIt")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

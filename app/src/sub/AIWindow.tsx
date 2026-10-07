@@ -78,6 +78,7 @@ import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
 import { getOriginalNameOf } from "virtual:original-class-name";
+import { useTranslation } from "react-i18next";
 
 let pendingInitialText: string | null = null;
 let pendingInitialPrompt: string | null = null;
@@ -173,6 +174,8 @@ function formatSessionUpdatedAt(timestamp: number): string {
 function AIChatWorkspace({ project, tabId }: { project: Project; tabId: string }) {
   const projectUri = project.uri.toString();
   const [model] = Settings.use("aiModel");
+  const [aiConnectionMode] = Settings.use("aiConnectionMode");
+  const { t } = useTranslation("settings");
   const [sessionState, setSessionState] = useState<AIChatSessionProjectState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -748,6 +751,14 @@ function AIChatPanel({
             </Tooltip>
           )}
           <div className="flex-1" />
+          {aiConnectionMode === "chatgpt" && (
+            <div className="flex items-center gap-2 text-xs">
+              <span>{t("chatgpt.usingPlan")}</span>
+              <a className="underline underline-offset-2" href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">
+                {t("chatgpt.manageUsage")}
+              </a>
+            </div>
+          )}
           <span className="text-muted-foreground">
             {!sessionLoaded ? "正在加载记忆" : requesting ? "正在思考" : "准备就绪"}
           </span>

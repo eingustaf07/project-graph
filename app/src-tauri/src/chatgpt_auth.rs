@@ -459,9 +459,17 @@ fn chat_message_text(content: &serde_json::Value) -> Result<String, String> {
     Ok(text.join("\n"))
 }
 
+fn refresh_failure_message(status: reqwest::StatusCode) -> String {
+    if status == reqwest::StatusCode::BAD_REQUEST || status == reqwest::StatusCode::UNAUTHORIZED {
+        "ChatGPT 连接已过期或已撤销，请重新连接。".into()
+    } else {
+        format!("OpenAI 暂时无法刷新 ChatGPT 连接（HTTP {}），请稍后重试。", status.as_u16())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::to_responses_request;
+    use super::{refresh_failure_message, to_responses_request};
     use serde_json::json;
 
     #[test]
@@ -491,6 +499,14 @@ mod tests {
     }
 
     #[test]
+    fn refresh_failure_distinguishes_expired_credentials_from_temporary_server_errors() {
+        assert!(refresh_failure_message(reqwest::StatusCode::BAD_REQUEST).contains("已过期或已撤销"));
+        assert!(refresh_failure_message(reqwest::StatusCode::UNAUTHORIZED).contains("已过期或已撤销"));
+        assert!(refresh_failure_message(reqwest::StatusCode::TOO_MANY_REQUESTS).contains("稍后重试"));
+        assert!(!refresh_failure_message(reqwest::StatusCode::SERVICE_UNAVAILABLE).contains("已过期"));
+    }
+
+    #[test]
     fn unsupported_multimodal_and_hosted_tools_fail_closed() {
         let multimodal = to_responses_request(&json!({"model":"m","messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://example.test/image.png"}}]}]}), true);
         assert!(multimodal.is_err());
@@ -501,14 +517,16 @@ mod tests {
 
 async fn refresh_if_needed(app: &AppHandle, credential: &mut StoredCredential) -> Result<(), String> {
     if credential.expires_at > now_seconds().saturating_add(60) { return Ok(()); }
-    let token: TokenResponse = reqwest::Client::new().post(TOKEN_URL).form(&[
+    let response = reqwest::Client::new().post(TOKEN_URL).form(&[
         ("grant_type", "refresh_token"),
         ("client_id", credential.client_id.as_str()),
         ("refresh_token", credential.refresh_token.as_str()),
         ("resource", RESOURCE),
-    ]).send().await.map_err(|error| format!("ChatGPT 连接已过期，请重新连接：{error}"))?
-        .error_for_status().map_err(|error| format!("ChatGPT 连接已过期，请重新连接：{error}"))?
-        .json().await.map_err(|error| format!("无法更新 ChatGPT 连接：{error}"))?;
+    ]).send().await.map_err(|error| format!("连接 OpenAI 以刷新会话失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(refresh_failure_message(response.status()));
+    }
+    let token: TokenResponse = response.json().await.map_err(|error| format!("无法更新 ChatGPT 连接：{error}"))?;
     let scopes = token.scope.as_deref().map(|value| value.split_whitespace().map(str::to_string).collect::<Vec<_>>()).unwrap_or_else(|| credential.scopes.clone());
     if !scopes.iter().any(|scope| scope == "chatgpt.tokens.use.direct") { return Err("ChatGPT 连接已过期，请重新连接。".into()); }
     credential.access_token = token.access_token;
