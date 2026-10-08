@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Project Graph PG1.1",
   "version": "1.1.0",
-  "identifier": "eingustaf07.project-graph-custom",
+  "identifier": "eingustaf07.project-graph-pg11",
   "build": {
     "beforeDevCommand": "",
     "devUrl": "http://localhost:1420",
@@ -41,6 +41,8 @@
     "windows": {
       "nsis": {
         "displayLanguageSelector": true,
+        "installMode": "currentUser",
+        "installerHooks": "./nsis/pg11-hooks.nsh",
         "languages": ["SimpChinese", "TradChinese", "English", "Indonesian"],
         "sidebarImage": "nsis/left.bmp",
         "headerImage": "nsis/project-graph-install.bmp"
@@ -78,7 +80,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["prg-custom"]
+        "schemes": ["prg-pg11"]
       }
     },
     "cli": {

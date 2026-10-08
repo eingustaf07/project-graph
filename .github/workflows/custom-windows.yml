@@ -21,6 +21,9 @@ jobs:
       CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "8"
     steps:
       - uses: actions/checkout@v4
+      - name: Verify PG1.1 profile migration
+        shell: powershell
+        run: .\app\src-tauri\nsis\pg11-import-profile.Tests.ps1
       - uses: actions/setup-node@v4
         with:
           node-version: 26
