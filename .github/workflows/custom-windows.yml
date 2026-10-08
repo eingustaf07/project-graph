@@ -54,3 +54,33 @@ jobs:
         run: |
           $installers = @(Get-ChildItem app/src-tauri/target/release/bundle/nsis/*.exe | ForEach-Object FullName)
           gh release create "pg1.1-build-${{ github.run_number }}" @installers --target "${{ github.sha }}" --draft --title "Project Graph PG1.1 ${{ github.run_number }}" --notes-file PG1.1.md
+
+  pg10-baseline:
+    if: github.ref == 'refs/heads/pg1.1-chatgpt-signin'
+    name: PG1.0 immutable baseline regression
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      NX_DAEMON: "false"
+      NODE_OPTIONS: --max-old-space-size=8192
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 39e3fd17da43e56575f7aa25e800dda1f3e3f62f
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @graphif/project-graph type-check
+      - run: cargo build --manifest-path app/src-tauri/Cargo.toml --bin project-graph-ownership-helper
+      - run: pnpm exec vitest run
