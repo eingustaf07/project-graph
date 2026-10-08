@@ -40,7 +40,9 @@ export function ChatGPTConnectionSettings() {
       if (next.connected && next.hasPlanAccess) {
         const available = await invoke<AccountModel[]>("chatgpt_list_models");
         setModels(available);
-        if (!selectedModelRef.current && available[0]) setSelectedModelRef.current(available[0].slug);
+        if (available[0] && !available.some((model) => model.slug === selectedModelRef.current)) {
+          setSelectedModelRef.current(available[0].slug);
+        }
       } else {
         setModels([]);
       }

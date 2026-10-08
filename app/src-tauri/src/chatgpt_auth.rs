@@ -18,11 +18,32 @@ const APP_NAME: &str = "Project Graph PG1.1";
 pub struct ChatGPTLock(pub Arc<Mutex<()>>);
 
 #[derive(Default)]
-pub struct StreamRegistry(pub Arc<std::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<()>>>>);
+pub struct StreamRegistry(pub Arc<std::sync::Mutex<std::collections::HashMap<String, Option<tokio::sync::oneshot::Sender<()>>>>>);
+
+impl StreamRegistry {
+    fn register(&self, request_id: &str) -> Result<tokio::sync::oneshot::Receiver<()>, String> {
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let mut pending = self.0.lock().map_err(|_| "ChatGPT 请求状态不可用。".to_string())?;
+        if matches!(pending.get(request_id), Some(Some(_))) { return Err("ChatGPT 请求标识重复。".into()); }
+        if pending.remove(request_id).is_some() { return Err("ChatGPT 请求已取消。".into()); }
+        pending.insert(request_id.to_string(), Some(sender));
+        Ok(receiver)
+    }
+
+    fn cancel(&self, request_id: String) -> Result<(), String> {
+        let mut pending = self.0.lock().map_err(|_| "ChatGPT 请求状态不可用。".to_string())?;
+        if let Some(Some(cancel)) = pending.remove(&request_id) {
+            let _ = cancel.send(());
+        } else if pending.len() < 1024 {
+            pending.insert(request_id, None);
+        }
+        Ok(())
+    }
+}
 
 struct StreamCleanup {
     request_id: String,
-    registry: Arc<std::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
+    registry: Arc<std::sync::Mutex<std::collections::HashMap<String, Option<tokio::sync::oneshot::Sender<()>>>>>,
 }
 
 impl Drop for StreamCleanup {
@@ -158,8 +179,8 @@ pub async fn chatgpt_start_login(app: AppHandle, lock: State<'_, ChatGPTLock>) -
     }
 
     let callback_state = state.clone();
-    let callback_task = tokio::task::spawn_blocking(move || receive_callback(listener, &callback_state));
     app.shell().open(authorize.as_str(), None).map_err(|_| "无法打开系统浏览器，请检查浏览器设置后重试。".to_string())?;
+    let callback_task = tokio::task::spawn_blocking(move || receive_callback(listener, &callback_state));
     let callback = callback_task.await.map_err(|error| format!("授权回调失败：{error}"))??;
     if callback.error.as_deref() == Some("access_denied") { return Err("你取消了 ChatGPT 授权。".into()); }
     if callback.state.as_deref() != Some(state.as_str()) { return Err("ChatGPT 授权状态校验失败。".into()); }
@@ -263,18 +284,23 @@ pub async fn chatgpt_stream_chat_completion(
     request_id: String,
     channel: Channel<String>,
 ) -> Result<(), String> {
-    let _guard = lock.0.lock().await;
-    let mut credential = read_credential(&app)?.ok_or_else(|| "ChatGPT 尚未连接，请先登录。".to_string())?;
-    refresh_if_needed(&app, &mut credential).await?;
-    require_plan_access(&credential)?;
-    let request_body = to_responses_request(&request_body, true)?;
-    let response = reqwest::Client::new().post(format!("{RESOURCE}/responses"))
-        .bearer_auth(&credential.access_token).json(&request_body).send().await
-        .map_err(|error| format!("ChatGPT 请求失败：{error}"))?;
-    let response = response.error_for_status().map_err(|error| format!("ChatGPT 请求失败：{error}"))?;
-    let (cancel_sender, mut cancel_receiver) = tokio::sync::oneshot::channel();
-    registry.0.lock().map_err(|_| "ChatGPT 请求状态不可用。".to_string())?.insert(request_id.clone(), cancel_sender);
+    let mut cancel_receiver = registry.register(&request_id)?;
     let _cleanup = StreamCleanup { request_id: request_id.clone(), registry: Arc::clone(&registry.0) };
+    let (request_body, response) = tokio::select! {
+        _ = &mut cancel_receiver => return Err("ChatGPT 请求已取消。".into()),
+        result = async {
+            let _guard = lock.0.lock().await;
+            let mut credential = read_credential(&app)?.ok_or_else(|| "ChatGPT 尚未连接，请先登录。".to_string())?;
+            refresh_if_needed(&app, &mut credential).await?;
+            require_plan_access(&credential)?;
+            let request_body = to_responses_request(&request_body, true)?;
+            let response = reqwest::Client::new().post(format!("{RESOURCE}/responses"))
+                .bearer_auth(&credential.access_token).json(&request_body).send().await
+                .map_err(|error| format!("ChatGPT 请求失败：{error}"))?
+                .error_for_status().map_err(|error| format!("ChatGPT 请求失败：{error}"))?;
+            Ok::<_, String>((request_body, response))
+        } => result?,
+    };
     let mut state = StreamState::default();
     let mut pending = ResponseEventBuffer::default();
     let mut response = response;
@@ -295,10 +321,7 @@ pub async fn chatgpt_stream_chat_completion(
 
 #[tauri::command]
 pub async fn chatgpt_cancel_stream(registry: State<'_, StreamRegistry>, request_id: String) -> Result<(), String> {
-    if let Some(cancel) = registry.0.lock().map_err(|_| "ChatGPT 请求状态不可用。".to_string())?.remove(&request_id) {
-        let _ = cancel.send(());
-    }
-    Ok(())
+    registry.cancel(request_id)
 }
 
 #[tauri::command]
@@ -445,7 +468,7 @@ fn to_responses_request(chat: &serde_json::Value, stream: bool) -> Result<serde_
                     if let Some(calls) = message["tool_calls"].as_array() {
                         for call in calls {
                             if call["type"].as_str().unwrap_or("function") != "function" { return Err("ChatGPT 套餐模式只支持函数工具。".into()); }
-                            input.push(serde_json::json!({"type":"function_call","call_id":call["id"],"name":call["function"]["name"],"arguments":call["function"]["arguments"]}));
+                            input.push(serde_json::json!({"type":"function_call","call_id":call["id"],"namespace":"project_graph","name":call["function"]["name"],"arguments":call["function"]["arguments"]}));
                         }
                     }
                 }
@@ -463,11 +486,13 @@ fn to_responses_request(chat: &serde_json::Value, stream: bool) -> Result<serde_
             let function = &tool["function"];
             converted.push(serde_json::json!({"type":"function","name":function["name"],"description":function["description"],"parameters":function["parameters"],"strict":function["strict"]}));
         }
-        request["tools"] = serde_json::Value::Array(converted);
+        if !converted.is_empty() {
+            request["tools"] = serde_json::json!([{"type":"namespace","name":"project_graph","description":"Tools available within the current Project Graph project","tools":converted}]);
+        }
     }
     if let Some(choice) = chat.get("tool_choice") {
         request["tool_choice"] = if choice.is_object() && choice["type"] == "function" {
-            serde_json::json!({"type":"function","name":choice["function"]["name"]})
+            serde_json::json!({"type":"function","namespace":"project_graph","name":choice["function"]["name"]})
         } else { choice.clone() };
     }
     Ok(request)
@@ -502,8 +527,19 @@ fn refresh_failure_message(status: reqwest::StatusCode) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{refresh_failure_message, to_responses_request, ResponseEventBuffer};
+    use super::{refresh_failure_message, to_responses_request, ResponseEventBuffer, StreamRegistry};
     use serde_json::json;
+
+    #[test]
+    fn cancellation_before_and_after_stream_registration_is_observed() {
+        let registry = StreamRegistry::default();
+        registry.cancel("early".into()).unwrap();
+        assert!(registry.register("early").is_err());
+        let mut receiver = registry.register("active").unwrap();
+        assert!(registry.register("active").is_err());
+        registry.cancel("active".into()).unwrap();
+        assert!(receiver.try_recv().is_ok());
+    }
 
     #[test]
     fn response_events_preserve_chinese_at_every_byte_boundary() {
@@ -554,7 +590,10 @@ mod tests {
         assert_eq!(request["instructions"], "instructions");
         assert_eq!(request["input"].as_array().unwrap().len(), 4);
         assert_eq!(request["input"][2]["type"], "function_call");
+        assert_eq!(request["input"][2]["namespace"], "project_graph");
         assert_eq!(request["input"][3]["type"], "function_call_output");
+        assert_eq!(request["tools"][0]["type"], "namespace");
+        assert_eq!(request["tools"][0]["tools"][0]["name"], "inspect");
         assert!(request.get("temperature").is_none());
         assert!(request.get("max_tokens").is_none());
     }
@@ -591,7 +630,6 @@ async fn refresh_if_needed(app: &AppHandle, credential: &mut StoredCredential) -
     let scopes = token.scope.as_deref().map(|value| value.split_whitespace().map(str::to_string).collect::<Vec<_>>()).unwrap_or_else(|| credential.scopes.clone());
     credential.access_token = token.access_token;
     if let Some(refresh_token) = token.refresh_token { credential.refresh_token = refresh_token; }
-    if let Some(id_token) = token.id_token { credential.id_token = id_token; }
     credential.scopes = scopes;
     credential.expires_at = now_seconds().saturating_add(token.expires_in);
     write_credential(app, credential)

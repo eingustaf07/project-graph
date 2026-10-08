@@ -9,40 +9,44 @@ export function createChatGPTPlanFetch(): typeof fetch {
       const channel = new Channel<string>();
       const requestId = crypto.randomUUID();
       let finished = false;
+      let requestStarted = false;
+      let abortHandler: (() => void) | undefined;
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           channel.onmessage = (chunk) => {
             if (!finished) controller.enqueue(encoder.encode(chunk));
           };
-          const abort = () => {
+          abortHandler = () => {
             if (finished) return;
             finished = true;
-            void invoke("chatgpt_cancel_stream", { requestId });
+            if (requestStarted) void invoke("chatgpt_cancel_stream", { requestId });
             controller.error(new DOMException("ChatGPT request cancelled", "AbortError"));
-            init?.signal?.removeEventListener("abort", abort);
+            init?.signal?.removeEventListener("abort", abortHandler!);
           };
           if (init?.signal?.aborted) {
-            abort();
+            abortHandler();
             return;
           }
-          init?.signal?.addEventListener("abort", abort, { once: true });
+          init?.signal?.addEventListener("abort", abortHandler, { once: true });
+          requestStarted = true;
           void invoke("chatgpt_stream_chat_completion", { requestBody, requestId, channel })
             .then(() => {
               if (finished) return;
               finished = true;
-              init?.signal?.removeEventListener("abort", abort);
+              init?.signal?.removeEventListener("abort", abortHandler!);
               controller.close();
             })
             .catch((error) => {
               if (finished) return;
               finished = true;
-              init?.signal?.removeEventListener("abort", abort);
+              init?.signal?.removeEventListener("abort", abortHandler!);
               controller.error(error);
             });
         },
         cancel() {
           finished = true;
-          void invoke("chatgpt_cancel_stream", { requestId });
+          if (abortHandler) init?.signal?.removeEventListener("abort", abortHandler);
+          if (requestStarted) void invoke("chatgpt_cancel_stream", { requestId });
         },
       });
       return new Response(stream, {
