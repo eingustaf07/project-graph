@@ -1,7 +1,7 @@
 name: Custom Windows installer
 on:
   push:
-    branches: [custom/max-text-width, pg1.1-chatgpt-signin]
+    branches: [pg1.1-chatgpt-signin]
     paths-ignore:
       - "**/*.md"
   workflow_dispatch:
@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   windows:
+    needs: pg10-baseline
     runs-on: windows-latest
     timeout-minutes: 90
     env:
@@ -38,7 +39,23 @@ jobs:
       - run: pnpm --filter @graphif/project-graph type-check
       - run: cargo test --manifest-path app/src-tauri/Cargo.toml --lib chatgpt_auth::tests
       - run: cargo build --manifest-path app/src-tauri/Cargo.toml --bin project-graph-ownership-helper
-      - run: pnpm exec vitest run
+      - name: Verify regression gate
+        run: node --test scripts/pg11-regression-gate-checks.mjs
+      - name: Run complete candidate frontend suite
+        continue-on-error: true
+        run: pnpm exec vitest run --reporter=default --reporter=./scripts/pg11-regression-reporter.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: PG1.1-regression-results
+          path: regression-results.json
+          if-no-files-found: error
+      - uses: actions/download-artifact@v4
+        with:
+          name: PG1.0-regression-results
+          path: baseline-results
+      - name: Block new regressions before packaging
+        run: node scripts/pg11-regression-gate.mjs baseline-results/regression-results.json regression-results.json
       - run: pnpm --filter @graphif/project-graph sync-locales
       - name: Build Windows installer
         run: pnpm build:ci
@@ -61,6 +78,9 @@ jobs:
   pg10-baseline:
     if: github.ref == 'refs/heads/pg1.1-chatgpt-signin'
     name: PG1.0 immutable baseline regression
+    defaults:
+      run:
+        working-directory: baseline
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
@@ -73,6 +93,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: 39e3fd17da43e56575f7aa25e800dda1f3e3f62f
+          path: baseline
+      - uses: actions/checkout@v4
+        with:
+          path: validation-tools
+          sparse-checkout: scripts
+      - name: Add reporting only to the immutable baseline
+        shell: pwsh
+        run: Copy-Item ../validation-tools/scripts/pg11-regression-reporter.mjs ./pg11-regression-reporter.mjs
       - uses: actions/setup-node@v4
         with:
           node-version: 26
@@ -82,8 +110,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: app/src-tauri
+          workspaces: baseline/app/src-tauri
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @graphif/project-graph type-check
       - run: cargo build --manifest-path app/src-tauri/Cargo.toml --bin project-graph-ownership-helper
-      - run: pnpm exec vitest run
+      - name: Run complete baseline frontend suite
+        continue-on-error: true
+        run: pnpm exec vitest run --reporter=default --reporter=./pg11-regression-reporter.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: PG1.0-regression-results
+          path: baseline/regression-results.json
+          if-no-files-found: error
