@@ -34,6 +34,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @graphif/project-graph type-check
       - run: cargo test --manifest-path app/src-tauri/Cargo.toml --lib chatgpt_auth::tests
+      - run: cargo build --manifest-path app/src-tauri/Cargo.toml --bin project-graph-ownership-helper
       - run: pnpm exec vitest run
       - run: pnpm --filter @graphif/project-graph sync-locales
       - name: Build Windows installer
