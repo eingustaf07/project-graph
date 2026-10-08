@@ -111,6 +111,9 @@ async fn connection_status(app: &AppHandle) -> Result<ChatGPTConnectionStatus, S
     let Some(credential) = read_credential(&app)? else {
         return Ok(ChatGPTConnectionStatus { connected: false, email: None, has_plan_access: false });
     };
+    if credential.access_token.is_empty() {
+        return Ok(ChatGPTConnectionStatus { connected: false, email: credential.email, has_plan_access: false });
+    }
     let mut credential = credential;
     refresh_if_needed(app, &mut credential).await?;
     let has_plan_access = credential.scopes.iter().any(|scope| scope == "chatgpt.tokens.use.direct");
@@ -126,7 +129,7 @@ pub async fn chatgpt_start_login(app: AppHandle, lock: State<'_, ChatGPTLock>) -
     let _guard = lock.0.lock().await;
     let existing = read_credential(&app)?;
     let client_id = existing.as_ref().map(|credential| credential.client_id.clone()).unwrap_or_else(|| "dynamic_agent_client".into());
-    let host_id = existing.as_ref().map(|credential| credential.host_id.clone()).unwrap_or_else(new_host_id);
+    let host_id = host_id(&app, existing.as_ref().map(|credential| credential.host_id.as_str()))?;
     let state = random_url_token(32);
     let nonce = random_url_token(32);
     let verifier = random_url_token(48);
@@ -141,7 +144,9 @@ pub async fn chatgpt_start_login(app: AppHandle, lock: State<'_, ChatGPTLock>) -
         query.append_pair("client_id", &client_id);
         if existing.is_none() { query.append_pair("agent_name_hint", APP_NAME); }
         query.append_pair("ext_agent_host_id", &host_id);
-        if let Some(credential) = &existing { query.append_pair("id_token_hint", &credential.id_token); }
+        if let Some(credential) = &existing {
+            if !credential.id_token.is_empty() { query.append_pair("id_token_hint", &credential.id_token); }
+        }
         query.append_pair("response_type", "code");
         query.append_pair("redirect_uri", &redirect_uri);
         query.append_pair("scope", "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct");
@@ -154,7 +159,7 @@ pub async fn chatgpt_start_login(app: AppHandle, lock: State<'_, ChatGPTLock>) -
 
     let callback_state = state.clone();
     let callback_task = tokio::task::spawn_blocking(move || receive_callback(listener, &callback_state));
-    app.shell().open(authorize.as_str(), None).map_err(|error| format!("无法打开系统浏览器：{error}"))?;
+    app.shell().open(authorize.as_str(), None).map_err(|_| "无法打开系统浏览器，请检查浏览器设置后重试。".to_string())?;
     let callback = callback_task.await.map_err(|error| format!("授权回调失败：{error}"))??;
     if callback.error.as_deref() == Some("access_denied") { return Err("你取消了 ChatGPT 授权。".into()); }
     if callback.state.as_deref() != Some(state.as_str()) { return Err("ChatGPT 授权状态校验失败。".into()); }
@@ -180,9 +185,7 @@ pub async fn chatgpt_start_login(app: AppHandle, lock: State<'_, ChatGPTLock>) -
         .json().await.map_err(|error| format!("无法读取 OpenAI 授权结果：{error}"))?;
 
     let scopes = token.scope.as_deref().unwrap_or_default().split_whitespace().map(str::to_string).collect::<Vec<_>>();
-    if !scopes.iter().any(|scope| scope == "chatgpt.tokens.use.direct") {
-        return Err("ChatGPT 登录成功，但账号没有授权套餐请求权限。请重新登录并在 OpenAI 页面允许该权限。".into());
-    }
+    let has_plan_access = scopes.iter().any(|scope| scope == "chatgpt.tokens.use.direct");
     let id_token = token.id_token.ok_or_else(|| "OpenAI 授权结果缺少身份令牌。".to_string())?;
     let (subject, email) = validate_id_token(&id_token, &issued_client_id, &nonce).await?;
     if existing.as_ref().is_some_and(|saved| saved.subject != subject) { return Err("授权账号与当前已选账号不一致，现有连接未更改。".into()); }
@@ -197,15 +200,16 @@ pub async fn chatgpt_start_login(app: AppHandle, lock: State<'_, ChatGPTLock>) -
         scopes,
         expires_at: now_seconds().saturating_add(token.expires_in),
     })?;
-    Ok(ChatGPTConnectionStatus { connected: true, email: read_credential(&app)?.and_then(|credential| credential.email), has_plan_access: true })
+    Ok(ChatGPTConnectionStatus { connected: true, email: read_credential(&app)?.and_then(|credential| credential.email), has_plan_access })
 }
 
 #[tauri::command]
-pub async fn chatgpt_disconnect(app: AppHandle, lock: State<'_, ChatGPTLock>) -> Result<(), String> {
+pub async fn chatgpt_disconnect(app: AppHandle, lock: State<'_, ChatGPTLock>) -> Result<Option<String>, String> {
     let _guard = lock.0.lock().await;
-    let Some(credential) = read_credential(&app)? else { return Ok(()); };
-    let discovery = reqwest::Client::new().get(DISCOVERY_URL).send().await;
-    let revoke_result = match discovery {
+    let Some(credential) = read_credential(&app)? else { return Ok(None); };
+    let revoke_result = if credential.refresh_token.is_empty() { Ok(()) } else {
+        let discovery = reqwest::Client::new().get(DISCOVERY_URL).send().await;
+        match discovery {
         Ok(response) => match response.error_for_status().and_then(|response| Ok(response)) {
             Ok(response) => match response.json::<OidcConfiguration>().await {
                 Ok(config) => if let Some(endpoint) = config.revocation_endpoint {
@@ -223,9 +227,17 @@ pub async fn chatgpt_disconnect(app: AppHandle, lock: State<'_, ChatGPTLock>) ->
             Err(error) => Err(format!("无法确认 OpenAI 会话撤销状态：{error}")),
         },
         Err(error) => Err(format!("无法确认 OpenAI 会话撤销状态：{error}")),
+        }
     };
-    clear_credential(&app)?;
-    revoke_result.map_err(|error| format!("本机连接已清除，但 OpenAI 远端会话撤销未确认。可在 ChatGPT 设置中断开 Project Graph。{error}"))
+    write_credential(&app, &StoredCredential {
+        access_token: String::new(),
+        refresh_token: String::new(),
+        id_token: String::new(),
+        scopes: Vec::new(),
+        expires_at: 0,
+        ..credential
+    })?;
+    Ok(revoke_result.err().map(|error| format!("本机连接已清除，但 OpenAI 远端会话撤销未确认。可在 ChatGPT 设置中断开 Project Graph。{error}")))
 }
 
 #[tauri::command]
@@ -233,6 +245,7 @@ pub async fn chatgpt_list_models(app: AppHandle, lock: State<'_, ChatGPTLock>) -
     let _guard = lock.0.lock().await;
     let mut credential = read_credential(&app)?.ok_or_else(|| "ChatGPT 尚未连接。".to_string())?;
     refresh_if_needed(&app, &mut credential).await?;
+    require_plan_access(&credential)?;
     let response = reqwest::Client::new().get(format!("{RESOURCE}/models")).bearer_auth(&credential.access_token).send().await
         .map_err(|error| format!("读取 ChatGPT 模型列表失败：{error}"))?
         .error_for_status().map_err(|error| format!("读取 ChatGPT 模型列表失败：{error}"))?
@@ -253,6 +266,7 @@ pub async fn chatgpt_stream_chat_completion(
     let _guard = lock.0.lock().await;
     let mut credential = read_credential(&app)?.ok_or_else(|| "ChatGPT 尚未连接，请先登录。".to_string())?;
     refresh_if_needed(&app, &mut credential).await?;
+    require_plan_access(&credential)?;
     let request_body = to_responses_request(&request_body, true)?;
     let response = reqwest::Client::new().post(format!("{RESOURCE}/responses"))
         .bearer_auth(&credential.access_token).json(&request_body).send().await
@@ -262,7 +276,7 @@ pub async fn chatgpt_stream_chat_completion(
     registry.0.lock().map_err(|_| "ChatGPT 请求状态不可用。".to_string())?.insert(request_id.clone(), cancel_sender);
     let _cleanup = StreamCleanup { request_id: request_id.clone(), registry: Arc::clone(&registry.0) };
     let mut state = StreamState::default();
-    let mut pending = String::new();
+    let mut pending = ResponseEventBuffer::default();
     let mut response = response;
     loop {
         let chunk = tokio::select! {
@@ -270,18 +284,11 @@ pub async fn chatgpt_stream_chat_completion(
             chunk = response.chunk() => chunk.map_err(|error| format!("ChatGPT 流式请求中断：{error}"))?,
         };
         let Some(chunk) = chunk else { break; };
-        pending.push_str(&String::from_utf8_lossy(&chunk));
-        pending = pending.replace("\r\n", "\n");
-        while let Some(end) = pending.find("\n\n") {
-            let event = pending.drain(..end + 2).collect::<String>();
-            for line in event.lines().filter_map(|line| line.strip_prefix("data:")) {
-                let data = line.trim();
-                if data == "[DONE]" { continue; }
-                let value: serde_json::Value = serde_json::from_str(data).map_err(|_| "ChatGPT 返回了无法识别的流事件。".to_string())?;
-                state.handle_event(&channel, &value, request_body["model"].as_str().unwrap_or(""))?;
-            }
+        for value in pending.push(&chunk)? {
+            state.handle_event(&channel, &value, request_body["model"].as_str().unwrap_or(""))?;
         }
     }
+    pending.finish()?;
     if !state.completed { return Err("ChatGPT 流结束时没有收到完成确认。".into()); }
     Ok(())
 }
@@ -303,26 +310,20 @@ pub async fn chatgpt_generate_chat_completion(
     let _guard = lock.0.lock().await;
     let mut credential = read_credential(&app)?.ok_or_else(|| "ChatGPT 尚未连接，请先登录。".to_string())?;
     refresh_if_needed(&app, &mut credential).await?;
+    require_plan_access(&credential)?;
     let request_body = to_responses_request(&request_body, true)?;
     let mut response = reqwest::Client::new().post(format!("{RESOURCE}/responses"))
         .bearer_auth(&credential.access_token).json(&request_body).send().await
         .map_err(|error| format!("ChatGPT 请求失败：{error}"))?
         .error_for_status().map_err(|error| format!("ChatGPT 请求失败：{error}"))?;
-    let mut pending = String::new();
+    let mut pending = ResponseEventBuffer::default();
     let mut text = String::new();
     let mut response_id = String::new();
     let mut model = request_body["model"].as_str().unwrap_or_default().to_string();
     let mut usage = serde_json::Value::Null;
     let mut completed = false;
     while let Some(chunk) = response.chunk().await.map_err(|error| format!("ChatGPT 流式请求中断：{error}"))? {
-        pending.push_str(&String::from_utf8_lossy(&chunk));
-        pending = pending.replace("\r\n", "\n");
-        while let Some(end) = pending.find("\n\n") {
-            let event = pending.drain(..end + 2).collect::<String>();
-            for line in event.lines().filter_map(|line| line.strip_prefix("data:")) {
-                let data = line.trim();
-                if data == "[DONE]" { continue; }
-                let value: serde_json::Value = serde_json::from_str(data).map_err(|_| "ChatGPT 返回了无法识别的流事件。".to_string())?;
+        for value in pending.push(&chunk)? {
                 match value["type"].as_str().unwrap_or_default() {
                     "response.output_text.delta" => text.push_str(value["delta"].as_str().unwrap_or_default()),
                     "response.completed" => {
@@ -338,15 +339,42 @@ pub async fn chatgpt_generate_chat_completion(
                     "response.failed" | "response.incomplete" | "error" => return Err(format!("ChatGPT 返回错误：{}", value["response"]["error"]["message"].as_str().unwrap_or("请求未完成"))),
                     _ => {}
                 }
-            }
         }
     }
+    pending.finish()?;
     if !completed { return Err("ChatGPT 流结束时没有收到完成确认。".into()); }
     Ok(serde_json::json!({
         "id":response_id,"object":"chat.completion","created":now_seconds(),"model":model,
         "choices":[{"index":0,"message":{"role":"assistant","content":text},"finish_reason":"stop"}],
         "usage":usage
     }))
+}
+
+#[derive(Default)]
+struct ResponseEventBuffer(Vec<u8>);
+
+impl ResponseEventBuffer {
+    fn push(&mut self, chunk: &[u8]) -> Result<Vec<serde_json::Value>, String> {
+        self.0.extend_from_slice(chunk);
+        let mut events = Vec::new();
+        loop {
+            let boundary = self.0.windows(2).position(|bytes| bytes == b"\n\n").map(|index| (index, 2));
+            let crlf = self.0.windows(4).position(|bytes| bytes == b"\r\n\r\n").map(|index| (index, 4));
+            let Some((end, width)) = boundary.into_iter().chain(crlf).min_by_key(|(index, _)| *index) else { break; };
+            let bytes = self.0.drain(..end + width).collect::<Vec<_>>();
+            let event = std::str::from_utf8(&bytes).map_err(|_| "ChatGPT 流事件包含无效的 UTF-8 字符。".to_string())?;
+            let data = event.lines().filter_map(|line| line.strip_prefix("data:")).map(|line| line.strip_prefix(' ').unwrap_or(line)).collect::<Vec<_>>().join("\n");
+            if data.is_empty() || data.trim() == "[DONE]" { continue; }
+            events.push(serde_json::from_str(&data).map_err(|_| "ChatGPT 返回了无法识别的流事件。".to_string())?);
+        }
+        if self.0.len() > 8 * 1024 * 1024 { return Err("ChatGPT 流事件超出可处理的大小。".into()); }
+        Ok(events)
+    }
+
+    fn finish(&self) -> Result<(), String> {
+        if self.0.iter().any(|byte| !byte.is_ascii_whitespace()) { return Err("ChatGPT 流事件未完整接收，请重试。".into()); }
+        Ok(())
+    }
 }
 
 #[derive(Default)]
@@ -459,6 +487,11 @@ fn chat_message_text(content: &serde_json::Value) -> Result<String, String> {
     Ok(text.join("\n"))
 }
 
+fn require_plan_access(credential: &StoredCredential) -> Result<(), String> {
+    if credential.scopes.iter().any(|scope| scope == "chatgpt.tokens.use.direct") { return Ok(()); }
+    Err("ChatGPT 账号已连接，但尚未授权使用 ChatGPT 套餐。请重新连接并在 OpenAI 页面完成授权，或切换到自定义 API。".into())
+}
+
 fn refresh_failure_message(status: reqwest::StatusCode) -> String {
     if status == reqwest::StatusCode::BAD_REQUEST || status == reqwest::StatusCode::UNAUTHORIZED {
         "ChatGPT 连接已过期或已撤销，请重新连接。".into()
@@ -469,8 +502,36 @@ fn refresh_failure_message(status: reqwest::StatusCode) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{refresh_failure_message, to_responses_request};
+    use super::{refresh_failure_message, to_responses_request, ResponseEventBuffer};
     use serde_json::json;
+
+    #[test]
+    fn response_events_preserve_chinese_at_every_byte_boundary() {
+        let source = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"中文🙂\"}\r\n\r\ndata: [DONE]\r\n\r\n".as_bytes();
+        for split in 0..=source.len() {
+            let mut buffer = ResponseEventBuffer::default();
+            let mut events = buffer.push(&source[..split]).unwrap();
+            events.extend(buffer.push(&source[split..]).unwrap());
+            buffer.finish().unwrap();
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0]["delta"], "中文🙂");
+        }
+        let mut buffer = ResponseEventBuffer::default();
+        let mut events = Vec::new();
+        for byte in source { events.extend(buffer.push(&[*byte]).unwrap()); }
+        assert_eq!(events[0]["delta"], "中文🙂");
+        buffer.finish().unwrap();
+    }
+
+    #[test]
+    fn response_events_handle_multiline_data_and_reject_truncation() {
+        let mut buffer = ResponseEventBuffer::default();
+        let events = buffer.push(b": heartbeat\n\ndata: {\"delta\":\ndata: \"ok\"}\n\n").unwrap();
+        assert_eq!(events[0]["delta"], "ok");
+        buffer.push(b"data: {\"delta\":").unwrap();
+        assert!(buffer.finish().is_err());
+        assert!(ResponseEventBuffer::default().push(b"data: \xff\n\n").is_err());
+    }
 
     #[test]
     fn chat_history_uses_responses_shape_without_persisted_state() {
@@ -528,7 +589,6 @@ async fn refresh_if_needed(app: &AppHandle, credential: &mut StoredCredential) -
     }
     let token: TokenResponse = response.json().await.map_err(|error| format!("无法更新 ChatGPT 连接：{error}"))?;
     let scopes = token.scope.as_deref().map(|value| value.split_whitespace().map(str::to_string).collect::<Vec<_>>()).unwrap_or_else(|| credential.scopes.clone());
-    if !scopes.iter().any(|scope| scope == "chatgpt.tokens.use.direct") { return Err("ChatGPT 连接已过期，请重新连接。".into()); }
     credential.access_token = token.access_token;
     if let Some(refresh_token) = token.refresh_token { credential.refresh_token = refresh_token; }
     if let Some(id_token) = token.id_token { credential.id_token = id_token; }
@@ -623,6 +683,22 @@ fn new_host_id() -> String {
         value[0],value[1],value[2],value[3],value[4],value[5],value[6],value[7],value[8],value[9],value[10],value[11],value[12],value[13],value[14],value[15])
 }
 
+fn host_id(app: &AppHandle, previous: Option<&str>) -> Result<String, String> {
+    let directory = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    let path = directory.join("chatgpt-host-id");
+    if path.exists() {
+        let saved = fs::read_to_string(&path).map_err(|error| format!("无法读取本机 ChatGPT 主机 ID：{error}"))?;
+        if saved.starts_with("urn:uuid:") && saved.len() == 45 { return Ok(saved); }
+        return Err("本机 ChatGPT 主机 ID 无效，请检查应用数据。".into());
+    }
+    fs::create_dir_all(directory).map_err(|error| error.to_string())?;
+    let value = previous.filter(|value| value.starts_with("urn:uuid:") && value.len() == 45).map(str::to_owned).unwrap_or_else(new_host_id);
+    let temp = path.with_extension("tmp");
+    fs::write(&temp, &value).map_err(|error| error.to_string())?;
+    fs::rename(&temp, path).map_err(|error| error.to_string())?;
+    Ok(value)
+}
+
 fn now_seconds() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() }
 
 fn credential_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -646,12 +722,6 @@ fn write_credential(app: &AppHandle, credential: &StoredCredential) -> Result<()
     let temp = path.with_extension("dpapi.tmp");
     fs::write(&temp, encrypted).map_err(|error| format!("无法安全保存 ChatGPT 凭据：{error}"))?;
     fs::rename(&temp, &path).map_err(|error| format!("无法完成 ChatGPT 凭据保存：{error}"))
-}
-
-fn clear_credential(app: &AppHandle) -> Result<(), String> {
-    let path = credential_path(app)?;
-    if path.exists() { fs::remove_file(path).map_err(|error| format!("无法清除本机 ChatGPT 凭据：{error}"))?; }
-    Ok(())
 }
 
 #[cfg(windows)]

@@ -45,13 +45,16 @@ export function ChatGPTConnectionSettings() {
         setModels([]);
       }
     } catch (error) {
-      setStatus({ connected: false, hasPlanAccess: false, expired: String(error).includes("连接已过期") });
+      if (String(error).includes("连接已过期")) {
+        setStatus({ connected: false, hasPlanAccess: false, expired: true });
+      }
       setModels([]);
+      throw error;
     }
   }, []);
 
   useEffect(() => {
-    void refreshStatus();
+    void refreshStatus().catch((error) => toast.error(String(error)));
   }, [refreshStatus]);
 
   useEffect(() => {
@@ -65,10 +68,11 @@ export function ChatGPTConnectionSettings() {
       const next = await invoke<ConnectionStatus>("chatgpt_start_login");
       setStatus(next);
       if (!next.hasPlanAccess) {
+        setModels([]);
         toast.error(t("chatgpt.authorizationRequired"));
       } else {
-        await refreshStatus();
         toast.success(t("chatgpt.connected"));
+        await refreshStatus().catch((error) => toast.error(String(error)));
       }
     } catch (error) {
       toast.error(`${t("chatgpt.authorizationFailed")}: ${String(error)}`);
@@ -80,10 +84,11 @@ export function ChatGPTConnectionSettings() {
   const disconnect = async () => {
     setBusy(true);
     try {
-      await invoke("chatgpt_disconnect");
+      const warning = await invoke<string | null>("chatgpt_disconnect");
       setStatus({ connected: false, hasPlanAccess: false });
       setModels([]);
       if (mode === "chatgpt") setMode("api");
+      if (warning) toast.warning(warning);
     } catch (error) {
       toast.error(String(error));
     } finally {
@@ -101,7 +106,7 @@ export function ChatGPTConnectionSettings() {
     >
       <div className="flex flex-col items-end gap-2">
         <span className="text-sm">
-          {status.connected && status.hasPlanAccess
+          {status.connected
             ? `${t("chatgpt.connected")}${status.email ? ` · ${status.email}` : ""}`
             : status.expired
               ? t("chatgpt.expired")
@@ -121,7 +126,7 @@ export function ChatGPTConnectionSettings() {
             </SelectContent>
           </Select>
         )}
-        {status.connected && status.hasPlanAccess ? (
+        {status.connected ? (
           <Button variant="outline" disabled={busy} onClick={() => void disconnect()}>
             {t("chatgpt.disconnect")}
           </Button>
@@ -130,7 +135,7 @@ export function ChatGPTConnectionSettings() {
             {t("chatgpt.signIn")}
           </Button>
         )}
-        {status.connected && status.hasPlanAccess && (
+        {status.connected && (
           <Button variant="ghost" size="sm" disabled={busy} onClick={() => void connect()}>
             {t("chatgpt.reconnect")}
           </Button>
