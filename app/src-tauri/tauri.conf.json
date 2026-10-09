@@ -1,6 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Project Graph PG1.1",
+  "mainBinaryName": "project-graph-pg11",
   "version": "1.1.0",
   "identifier": "eingustaf07.project-graph-pg11",
   "build": {
