@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createSubWindow } from "@/core/subWindowOpen";
-import { activeTabAtom, store } from "@/state";
+import { findTabGroupByTabId, isFixedSideGroupId } from "@/core/TabGroup";
+import { createSubWindow, getSubWindowOpenMode } from "@/core/subWindowOpen";
+import { activeGroupIdAtom, activeResourceTabAtom, activeTabAtom, store, tabGroupRootAtom } from "@/state";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { Blocks, Bot, Brush, Command, HandHeart, Info, Keyboard, Settings, User } from "lucide-react";
@@ -109,6 +110,11 @@ export default function SettingsWindow({ defaultTab = "settings" }: { defaultTab
 // TODO: page参数
 SettingsWindow.open = (tab: TabName = "settings") => {
   store.get(activeTabAtom)?.pause();
+  if (getSubWindowOpenMode("SettingsWindow") === "docked" && isFixedSideGroupId(store.get(activeGroupIdAtom) ?? "")) {
+    const resourceTab = store.get(activeResourceTabAtom);
+    const mainGroup = resourceTab && findTabGroupByTabId(store.get(tabGroupRootAtom), resourceTab.id);
+    if (mainGroup && !isFixedSideGroupId(mainGroup.id)) store.set(activeGroupIdAtom, mainGroup.id);
+  }
   createSubWindow("SettingsWindow", {
     icon: Settings,
     title: "设置",
@@ -117,3 +123,4 @@ SettingsWindow.open = (tab: TabName = "settings") => {
     titleBarOverlay: true,
   });
 };
+

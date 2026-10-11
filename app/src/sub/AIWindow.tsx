@@ -173,7 +173,10 @@ function formatSessionUpdatedAt(timestamp: number): string {
 
 function AIChatWorkspace({ project, tabId }: { project: Project; tabId: string }) {
   const projectUri = project.uri.toString();
-  const [model] = Settings.use("aiModel");
+  const [apiModel] = Settings.use("aiModel");
+  const [chatGPTModel] = Settings.use("aiChatGPTModel");
+  const [connectionMode] = Settings.use("aiConnectionMode");
+  const model = connectionMode === "chatgpt" ? chatGPTModel : apiModel;
   const [sessionState, setSessionState] = useState<AIChatSessionProjectState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -1195,3 +1198,4 @@ AIWindow.open = () => {
     rect: new Rectangle(new Vector(8, 88), new Vector(380, window.innerHeight - 96)),
   });
 };
+
