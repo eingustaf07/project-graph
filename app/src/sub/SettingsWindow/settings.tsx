@@ -61,7 +61,13 @@ import { useTranslation } from "react-i18next";
 
 const SETTING_FIELD_ESTIMATE_SIZE = 88;
 
-function SettingFieldVirtualList({ keys }: { keys: string[] }) {
+function SettingFieldVirtualList({ keys: settingKeys, showChatGPTConnection = false }: {
+  keys: string[];
+  showChatGPTConnection?: boolean;
+}) {
+  const keys = showChatGPTConnection
+    ? ["chatgptConnectionPanel", "aiConnectionMode", ...settingKeys.filter((key) => key !== "aiConnectionMode")]
+    : settingKeys;
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: keys.length,
@@ -90,7 +96,11 @@ function SettingFieldVirtualList({ keys }: { keys: string[] }) {
               className="absolute top-0 left-0 w-full"
               style={{ transform: `translateY(${virtualItem.start}px)` }}
             >
-              <SettingField settingKey={key as keyof Settings} />
+              {key === "chatgptConnectionPanel" ? (
+                <ChatGPTConnectionSettings />
+              ) : (
+                <SettingField settingKey={key as keyof Settings} />
+              )}
             </div>
           );
         })}
@@ -235,7 +245,10 @@ export default function SettingsTab() {
                 <span>!$: 反向匹配结尾</span>
               </div>
             ) : (
-              <SettingFieldVirtualList keys={searchResult} />
+              <SettingFieldVirtualList
+                keys={searchResult}
+                showChatGPTConnection={searchResult.some((key) => key === "aiChatGPTModel" || key === "aiConnectionMode")}
+              />
             )}
           </>
         ) : (
