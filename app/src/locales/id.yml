@@ -145,6 +145,32 @@ contextMenu:
   cancel: Batal
 
 settings:
+  enableSmartTreeArrange:
+    title: Aktifkan penataan pohon cerdas (eksperimental)
+    description: Pilih akar lalu tekan Ctrl+Alt+L atau gunakan menu konteks. Bisa diurungkan sekali. Tautan putus-putus tetap sebagai asosiasi; siklus, banyak induk dan simpul dalam grup ditolak. Pintasan dapat diubah.
+  smartTreeArrangeMode:
+    title: Mode penataan pohon
+    description: Pertahankan arah secara default. Hanya mode standar mengubah arah. Urutan saudara mengikuti urutan sisi tersimpan.
+    options:
+      preserve: Pertahankan arah
+      standard: Pohon satu arah standar
+  smartTreeArrangeDirection:
+    title: Arah pohon standar
+    description: Hanya berlaku pada mode standar.
+    options:
+      right: Kanan
+      left: Kiri
+      up: Atas
+      down: Bawah
+  smartTreeLevelGap:
+    title: Jarak tingkat pohon
+    description: Jarak minimum antartingkat dalam koordinat dunia.
+  smartTreeNodeGap:
+    title: Jarak saudara pohon
+    description: Jarak minimum saudara dengan induk yang sama.
+  smartTreeSubtreeGap:
+    title: Jarak subpohon
+    description: Jarak minimum keturunan subpohon berbeda dan rintangan luar.
   connectedNodeHighlightScope:
     title: Jangkauan sorotan node terhubung
     description: Mode langsung menyorot node terpilih dan tetangga langsung. Mode semua menyertakan koneksi tidak langsung. Perubahan segera berlaku tanpa membedakan arah panah.
@@ -1785,6 +1811,9 @@ visualSettingsGroup:
     title: Pengaturan Latar Belakang
 
 keyBinds:
+  smartTreeArrange:
+    title: Tata pohon cerdas (eksperimental)
+    description: Tata akar terpilih dan keturunannya tanpa mengubah isi, hierarki, koneksi atau urutan. Aktifkan di Visual → Eksperimental.
   toggleConnectedNodeHighlight:
     title: Aktifkan sorotan node terkait
     description: Sorot node terpilih dan koneksi langsung atau tidak langsung sesuai pengaturan jangkauan, tanpa membedakan arah. Tekan lagi untuk menghapus sorotan. Warna, pilihan, dan berkas proyek tidak berubah.

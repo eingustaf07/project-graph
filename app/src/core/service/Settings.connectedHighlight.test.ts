@@ -32,6 +32,31 @@ describe("connected highlight setting compatibility and persistence", () => {
     expect(Settings.mouseRightDragBackground).toBe("moveCamera");
     expect(Settings.textNodeMaxCharWidth).toBe(22);
     expect(Settings.aiConnectionMode).toBe("chatgpt");
+    expect(Settings.enableSmartTreeArrange).toBe(false);
+    expect(Settings.smartTreeArrangeMode).toBe("preserve");
+    expect(Settings.smartTreeArrangeDirection).toBe("right");
+    expect([Settings.smartTreeLevelGap, Settings.smartTreeNodeGap, Settings.smartTreeSubtreeGap]).toEqual([64, 24, 40]);
+  });
+  it("saves experimental layout options without rewriting existing settings", async () => {
+    const { Settings } = await import("./Settings");
+    storage.writtenKeys = [];
+    Settings.enableSmartTreeArrange = true;
+    Settings.smartTreeArrangeMode = "standard";
+    Settings.smartTreeArrangeDirection = "left";
+    Settings.smartTreeLevelGap = 80;
+    expect(storage.writtenKeys).toEqual([
+      "enableSmartTreeArrange",
+      "smartTreeArrangeMode",
+      "smartTreeArrangeDirection",
+      "smartTreeLevelGap",
+    ]);
+    vi.resetModules();
+    const restored = await import("./Settings");
+    expect(restored.Settings.smartTreeArrangeDirection).toBe("left");
+    expect(restored.Settings.smartTreeLevelGap).toBe(80);
+    expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
+    expect(restored.Settings.textNodeMaxCharWidth).toBe(22);
+    expect(restored.Settings.aiConnectionMode).toBe("chatgpt");
   });
   it("persists only the changed setting through the normal settings proxy and restores it after reload", async () => {
     const { Settings } = await import("./Settings");

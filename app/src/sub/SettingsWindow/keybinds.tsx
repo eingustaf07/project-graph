@@ -708,6 +708,7 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
       "generateNodeGraphMoveLeft",
       "generateNodeGraphMoveRight",
       "treeGraphAdjust",
+      "smartTreeArrange",
       "treeGraphAdjustSelectedAsRoot",
       "treeGraphAdjustSelectedAsRootToLeft",
       "treeGraphAdjustSelectedAsRootToRight",

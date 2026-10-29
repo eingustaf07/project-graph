@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" /><title>PG 实际节点与 Canvas 渲染验证</title>
+  <style>
+    body {
+      margin: 0;
+      background: #141414;
+      color: #eee;
+      font:
+        16px "Microsoft YaHei",
+        sans-serif;
+    }
+    header {
+      padding: 16px;
+    }
+    button,
+    select {
+      font: inherit;
+      margin: 4px;
+      padding: 8px;
+    }
+    canvas {
+      display: block;
+      border-top: 1px solid #444;
+    }
+    #status {
+      padding: 10px;
+    }
+  </style>
+  <header>
+    PG 智能规整实验验证：实际文本节点、实际连线、实际 Canvas 节点渲染器 <button id="reset">重建杂乱树</button
+    ><button id="arrange">规整（Ctrl+Alt+L）</button><button id="undo">撤销</button><button id="redo">重做</button>
+    <select id="direction">
+      <option>right</option>
+      <option>left</option>
+      <option>down</option>
+      <option>up</option>
+    </select>
+    <select id="count">
+      <option>10</option>
+      <option>100</option>
+    </select>
+  </header>
+  <div id="status"></div>
+  <canvas width="1500" height="900"></canvas>
+  <script type="module" src="./visual.ts"></script>
+</html>

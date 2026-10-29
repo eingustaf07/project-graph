@@ -271,5 +271,11 @@ export const settingsIcons = {
   maxFps: Timer,
   maxFpsUnfocused: Timer,
   aiContextWindow: Gauge,
+  enableSmartTreeArrange: AlignJustify,
+  smartTreeArrangeMode: AlignJustify,
+  smartTreeArrangeDirection: ArrowRight,
+  smartTreeLevelGap: ArrowUpDown,
+  smartTreeNodeGap: ArrowUpDown,
+  smartTreeSubtreeGap: ArrowUpDown,
   aiAutoApproveMcpTools: ShieldCheck,
 };

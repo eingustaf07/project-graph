@@ -95,6 +95,7 @@ export default function MyContextMenuContent() {
   const { t } = useTranslation("contextMenu");
   const { t: tKeyBind } = useTranslation("keyBinds");
   const [config] = Settings.use("contextMenuConfig");
+  const [smartTreeEnabled] = Settings.use("enableSmartTreeArrange");
 
   // 加载用户自定义颜色
   const [userColorList, setUserColorList] = useState<Color[]>([]);
@@ -414,5 +415,15 @@ export default function MyContextMenuContent() {
     return rendered;
   };
 
-  return <Content>{renderItems(config)}</Content>;
+  const hasSmartTreeItem = (items: ContextMenuConfigItem[]): boolean =>
+    items.some((item) => item.id === "smartTreeArrange" || (item.children && hasSmartTreeItem(item.children)));
+
+  return (
+    <Content>
+      {renderItems(config)}
+      {smartTreeEnabled &&
+        !hasSmartTreeItem(config) &&
+        renderItem({ type: "item", id: "smartTreeArrange", visible: true })}
+    </Content>
+  );
 }

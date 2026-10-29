@@ -139,6 +139,14 @@ export const settingsSchema = z.object({
   enableSpaceKeyMouseLeftDrag: z.boolean().default(true),
   enableDragAutoAlign: z.boolean().default(false),
   reverseTreeMoveMode: z.boolean().default(false),
+  enableSmartTreeArrange: z.boolean().default(false),
+  smartTreeArrangeMode: z.union([z.literal("preserve"), z.literal("standard")]).default("preserve"),
+  smartTreeArrangeDirection: z
+    .union([z.literal("right"), z.literal("left"), z.literal("up"), z.literal("down")])
+    .default("right"),
+  smartTreeLevelGap: z.number().min(1).max(1000).default(64),
+  smartTreeNodeGap: z.number().min(1).max(1000).default(24),
+  smartTreeSubtreeGap: z.number().min(1).max(1000).default(40),
   mouseWheelMode: z
     .union([z.literal("zoom"), z.literal("move"), z.literal("moveX"), z.literal("none"), z.literal("zoomUI")])
     .default("zoom"),

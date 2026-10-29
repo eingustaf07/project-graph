@@ -326,7 +326,16 @@ export const categories = {
       "entityDetailsWidthLimit",
     ],
     debug: ["showDebug", "protectingPrivacy", "protectingPrivacyMode"],
-    experimental: ["windowCollapsingWidth", "windowCollapsingHeight"],
+    experimental: [
+      "windowCollapsingWidth",
+      "windowCollapsingHeight",
+      "enableSmartTreeArrange",
+      "smartTreeArrangeMode",
+      "smartTreeArrangeDirection",
+      "smartTreeLevelGap",
+      "smartTreeNodeGap",
+      "smartTreeSubtreeGap",
+    ],
   },
   automation: {
     autoNamer: [

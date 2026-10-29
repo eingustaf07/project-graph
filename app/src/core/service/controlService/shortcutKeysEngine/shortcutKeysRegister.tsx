@@ -5,6 +5,7 @@ import { MouseLocation } from "@/core/service/controlService/MouseLocation";
 import { ViewFlashEffect } from "@/core/service/feedbackService/effectEngine/concrete/ViewFlashEffect";
 import { ViewOutlineFlashEffect } from "@/core/service/feedbackService/effectEngine/concrete/ViewOutlineFlashEffect";
 import { Settings } from "@/core/service/Settings";
+import { arrangeSmartTree } from "@/core/service/controlService/autoLayoutEngine/SmartTreeArrange";
 import { Themes } from "@/core/service/Themes";
 import { PenStrokeMethods } from "@/core/stage/stageManager/basicMethods/PenStrokeMethods";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
@@ -1972,6 +1973,21 @@ export const allKeyBinds: KeyBindItem[] = [
   },
 
   /*------- 树形调整 -------*/
+  {
+    id: "smartTreeArrange",
+    defaultKey: "C-A-l",
+    icon: Network,
+    when: (project) => Settings.enableSmartTreeArrange && whenKeyboardOnlyOpenWithSelectedConnectableEntities(project),
+    onPress: (project) => {
+      if (!project) return;
+      try {
+        const result = arrangeSmartTree(project);
+        toast.success(result.movedCount ? `已规整 ${result.movedCount} 个节点，可整次撤销` : "布局已规整，无需移动");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error));
+      }
+    },
+  },
   {
     id: "treeGraphAdjust",
     defaultKey: "A-S-f",

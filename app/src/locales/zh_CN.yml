@@ -163,6 +163,32 @@ contextMenu:
   cancel: 取消
 
 settings:
+  enableSmartTreeArrange:
+    title: 启用智能规整树形布局（实验）
+    description: 选中根节点后按 Ctrl+Alt+L 或通过右键菜单规整其后代，可整次撤销。虚线作为额外关联边保留；环路、多父、分组框内节点暂不支持。快捷键可在快捷键设置中修改。
+  smartTreeArrangeMode:
+    title: 智能规整布局模式
+    description: 默认保留原生长方向；统一方向模式才会改变方向。兄弟顺序按原树边的保存顺序保留。
+    options:
+      preserve: 智能规整（保留方向）
+      standard: 统一方向标准树
+  smartTreeArrangeDirection:
+    title: 标准树布局方向
+    description: 仅在统一方向模式下生效。
+    options:
+      right: 向右
+      left: 向左
+      up: 向上
+      down: 向下
+  smartTreeLevelGap:
+    title: 树形规整层级间距
+    description: 相邻层级边缘的最小距离，使用画布世界坐标单位。
+  smartTreeNodeGap:
+    title: 树形规整同级间距
+    description: 同一父节点下，兄弟节点间的最小距离。
+  smartTreeSubtreeGap:
+    title: 树形规整子树间距
+    description: 不同兄弟子树后代间的最小距离，也用于避开未参与布局的节点。
   connectedNodeHighlightScope:
     title: 关联节点高亮范围
     description: 选中节点后使用高亮快捷键；直接模式只显示一跳邻居，全部模式包含间接相连的节点。修改后立即更新已有高亮，不区分箭头方向。
@@ -1518,6 +1544,9 @@ visualSettingsGroup:
     title: 背景设置
 
 keyBinds:
+  smartTreeArrange:
+    title: 智能规整节点树（实验）
+    description: 规整选中节点及其后代，保留内容、层级、连接和兄弟顺序。请先在视觉 → 实验性功能中启用并选择模式。
   toggleConnectedNodeHighlight:
     title: 关联节点高亮（开关）
     description: 选中节点后按下，按设置中的范围高亮自身及直接或间接相连的节点，不区分箭头方向。再次按下取消；不改变颜色、选择状态或项目文件。

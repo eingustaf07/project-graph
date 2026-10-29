@@ -128,6 +128,32 @@ about:
     a team culture that combines logical rationality with humor and fun.
 
 settings:
+  enableSmartTreeArrange:
+    title: Enable smart tree arrangement (experimental)
+    description: Select a root and press Ctrl+Alt+L or use the context menu. One undo restores the operation. Dashed links are associations; cycles, multiple parents and grouped nodes are refused. The shortcut is customizable.
+  smartTreeArrangeMode:
+    title: Smart tree layout mode
+    description: Preserve growth direction by default. Only standard mode changes direction. Sibling order follows stored tree-edge order.
+    options:
+      preserve: Smart arrangement (preserve direction)
+      standard: Standard directional tree
+  smartTreeArrangeDirection:
+    title: Standard tree direction
+    description: Used only in standard mode.
+    options:
+      right: Right
+      left: Left
+      up: Up
+      down: Down
+  smartTreeLevelGap:
+    title: Tree level gap
+    description: Minimum gap between level boundaries in world coordinates.
+  smartTreeNodeGap:
+    title: Tree sibling gap
+    description: Minimum spacing between siblings of the same parent.
+  smartTreeSubtreeGap:
+    title: Tree subtree gap
+    description: Minimum spacing between descendants of sibling subtrees, also used around external obstacles.
   connectedNodeHighlightScope:
     title: Connected node highlight range
     description: Direct mode highlights selected nodes and their immediate neighbors. All mode includes indirectly connected nodes. Applies immediately to existing highlights, regardless of arrow direction.
@@ -1475,6 +1501,9 @@ keys:
   wheeldown: Scroll Wheel Down
 
 keyBinds:
+  smartTreeArrange:
+    title: Smart tree arrangement (experimental)
+    description: Arrange selected roots and descendants without changing content, hierarchy, connections or sibling order. Enable and configure under Visual → Experimental.
   toggleConnectedNodeHighlight:
     title: Toggle related node highlighting
     description: Highlight selected nodes and their direct or indirect connections according to the range setting, regardless of arrow direction. Press again to clear. Colors, selection and project files stay unchanged.
