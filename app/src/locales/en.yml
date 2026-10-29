@@ -1,3 +1,20 @@
+findReplace:
+  title: Find and replace
+  findLabel: Find text
+  replaceLabel: Replace with
+  replacePlaceholder: Replace with (leave empty to remove matching text)
+  replace: Replace
+  replaceAll: Replace all
+  matchCount: "Matches in scope: {{count}}"
+  lockedCount: "; skipped in locked objects: {{count}}"
+  scopeHint: Replaces canvas text and titles, excluding details and URLs.
+  atEnd: End reached. Click a search result to continue from that object.
+  replaced: Replaced {{count}} occurrences in {{objects}} objects. Use Undo to restore.
+  noChanges: No text needed changing
+  failed: "Replacement failed: {{message}}"
+  helpTitle: Help and tips
+  help: Enter the search and replacement text. Replace changes one occurrence; Replace all processes the current scope. Leave the replacement empty to remove matching text. Use Undo to restore. Details, URLs and locked objects are not changed. If a red search outline remains after closing, reopen this panel and clear the search field.
+
 welcome:
   slogan: Infinite canvas mind mapping software based on graph theory
   slogans:

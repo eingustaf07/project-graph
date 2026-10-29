@@ -22,13 +22,17 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import i18next from "i18next";
+import { useTranslation } from "react-i18next";
 
 /**
  * 搜索内容的面板
  */
 export default function FindWindow({ tabId }: { tabId: string }) {
+  const { t } = useTranslation("findReplace");
   const [isCaseSensitive, setIsCaseSensitive] = useState(false);
   const [searchString, setSearchString] = useState("");
+  const [replacementString, setReplacementString] = useState("");
   const [searchResults, setSearchResults] = useState<{ title: string; uuid: string }[]>([]);
   const [, setTick] = useState(0);
   // 是否开启快速瞭望模式
@@ -51,42 +55,65 @@ export default function FindWindow({ tabId }: { tabId: string }) {
   useEffect(() => {
     if (!project) return;
     project.contentSearch.isCaseSensitive = isCaseSensitive;
-  }, [project, isCaseSensitive]);
+    project.contentSearch.searchScope = searchScope;
+    project.contentSearch.startSearch(searchString, false);
+    setSearchResults(
+      project.contentSearch.searchResultNodes.map((node) => ({
+        title: project.contentSearch.getStageObjectText(node),
+        uuid: node.uuid,
+      })),
+    );
+  }, [project, isCaseSensitive, searchScope, searchString]);
 
   useEffect(() => {
-    if (!project) return;
-    project.contentSearch.searchScope = searchScope;
-  }, [project, searchScope]);
+    return () => {
+      project?.contentSearch.startSearch("", false);
+    };
+  }, [project]);
 
-  const clearSearch = () => {
-    setSearchString("");
-    setSearchResults([]);
-    project?.contentSearch.startSearch("", false);
+  const replace = (all: boolean) => {
+    if (!project) return;
+    try {
+      const result = project.contentSearch.replaceText(searchString, replacementString, all);
+      setSearchResults(
+        project.contentSearch.searchResultNodes.map((node) => ({
+          title: project.contentSearch.getStageObjectText(node),
+          uuid: node.uuid,
+        })),
+      );
+      setTick((tick) => tick + 1);
+      if (result.count) {
+        toast.success(t("replaced", { objects: result.objectCount, count: result.count }));
+      } else {
+        toast.warning(t("noChanges"));
+      }
+      const next = project.contentSearch.searchResultNodes[project.contentSearch.currentSearchResultIndex];
+      if (next) {
+        project.camera.bombMove(next.collisionBox.getRectangle().center);
+        project.effects.addEffect(RectangleLittleNoteEffect.fromSearchNode(next));
+      }
+    } catch (error) {
+      setSearchResults(
+        project.contentSearch.searchResultNodes.map((node) => ({
+          title: project.contentSearch.getStageObjectText(node),
+          uuid: node.uuid,
+        })),
+      );
+      toast.error(t("failed", { message: error instanceof Error ? error.message : String(error) }));
+    }
   };
 
-  useEffect(() => {
-    clearSearch();
-    return () => {
-      clearSearch();
-    };
-  }, []);
-
   if (!project) return <></>;
+  const replacementStatus = project.contentSearch.getReplacementStatus(searchString);
   return (
     <div className="flex flex-col gap-2 p-4">
       <Input
         placeholder="请输入要在舞台上搜索的内容"
+        aria-label={t("findLabel")}
         autoFocus
         type="search"
         onChange={(e) => {
           setSearchString(e.target.value);
-          project.contentSearch.startSearch(e.target.value, false);
-          setSearchResults(
-            project.contentSearch.searchResultNodes.map((node) => ({
-              title: project.contentSearch.getStageObjectText(node),
-              uuid: node.uuid,
-            })),
-          );
         }}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
@@ -103,6 +130,34 @@ export default function FindWindow({ tabId }: { tabId: string }) {
         }}
         value={searchString}
       />
+      <Input
+        aria-label={t("replaceLabel")}
+        placeholder={t("replacePlaceholder")}
+        value={replacementString}
+        onChange={(event) => setReplacementString(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            void TabWorkspace.close(tabId);
+          } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            if (replacementStatus.hasCurrent) replace(false);
+          }
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" disabled={!replacementStatus.hasCurrent} onClick={() => replace(false)}>
+          {t("replace")}
+        </Button>
+        <Button size="sm" disabled={replacementStatus.count === 0} onClick={() => replace(true)}>
+          {t("replaceAll")}
+        </Button>
+      </div>
+      <div className="text-muted-foreground text-xs">
+        {t("matchCount", { count: replacementStatus.count })}
+        {replacementStatus.lockedCount > 0 && t("lockedCount", { count: replacementStatus.lockedCount })}
+        <div>{t("scopeHint")}</div>
+        {replacementStatus.atEnd && <div>{t("atEnd")}</div>}
+      </div>
       <div className="my-1 flex flex-wrap gap-3">
         <Tooltip>
           <TooltipTrigger>
@@ -199,10 +254,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
               size="icon"
               variant="outline"
               onClick={() => {
-                Dialog.confirm(
-                  "帮助和提示",
-                  "如果关闭窗口后发现红框闪烁残留，可以尝试再打开一次搜索窗口，在搜索框中随便输入点东西然后再删除干净。",
-                );
+                Dialog.confirm(t("helpTitle"), t("help"));
               }}
             >
               <MessageCircleQuestionMark />
@@ -236,6 +288,8 @@ export default function FindWindow({ tabId }: { tabId: string }) {
             }}
             onClick={() => {
               project.controller.resetCountdownTimer();
+              project.contentSearch.chooseSearchResult(index);
+              setTick((tick) => tick + 1);
               const node = project.stageManager.get(result.uuid);
               if (node) {
                 project.camera.bombMove(node.collisionBox.getRectangle().center);
@@ -254,7 +308,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
 
 FindWindow.open = () => {
   createSubWindow("FindWindow", {
-    title: "搜索",
+    title: i18next.t("title", { ns: "findReplace" }),
     contextTarget: "activeResourceTab",
     children: (tab) => <FindWindow tabId={tab.id} />,
     rect: new Rectangle(new Vector(100, 100), new Vector(300, 600)),

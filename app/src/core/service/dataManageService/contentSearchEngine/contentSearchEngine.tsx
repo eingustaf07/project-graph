@@ -8,6 +8,13 @@ import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { deserialize, serialize } from "@graphif/serializer";
+import {
+  findReplacementMatches,
+  planTextReplacements,
+  type ReplacementMatch,
+  type ReplacementTarget,
+} from "./contentReplace";
 
 /**
  * 搜索范围枚举
@@ -50,6 +57,7 @@ export class ContentSearch {
    * 搜索结果的索引
    */
   public currentSearchResultIndex = 0;
+  private replacementCursor: { uuid: string; start: number } | "end" | undefined;
 
   /**
    * 抽取一个舞台对象的被搜索文本
@@ -118,14 +126,7 @@ export class ContentSearch {
     );
   }
 
-  public startSearch(searchString: string, autoFocus = true): boolean {
-    // 开始搜索
-    this.searchResultNodes = [];
-    if (searchString === "") {
-      return false;
-    }
-
-    // 获取要搜索的对象列表
+  private getObjectsToSearch(): StageObject[] {
     let objectsToSearch: StageObject[];
 
     switch (this.searchScope) {
@@ -154,6 +155,14 @@ export class ContentSearch {
         objectsToSearch = this.project.stageManager.getStageObjects();
         break;
     }
+    return objectsToSearch;
+  }
+
+  public startSearch(searchString: string, autoFocus = true): boolean {
+    this.searchResultNodes = [];
+    this.replacementCursor = undefined;
+    if (searchString === "") return false;
+    const objectsToSearch = this.getObjectsToSearch();
 
     // 执行搜索
     for (const node of objectsToSearch) {
@@ -190,11 +199,12 @@ export class ContentSearch {
    * 切换下一个
    */
   public nextSearchResult() {
+    this.replacementCursor = undefined;
     if (this.searchResultNodes.length === 0) return;
     this.currentSearchResultIndex = (this.currentSearchResultIndex + 1) % this.searchResultNodes.length;
     // 取消选择所有节点
-    for (const node of this.project.stageManager.getTextNodes()) {
-      node.isSelected = false;
+    if (this.searchScope === SearchScope.ALL) {
+      for (const node of this.project.stageManager.getTextNodes()) node.isSelected = false;
     }
     // 选择当前搜索结果节点
     const currentNode = this.searchResultNodes[this.currentSearchResultIndex];
@@ -211,12 +221,13 @@ export class ContentSearch {
    * 切换上一个
    */
   public previousSearchResult() {
+    this.replacementCursor = undefined;
     if (this.searchResultNodes.length === 0) return;
     this.currentSearchResultIndex =
       (this.currentSearchResultIndex - 1 + this.searchResultNodes.length) % this.searchResultNodes.length;
     // 取消选择所有节点
-    for (const node of this.project.stageManager.getTextNodes()) {
-      node.isSelected = false;
+    if (this.searchScope === SearchScope.ALL) {
+      for (const node of this.project.stageManager.getTextNodes()) node.isSelected = false;
     }
     // 选择当前搜索结果节点
     const currentNode = this.searchResultNodes[this.currentSearchResultIndex];
@@ -227,5 +238,105 @@ export class ContentSearch {
       // 摄像机对准现在的节点
       this.project.camera.location = currentNode.collisionBox.getRectangle().center.clone();
     }
+  }
+
+  public chooseSearchResult(index: number) {
+    this.currentSearchResultIndex = index;
+    this.replacementCursor = undefined;
+  }
+
+  private getReplacementTargets(): ReplacementTarget[] {
+    const isLocked = (object: StageObject) => {
+      const entities =
+        object instanceof Edge ? [object.source, object.target] : object instanceof Entity ? [object] : [];
+      for (const entity of entities) {
+        if (entity instanceof Section && entity.locked) return true;
+        const visited = new Set<Section>();
+        for (let parent = entity.parentSection; parent && !visited.has(parent); parent = parent.parentSection) {
+          if (parent.locked) return true;
+          visited.add(parent);
+        }
+      }
+      return false;
+    };
+    return this.getObjectsToSearch().flatMap((object): ReplacementTarget[] => {
+      if (object instanceof TextNode || object instanceof Section || object instanceof Edge) {
+        return [
+          { uuid: object.uuid, text: object.text, locked: isLocked(object), write: (text) => object.rename(text) },
+        ];
+      }
+      if (object instanceof UrlNode) {
+        return [
+          { uuid: object.uuid, text: object.title, locked: isLocked(object), write: (text) => object.rename(text) },
+        ];
+      }
+      return [];
+    });
+  }
+
+  private currentReplacementMatch(matches: ReplacementMatch[]) {
+    if (this.replacementCursor === "end") return undefined;
+    const current = this.searchResultNodes[this.currentSearchResultIndex];
+    const cursor = this.replacementCursor;
+    if (cursor && (!current || current.uuid === cursor.uuid)) {
+      return matches.find(
+        (match) => !match.target.locked && match.target.uuid === cursor.uuid && match.start >= cursor.start,
+      );
+    }
+    if (current) {
+      return matches.find((candidate) => !candidate.target.locked && candidate.target.uuid === current.uuid);
+    }
+    return matches.find((match) => !match.target.locked);
+  }
+
+  public getReplacementStatus(query: string) {
+    const matches = findReplacementMatches(this.getReplacementTargets(), query, this.isCaseSensitive);
+    return {
+      count: matches.filter((match) => !match.target.locked).length,
+      lockedCount: matches.filter((match) => match.target.locked).length,
+      hasCurrent: !!this.currentReplacementMatch(matches),
+      atEnd: this.replacementCursor === "end",
+    };
+  }
+
+  public replaceText(query: string, replacement: string, all: boolean) {
+    const targets = this.getReplacementTargets();
+    const matches = findReplacementMatches(targets, query, this.isCaseSensitive);
+    const current = all ? undefined : this.currentReplacementMatch(matches);
+    const chosen = all ? matches : current ? [current] : [];
+    const changes = planTextReplacements(chosen, replacement);
+    if (changes.length) {
+      const snapshot = serialize(this.project.stage);
+      try {
+        for (const change of changes) change.target.write(change.after);
+        this.project.historyManager.recordStep();
+      } catch (error) {
+        this.project.stage = deserialize(snapshot, this.project);
+        this.project.stageManager.updateReferences();
+        this.startSearch(query, false);
+        throw error;
+      }
+    }
+    this.startSearch(query, false);
+    if (!all && current) {
+      const remaining = findReplacementMatches(this.getReplacementTargets(), query, this.isCaseSensitive);
+      const order = new Map(targets.map((target, index) => [target.uuid, index]));
+      const currentOrder = order.get(current.target.uuid)!;
+      const next = remaining.find(
+        (match) =>
+          !match.target.locked &&
+          (order.get(match.target.uuid)! > currentOrder ||
+            (match.target.uuid === current.target.uuid && match.start >= current.start + replacement.length)),
+      );
+      this.replacementCursor = next ? { uuid: next.target.uuid, start: next.start } : "end";
+      this.currentSearchResultIndex = next
+        ? this.searchResultNodes.findIndex((node) => node.uuid === next.target.uuid)
+        : -1;
+    }
+    return {
+      count: changes.reduce((count, change) => count + change.count, 0),
+      objectCount: changes.length,
+      lockedCount: matches.filter((match) => match.target.locked).length,
+    };
   }
 }

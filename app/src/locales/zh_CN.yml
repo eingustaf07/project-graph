@@ -1,3 +1,20 @@
+findReplace:
+  title: 查找和替换
+  findLabel: 查找内容
+  replaceLabel: 替换为
+  replacePlaceholder: 替换为（留空则删除匹配文字）
+  replace: 替换
+  replaceAll: 全部替换
+  matchCount: 当前范围可替换 {{count}} 处
+  lockedCount: ，另有 {{count}} 处因锁定跳过
+  scopeHint: 替换画布文字和标题，不修改详情或网址。
+  atEnd: 已到末尾。可点击查找结果，从该对象继续替换。
+  replaced: 已在 {{objects}} 个对象中替换 {{count}} 处文字，可使用撤销恢复
+  noChanges: 没有需要更改的文字
+  failed: 替换失败：{{message}}
+  helpTitle: 帮助和提示
+  help: 输入查找内容和替换文字，点击“替换”逐处替换，或点击“全部替换”处理当前搜索范围；留空替换文字可删除匹配部分。可用原有撤销操作恢复。替换不修改详情或网址，锁定对象会跳过。若关闭后有红框残留，可重新打开并清空查找框。
+
 welcome:
   slogan: 基于图论的思维框架图绘制软件
   slogans:
