@@ -1723,6 +1723,11 @@ visualSettingsGroup:
   background:
     title: 背景設定
 keyBinds:
+  toggleConnectedNodeHighlight:
+    title: 高亮全部連通節點（開關）
+    description: 選取節點後按下，高亮自身及沿任意方向連線直接或間接相連的全部節點。再次按下取消；不改變顏色、選取狀態或專案檔案。
+  connectedHighlightEnabled: 已高亮 {{count}} 個連通節點，再按相同快捷鍵可取消
+  connectedHighlightDisabled: 已取消連通節點高亮
   title: 快速鍵綁定
   none: 未綁定快捷鍵
   test:

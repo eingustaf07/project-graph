@@ -1779,6 +1779,11 @@ visualSettingsGroup:
     title: Pengaturan Latar Belakang
 
 keyBinds:
+  toggleConnectedNodeHighlight:
+    title: Aktifkan sorotan node terhubung
+    description: Sorot node terpilih dan semua node yang terhubung langsung atau tidak langsung tanpa membedakan arah. Tekan lagi untuk menghapus sorotan. Warna, pilihan, dan berkas proyek tidak berubah.
+  connectedHighlightEnabled: Menyorot {{count}} node terhubung. Tekan pintasan yang sama untuk membatalkan.
+  connectedHighlightDisabled: Sorotan node terhubung dibatalkan
   title: Pengikatan Pintasan
   none: Tidak Ada Pintasan
   test:

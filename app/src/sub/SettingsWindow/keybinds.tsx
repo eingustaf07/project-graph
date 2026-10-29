@@ -664,6 +664,7 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
       "selectAdditionalRight",
       "selectAtCrosshair",
       "addSelectAtCrosshair",
+      "toggleConnectedNodeHighlight",
     ],
   },
   {

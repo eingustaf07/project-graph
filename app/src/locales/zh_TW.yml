@@ -1,3 +1,20 @@
+findReplace:
+  title: 查找和替換
+  findLabel: 查找內容
+  replaceLabel: 替換為
+  replacePlaceholder: 替換為（留空則刪除匹配文字）
+  replace: 替換
+  replaceAll: 全部替換
+  matchCount: 當前範圍可替換 {{count}} 處
+  lockedCount: ，另有 {{count}} 處因鎖定跳過
+  scopeHint: 替換畫布文字和標題，不修改詳情或網址。
+  atEnd: 已到末尾。可點擊查找結果，從該對象繼續替換。
+  replaced: 已在 {{objects}} 個對象中替換 {{count}} 處文字，可使用撤銷恢復
+  noChanges: 沒有需要更改的文字
+  failed: 替換失敗：{{message}}
+  helpTitle: 幫助和提示
+  help: 輸入查找內容和替換文字，點擊“替換”逐處替換，或點擊“全部替換”處理當前搜索範圍；留空替換文字可刪除匹配部分。可用原有撤銷操作恢復。替換不修改詳情或網址，鎖定對象會跳過。若關閉後有紅框殘留，可重新打開並清空查找框。
+
 welcome:
   slogan: 基於圖論的思維框架圖繪製軟件
   slogans:
@@ -1146,6 +1163,34 @@ settings:
     title: AI API 地址
     description: |
       目前僅支持 OpenAI 格式的 API
+  aiConnectionMode:
+    title: AI 連接方式
+    description: |
+      舊設置默認使用自定義 API。ChatGPT 賬號通道需要先完成 OpenAI 官方授權。
+    options:
+      api: 自定義 API
+      chatgpt: ChatGPT 賬號
+  aiChatGPTModel:
+    title: ChatGPT 模型
+    description: |
+      僅填寫當前 ChatGPT 賬號模型列表中顯示的模型名稱。
+  chatgpt:
+    title: ChatGPT 賬號連接
+    description: 通過 OpenAI 官方授權連接。點擊“Continue with ChatGPT”使用 ChatGPT 登錄；符合條件的請求按 OpenAI 當前規則計入套餐使用額度。
+    connected: ChatGPT 已連接
+    notConnected: 未連接
+    signIn: Continue with ChatGPT
+    expired: 連接已過期，請重新連接
+    planNoticeTitle: 正在使用你的 ChatGPT 套餐
+    planNoticeDescription: 此應用中符合條件的 AI 請求會使用你的 ChatGPT 套餐額度。你可以在 ChatGPT 設置中查看和管理使用情況。
+    gotIt: 知道了
+    usingPlan: 正在使用 ChatGPT 套餐
+    manageUsage: 管理使用情況
+    reconnect: 重新連接
+    disconnect: 斷開連接
+    chooseModel: 選擇模型
+    authorizationFailed: 授權失敗
+    authorizationRequired: 此賬號尚未授權使用 ChatGPT 套餐
   aiApiKey:
     title: AI API 密鑰
     description: |
@@ -1467,6 +1512,11 @@ visualSettingsGroup:
     title: 背景設置
 
 keyBinds:
+  toggleConnectedNodeHighlight:
+    title: 高亮全部連通節點（開關）
+    description: 選中節點後按下，高亮自身及通過任意方向連線直接或間接相連的全部節點。再次按下取消；不改變顏色、選擇狀態或項目文件。
+  connectedHighlightEnabled: 已高亮 {{count}} 個連通節點，再按同一快捷鍵可取消
+  connectedHighlightDisabled: 已取消連通節點高亮
   title: 快捷鍵綁定
   none: 未綁定快捷鍵
   test:

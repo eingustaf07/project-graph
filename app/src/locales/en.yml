@@ -1469,6 +1469,11 @@ keys:
   wheeldown: Scroll Wheel Down
 
 keyBinds:
+  toggleConnectedNodeHighlight:
+    title: Toggle connected node highlighting
+    description: Highlight the selected nodes and all nodes connected directly or indirectly in either direction. Press again to clear. Colors, selection and project files stay unchanged.
+  connectedHighlightEnabled: Highlighting {{count}} connected nodes. Press the same shortcut to clear.
+  connectedHighlightDisabled: Connected node highlighting cleared
   title: Key Bindings
   none: No Key Binding. Click to Bind
   test:

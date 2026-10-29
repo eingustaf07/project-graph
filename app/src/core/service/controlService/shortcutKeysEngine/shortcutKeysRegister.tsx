@@ -1246,6 +1246,23 @@ export const allKeyBinds: KeyBindItem[] = [
     },
   },
 
+  /*------- 连通节点高亮 -------*/
+  {
+    id: "toggleConnectedNodeHighlight",
+    defaultKey: "C-A-h",
+    icon: Network,
+    when: (project) =>
+      !!project &&
+      (whenHasSelectedConnectableEntities(project) || project.searchContentHighlightRenderer.hasConnectedHighlight),
+    onPress: (project) => {
+      const count = project!.searchContentHighlightRenderer.toggleConnectedHighlight();
+      toast.success(
+        count
+          ? i18next.t("connectedHighlightEnabled", { ns: "keyBinds", count })
+          : i18next.t("connectedHighlightDisabled", { ns: "keyBinds" }),
+      );
+    },
+  },
   /*------- 章节打包/解包 -------*/
   {
     id: "textNodeToSection",
