@@ -1,7 +1,7 @@
 name: Custom Windows installer
 on:
   push:
-    branches: [pg1.1-chatgpt-signin, pg11-ui-fix-package-20261012]
+    branches: [pg1.1-chatgpt-signin, pg11-ui-fix-package-20261012, pg11-ai-tree-safety-20261029]
     paths-ignore:
       - "**/*.md"
   workflow_dispatch:
@@ -76,7 +76,7 @@ jobs:
           gh release create "pg1.1-build-${{ github.run_number }}" @installers --target "${{ github.sha }}" --draft --title "Project Graph PG1.1 ${{ github.run_number }}" --notes-file PG1.1.md
 
   pg10-baseline:
-    if: github.ref == 'refs/heads/pg1.1-chatgpt-signin' || github.ref == 'refs/heads/pg11-ui-fix-package-20261012'
+    if: github.ref == 'refs/heads/pg1.1-chatgpt-signin' || github.ref == 'refs/heads/pg11-ui-fix-package-20261012' || github.ref == 'refs/heads/pg11-ai-tree-safety-20261029'
     name: PG1.0 immutable baseline regression
     defaults:
       run:
