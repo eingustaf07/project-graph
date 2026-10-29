@@ -221,6 +221,7 @@ export const settingsIcons = {
   newNodeScaleByCamera: Scaling,
   newNodeScaleByCameraOffset: Scaling,
   showTreeDirectionHint: TrendingUpDown,
+  connectedNodeHighlightScope: CircleDot,
   lineStyle: Spline,
   sectionBitTitleRenderType: SquareM,
   sectionBigTitleThresholdRatio: Ratio,

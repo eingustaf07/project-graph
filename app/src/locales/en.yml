@@ -128,6 +128,12 @@ about:
     a team culture that combines logical rationality with humor and fun.
 
 settings:
+  connectedNodeHighlightScope:
+    title: Connected node highlight range
+    description: Direct mode highlights selected nodes and their immediate neighbors. All mode includes indirectly connected nodes. Applies immediately to existing highlights, regardless of arrow direction.
+    options:
+      direct: Direct connections only (including selected nodes)
+      all: All connected nodes (including indirect connections)
   textNodeMaxCharWidth:
     title: Maximum text node width (CJK characters)
     description: Auto-sized nodes shrink to fit short text and wrap at this width. Defaults to 15 times the width of 中 in the current font. Changes apply immediately to open auto-sized nodes. Manual widths are preserved.
@@ -1470,8 +1476,8 @@ keys:
 
 keyBinds:
   toggleConnectedNodeHighlight:
-    title: Toggle connected node highlighting
-    description: Highlight the selected nodes and all nodes connected directly or indirectly in either direction. Press again to clear. Colors, selection and project files stay unchanged.
+    title: Toggle related node highlighting
+    description: Highlight selected nodes and their direct or indirect connections according to the range setting, regardless of arrow direction. Press again to clear. Colors, selection and project files stay unchanged.
   connectedHighlightEnabled: Highlighting {{count}} connected nodes. Press the same shortcut to clear.
   connectedHighlightDisabled: Connected node highlighting cleared
   title: Key Bindings

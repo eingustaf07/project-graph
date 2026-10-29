@@ -61,7 +61,10 @@ import { useTranslation } from "react-i18next";
 
 const SETTING_FIELD_ESTIMATE_SIZE = 88;
 
-function SettingFieldVirtualList({ keys: settingKeys, showChatGPTConnection = false }: {
+function SettingFieldVirtualList({
+  keys: settingKeys,
+  showChatGPTConnection = false,
+}: {
   keys: string[];
   showChatGPTConnection?: boolean;
 }) {
@@ -247,7 +250,9 @@ export default function SettingsTab() {
             ) : (
               <SettingFieldVirtualList
                 keys={searchResult}
-                showChatGPTConnection={searchResult.some((key) => key === "aiChatGPTModel" || key === "aiConnectionMode")}
+                showChatGPTConnection={searchResult.some(
+                  (key) => key === "aiChatGPTModel" || key === "aiConnectionMode",
+                )}
               />
             )}
           </>
@@ -312,7 +317,7 @@ export const categories = {
       "sectionInitBorderStyle",
     ],
     edge: ["lineStyle", "hideArrowWhenPointingToConnectPoint", "enableAutoEdgeWidth"],
-    selectedState: ["enableCollisionBoxAutoWidth"],
+    selectedState: ["enableCollisionBoxAutoWidth", "connectedNodeHighlightScope"],
     entityDetails: [
       "nodeDetailsPanel",
       "alwaysShowDetails",

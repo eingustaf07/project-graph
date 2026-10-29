@@ -3,6 +3,7 @@ import { Project, service } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { ConnectableAssociation } from "@/core/stage/stageObject/abstract/Association";
 import { collectConnectedNodeIds } from "@/core/algorithm/connectedNodeHighlight";
+import { Settings } from "@/core/service/Settings";
 
 /**
  * 搜索结果与连通节点的临时高亮，不改变对象的实际颜色或选择状态。
@@ -13,6 +14,7 @@ export class SearchContentHighlightRenderer {
   private connectedNodes: ConnectableEntity[] = [];
   private cachedStage: Project["stage"] | undefined;
   private cachedStageLength = -1;
+  private cachedScope: "direct" | "all" | undefined;
   private dirty = true;
   private readonly invalidate = () => {
     this.dirty = true;
@@ -44,7 +46,13 @@ export class SearchContentHighlightRenderer {
 
   private refreshConnectedNodes() {
     if (!this.roots.size) return;
-    if (!this.dirty && this.cachedStage === this.project.stage && this.cachedStageLength === this.project.stage.length)
+    const scope = Settings.connectedNodeHighlightScope;
+    if (
+      !this.dirty &&
+      this.cachedStage === this.project.stage &&
+      this.cachedStageLength === this.project.stage.length &&
+      this.cachedScope === scope
+    )
       return;
     const nodes = this.project.stageManager.getEntities().filter((node) => node instanceof ConnectableEntity);
     const associations = this.project.stageManager
@@ -57,11 +65,13 @@ export class SearchContentHighlightRenderer {
       nodeIds,
       associations.map((a) => a.associationList),
       this.roots,
+      scope,
     );
     this.connectedNodes = nodes.filter((node) => ids.has(node.uuid));
     if (!this.connectedNodes.length) this.roots.clear();
     this.cachedStage = this.project.stage;
     this.cachedStageLength = this.project.stage.length;
+    this.cachedScope = scope;
     this.dirty = false;
   }
 

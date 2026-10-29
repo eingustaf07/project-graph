@@ -4,6 +4,31 @@ import { collectConnectedNodeIds } from "./connectedNodeHighlight";
 const edge = (...ids: string[]) => ids.map((uuid) => ({ uuid }));
 
 describe("connected node highlighting", () => {
+  it("limits direct mode to the selected node and one-hop neighbors without traversing through them", () => {
+    expect([...collectConnectedNodeIds(["a", "b", "c"], [edge("a", "b"), edge("b", "c")], ["a"], "direct")]).toEqual([
+      "a",
+      "b",
+    ]);
+    expect([...collectConnectedNodeIds(["a", "b", "c"], [edge("b", "a"), edge("b", "c")], ["a"], "direct")]).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+  it("treats every member of one hyperedge as a direct neighbor and keeps multiple roots independent", () => {
+    expect(
+      [...collectConnectedNodeIds(["a", "b", "c", "d"], [edge("a", "b", "c"), edge("c", "d")], ["b"], "direct")].sort(),
+    ).toEqual(["a", "b", "c"]);
+    expect(
+      [
+        ...collectConnectedNodeIds(
+          ["a", "b", "c", "d"],
+          [edge("a", "b"), edge("b", "c"), edge("c", "d")],
+          ["a", "d"],
+          "direct",
+        ),
+      ].sort(),
+    ).toEqual(["a", "b", "c", "d"]);
+  });
   it("includes the root, parents, siblings and indirect descendants regardless of arrow direction", () => {
     const result = collectConnectedNodeIds(
       ["a", "b", "c", "d", "other"],

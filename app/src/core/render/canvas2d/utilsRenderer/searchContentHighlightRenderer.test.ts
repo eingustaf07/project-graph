@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 
 vi.mock("@/core/Project", () => ({ Project: class {}, service: () => (target: unknown) => target }));
 vi.mock("@/core/stage/stageObject/abstract/ConnectableEntity", () => ({ ConnectableEntity: class {} }));
 vi.mock("@/core/stage/stageObject/abstract/Association", () => ({ ConnectableAssociation: class {} }));
+const highlightSettings = vi.hoisted(() => ({ connectedNodeHighlightScope: "all" as "direct" | "all" }));
+vi.mock("@/core/service/Settings", () => ({ Settings: highlightSettings }));
 
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { ConnectableAssociation } from "@/core/stage/stageObject/abstract/Association";
@@ -60,6 +62,20 @@ function fixture() {
 }
 
 describe("connected highlight overlay", () => {
+  beforeEach(() => {
+    highlightSettings.connectedNodeHighlightScope = "all";
+  });
+  it("updates active highlighting immediately when the saved range setting changes", () => {
+    const { project, renderer } = fixture();
+    expect(renderer.toggleConnectedHighlight()).toBe(3);
+    highlightSettings.connectedNodeHighlightScope = "direct";
+    renderer.render(0);
+    expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(2);
+    project.shapeRenderer.renderRect.mockClear();
+    highlightSettings.connectedNodeHighlightScope = "all";
+    renderer.render(1);
+    expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(3);
+  });
   it("toggles persistent outlines without changing selection, colors, geometry or recording history", () => {
     const { a, b, c, other, project, renderer } = fixture();
     const before = [a, b, c, other].map((node) => ({
@@ -135,5 +151,7 @@ describe("connected highlight overlay", () => {
     const resources = parse(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
     expect(resources.keyBinds.toggleConnectedNodeHighlight.title).toBeTruthy();
     expect(resources.keyBinds.connectedHighlightEnabled).toContain("{{count}}");
+    expect(resources.settings.connectedNodeHighlightScope.options.direct).toBeTruthy();
+    expect(resources.settings.connectedNodeHighlightScope.options.all).toBeTruthy();
   });
 });

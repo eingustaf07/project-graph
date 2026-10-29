@@ -163,6 +163,12 @@ contextMenu:
   cancel: 取消
 
 settings:
+  connectedNodeHighlightScope:
+    title: 关联节点高亮范围
+    description: 选中节点后使用高亮快捷键；直接模式只显示一跳邻居，全部模式包含间接相连的节点。修改后立即更新已有高亮，不区分箭头方向。
+    options:
+      direct: 仅直接相连（含选中节点）
+      all: 全部连通（含间接相连）
   textNodeMaxCharWidth:
     title: 文本节点最大宽度（中文字数）
     description: 自动模式下短文本随内容收缩，达到此宽度后自动换行。默认 15，按当前字体的“中”字宽度计算；修改后立即应用于已打开的自动模式节点。手动宽度节点保留其宽度。
@@ -1513,8 +1519,8 @@ visualSettingsGroup:
 
 keyBinds:
   toggleConnectedNodeHighlight:
-    title: 高亮全部连通节点（开关）
-    description: 选中节点后按下，高亮自身及通过任意方向连线直接或间接相连的全部节点。再次按下取消；不改变颜色、选择状态或项目文件。
+    title: 关联节点高亮（开关）
+    description: 选中节点后按下，按设置中的范围高亮自身及直接或间接相连的节点，不区分箭头方向。再次按下取消；不改变颜色、选择状态或项目文件。
   connectedHighlightEnabled: 已高亮 {{count}} 个连通节点，再按同一快捷键可取消
   connectedHighlightDisabled: 已取消连通节点高亮
   title: 快捷键绑定

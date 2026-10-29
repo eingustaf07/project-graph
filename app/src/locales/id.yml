@@ -145,6 +145,12 @@ contextMenu:
   cancel: Batal
 
 settings:
+  connectedNodeHighlightScope:
+    title: Jangkauan sorotan node terhubung
+    description: Mode langsung menyorot node terpilih dan tetangga langsung. Mode semua menyertakan koneksi tidak langsung. Perubahan segera berlaku tanpa membedakan arah panah.
+    options:
+      direct: Koneksi langsung saja (termasuk node terpilih)
+      all: Semua node terhubung (termasuk koneksi tidak langsung)
   textNodeMaxCharWidth:
     title: Lebar maksimum simpul teks (karakter CJK)
     description: Simpul otomatis menyesuaikan teks pendek dan membungkus teks panjang. Nilai awal 15 kali lebar 中 pada font saat ini. Perubahan langsung berlaku pada simpul otomatis yang terbuka. Lebar manual dipertahankan.
@@ -1780,8 +1786,8 @@ visualSettingsGroup:
 
 keyBinds:
   toggleConnectedNodeHighlight:
-    title: Aktifkan sorotan node terhubung
-    description: Sorot node terpilih dan semua node yang terhubung langsung atau tidak langsung tanpa membedakan arah. Tekan lagi untuk menghapus sorotan. Warna, pilihan, dan berkas proyek tidak berubah.
+    title: Aktifkan sorotan node terkait
+    description: Sorot node terpilih dan koneksi langsung atau tidak langsung sesuai pengaturan jangkauan, tanpa membedakan arah. Tekan lagi untuk menghapus sorotan. Warna, pilihan, dan berkas proyek tidak berubah.
   connectedHighlightEnabled: Menyorot {{count}} node terhubung. Tekan pintasan yang sama untuk membatalkan.
   connectedHighlightDisabled: Sorotan node terhubung dibatalkan
   title: Pengikatan Pintasan
