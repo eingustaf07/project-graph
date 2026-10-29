@@ -18,6 +18,12 @@ export function createBuiltInToolAgentTools(project: Project, references: AIObje
       tool({
         description: definition.description,
         inputSchema: definition.inputSchema as any,
+        needsApproval: async (data: any) =>
+          definition.name === "batch_change_color" ||
+          (definition.name === "edit_text_node" && data.data?.color !== undefined) ||
+          (definition.name === "create_text_node" &&
+            data.color !== undefined &&
+            JSON.stringify(data.color) !== "[0,0,0,0]"),
         execute: async (data: any, executionOptions?: BuiltInToolExecutionContext) => {
           try {
             const result = await invokeBuiltInTool(definition.name, data, host, {

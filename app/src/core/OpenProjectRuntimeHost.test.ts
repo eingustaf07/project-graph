@@ -483,12 +483,15 @@ describe("Open Project Runtime Host", () => {
   it("normalizes an undefined handler result before crossing the Tauri bridge", async () => {
     const fixture = createLiveProject();
     const host = new OpenProjectRuntimeHost(fixture.project);
+    const executors = await import("@/core/service/dataManageService/aiEngine/BuiltInToolExecutors");
+    const load = vi.spyOn(executors, "loadBuiltInToolExecutor").mockReturnValueOnce(() => undefined);
 
     await expect(host.invoke("generate_node_tree_by_text", { text: "Root" })).resolves.toEqual({
       ok: true,
       value: null,
     });
     await host.dispose();
+    load.mockRestore();
   });
 
   it("classifies live subscription release failure as Runtime Host cleanup failure", async () => {

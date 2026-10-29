@@ -1,0 +1,99 @@
+PG1.1：AI 节点树改进（源码阶段）
+日期：2026-10-29
+
+基线与范围
+  仓库：https://github.com/eingustaf07/project-graph
+  基线提交：4cb0505ac1513b8a11723294eb2116a733b656d1（已交付 PG1.1 build19 对应分支）
+  开发分支：pg11-ai-tree-safety-20261029
+  从干净的独立克隆开始；旧工作目录、用户未提交代码、已安装 PG1.0/PG1.1 均未修改。
+  本次只交付源码，不构建、不安装、不发布 exe，不修改稳定分支。
+
+新增行为
+  1. 默认 right：从左往右展开，父节点按完整子树范围上下居中。
+     可指定 down：从上往下展开，父节点按完整子树范围左右居中。
+     用户可让 AI “改成上下结构”或“改回左右结构”；此次没有增加全局设置项。
+     居中和平衡留白不会通过增加虚构节点、改写内容或复制分支来凑几何镜像。
+  2. 使用 TextNode 自己的字体、内边距、最大中文字宽度设置和实际换行测量。
+     短文本自适应，长文本换行；AI 不能通过传入 1800 等手动宽度绕过上限。
+     未写死 508 像素；实际像素上限继续由原有最大字宽、字号、内边距决定。
+  3. 基于实际矩形计算层级间距、节点间距、子树范围，避免固定 100 像素导致的重叠。
+     树、森林、孤立备注均可整理；共享子节点保持 DAG 关系，不擅自改成另一棵树。
+     可提供 direction、levelGap、nodeGap、treeGap、safetyGap、position。
+  4. 新树把原有实体作为障碍，沿展开方向整体寻找安全位置；不会推开原图。
+     在既有根节点下扩展时，根节点保持原位，沿展开方向避让并保留横向/纵向居中。
+     在分组框内扩展/整理时，保留所属关系与原框尺寸；空间不足则明确失败，不扩大原框或挤动原图。
+  5. 生成、广度扩展、深度扩展使用独立的非递归排版流程。
+     在加入画布前解析和测量全部节点，验证层级、宽度及重叠。
+     提交失败时恢复本批次的舞台、分组成员与引用快照，避免半成品和盲目重试造成重复。
+     一批生成只记录一次历史步骤，可使用原有撤销操作撤销整个批次。
+     成功结果明确返回 nodeCount、nodes、parentRef、bounds、direction、overlapCount 和 batchId。
+  6. 新增 move_nodes：通过 position 或 delta 平移节点/整树，分组框会带上成员。
+     支持循环图整体平移；遇到目标重叠、锁定分组或不完整的框内选择时拒绝，不擅自推开原图。
+     新增 check_node_overlaps：检查全画布或指定节点及周围原图；正常分组包含关系不报重叠。
+  7. 新树默认透明色；生成和布局不修改已有颜色。
+     Agent 中修改已有颜色、批量改色或指定非透明新节点颜色必须经用户明确批准。
+     原有“自动批准 MCP 工具”设置不变，不会取消这些内置改色操作的批准要求。
+  8. AI 回答增加“复制”按钮，并对回答内部文本显式启用选择，解决全局 select-none 的继承影响。
+  9. 提示词要求先读取原文、分清层级/并列/顺序/条件/因果，保持观点和顺序；语义不确定先问用户。
+     结构解析和数组扩展保留父子关系、重复标签、换行、空文本及字面反斜杠。
+  10. AI 树工具本次创建的节点提供运行期来源与批次信息；旧节点来源标为 unknown。
+      不为了来源追踪更改 .prg 格式。重开文件或撤销后新建对象的历史来源可能为 unknown。
+
+改动文件与用途
+  新增：app/src/core/service/dataManageService/aiEngine/AITreeLayout.ts
+    纯几何规划、非递归图遍历、缩进解析、避碰、框内空白检查、运行期来源。
+  新增：app/src/core/service/dataManageService/aiEngine/AITreeOperations.ts
+    测量真实 TextNode、生成和扩展、事务恢复、方向切换、平移、锁定保护。
+  修改：app/src/core/service/dataManageService/aiEngine/BuiltInToolExecutors.tsx
+    接入上述流程；普通节点/图片创建支持位置与避让；编辑宽度遵守原有上限。
+  修改：app/src/core/service/dataManageService/aiEngine/BuiltInToolRegistry.ts
+    增量扩充工具参数和描述，增加 move_nodes、check_node_overlaps，声明引用/回滚能力。
+  修改：app/src/core/service/dataManageService/aiEngine/BuiltInToolAgentAdapter.tsx
+    通过现有 AI SDK 批准流程保护改色操作。
+  修改：app/src/core/service/dataManageService/aiEngine/AIEngine.tsx
+    只修改系统提示词；API/ChatGPT 请求分流、认证、流式处理和上下文处理未修改。
+  修改：app/src/sub/AIWindow.tsx
+    回答复制、文字选择和改色批准说明；未改窗口布局、主题或原有设置。
+  新增测试：AITreeLayout.test.ts、AITreeOperations.test.ts、AIColorApproval.test.ts。
+  更新原测试：AITools.test.ts、AIToolsAdapter.test.ts、BuiltInToolRegistry.test.ts。
+  更新 OpenProjectRuntimeHost.test.ts：通过独立替身验证 undefined 返回归一化，
+    不再假定生成树工具成功后仍返回 undefined；运行期 Host 源码未修改。
+
+保护检查
+  与基线逐路径比较，Settings.tsx、ProjectToolSettingsSchema.ts、设置界面、快捷键/控制模块、
+  节点模型、画布、文件保存模块、Tauri/安装配置、package.json、pnpm-lock.yaml 没有差异。
+  用户磁盘上的设置、快捷键、项目文件、登录数据没有写入或迁移。
+  手动创建/粘贴/快捷键操作的旧 TreeImporter 和旧自动布局没有改动。
+  所有修改均位于新的开发分支，可继续累计后续功能。
+
+验证
+  修改前：AI 相关测试 115/115；类型检查通过。
+  修改前扩大检查（排除 CLI 目录）：266 通过，1 失败。
+  修改后 AI、宽度与新增场景测试：151/151。
+  修改后扩大检查（排除 CLI 目录）：293 通过，1 失败，共 294 项。
+  两次相同的唯一失败：OpenProjectRuntimeHost 中创建文件符号链接时 Windows 返回 EPERM。
+  这是当前账户的符号链接权限限制，原基线同样失败；没有将此项记为通过。
+  新增覆盖：两种方向、124/172 像素和更高节点、508 上限、手动加宽限制、深层链、循环检测、
+  80 组随机树尺寸、森林、DAG 共享节点、原图障碍、重复生成、回滚、批次历史、方向切换连线端点、
+  框内成员/锁定、整组平移、文本字面保留和真实 SDK 改色审批。
+  类型检查及修改文件 ESLint 通过；未运行 build。
+
+当前限制与后续验收
+  本机测试运行时为 Node 24.19.0、pnpm 11.25.0；项目声明 Node >=26、pnpm 11.3.0。
+  尚未进行 Node26 的完整发布环境验证、Windows 新包验收或新 UI 的桌面点击验收。
+  CLI 全套另依赖本地 ownership helper 等环境，尝试执行后因基线环境失败而停止，未记作通过。
+  未发送真实模型请求，未消耗用户的 ChatGPT/API 额度；原文语义理解仍可能出错，不能保证模型绝不误解。
+  几何保证针对节点/分组外接矩形，不保证连线永不交叉，也不把任意不对称逻辑强行变成镜像图。
+  循环关系不能树化排版，但可以整体平移；包含涂鸦等非矩形对象的组暂不自动平移。
+  框内空间不足会提示扩大原框，不会为了完成工具调用而自行改变原图。
+  改色执行批准针对本应用内置 Agent 工具；外部 MCP 的通用修改工具仍由原有 MCP 设置与用户授权控制。
+  单次生成上限 2000 个节点，超出时明确要求分批处理，不保留部分生成结果。
+  尚未把本源码替换进正在使用的安装版本；后续功能合并后再做统一 Windows 验收和打包。
+
+恢复
+  当前安装版无需回滚，因为它没有被替换。
+  源码可继续使用原稳定分支 pg11-ui-fix-package-20261012 或基线提交 4cb0505；
+  此开发分支独立保存，不需要 reset 或丢弃用户原工作目录。
+
+审批机制参考：
+  https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling

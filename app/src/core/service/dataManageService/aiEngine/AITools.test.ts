@@ -13,6 +13,7 @@ vi.mock("@/core/service/Settings", () => ({
   },
 }));
 vi.mock("@/core/stage/stageObject/association/Edge", () => ({ Edge: class Edge {} }));
+vi.mock("@/core/stage/stageObject/association/LineEdge", () => ({ LineEdge: class LineEdge {} }));
 vi.mock("@/core/stage/stageObject/entity/ImageNode", () => ({ ImageNode: class ImageNode {} }));
 vi.mock("@/core/stage/stageObject/entity/Section", () => ({ Section: class Section {} }));
 vi.mock("@/core/stage/stageObject/entity/TextNode", () => ({ TextNode: class TextNode {} }));
@@ -90,32 +91,34 @@ function createDeletionProject(initialEntities: ConnectableEntity[], initialAsso
 }
 
 describe("AI layout tool schemas", () => {
-  it("exposes DAG layout without exposing placement", () => {
+  it("exposes measured layout with direction, spacing and an optional target", () => {
     const tool = getTool("auto_layout_dag");
 
     expect(tool.parameters.safeParse({ refs: ["n1", "n2"] }).success).toBe(true);
-    expect(getFields(tool.parameters)).toEqual(["refs"]);
+    expect(
+      tool.parameters.safeParse({ refs: ["n1"], direction: "down", nodeGap: 100, position: { x: 0, y: 0 } }).success,
+    ).toBe(true);
     expect(getBuiltInToolWindowEntries().some((candidate) => candidate.name.includes("placement"))).toBe(false);
   });
 
-  it("does not expose coordinates on text or image creation and editing tools", () => {
+  it("allows creation coordinates while keeping text/image editing separate from movement", () => {
     const createText = getTool("create_text_node");
     const editText = getTool("edit_text_node");
     const editImage = getTool("edit_image_node");
     const searchImage = getTool("search_and_add_image_node");
 
     expect(createText.parameters.safeParse({ text: "node" }).success).toBe(true);
-    expect(getFields(createText.parameters)).not.toEqual(expect.arrayContaining(["x", "y", "placement"]));
+    expect(getFields(createText.parameters)).toContain("position");
     expect(getFields((editText.parameters.shape as { data: unknown }).data)).not.toEqual(
       expect.arrayContaining(["x", "y", "placement"]),
     );
     expect(getFields((editImage.parameters.shape as { data: unknown }).data)).not.toEqual(
       expect.arrayContaining(["x", "y", "placement"]),
     );
-    expect(getFields(searchImage.parameters)).not.toEqual(expect.arrayContaining(["x", "y", "placement"]));
+    expect(getFields(searchImage.parameters)).toContain("position");
   });
 
-  it("rejects unconnected nodes before invoking the DAG layout service", async () => {
+  it("safely lays out unconnected notes without invoking legacy layout", async () => {
     const first = createNode("first");
     const second = createNode("second");
     const objects = new Map([
@@ -127,9 +130,12 @@ describe("AI layout tool schemas", () => {
       stageManager: {
         get: (uuid: string) => objects.get(uuid),
         getEdges: () => [],
+        getEntities: () => [first, second],
+        updateReferences: vi.fn(),
       },
       graphMethods: { isDAGByNodes: vi.fn() },
       autoLayout: { autoLayoutDAG },
+      historyManager: { recordStep: vi.fn() },
     };
     const references = new AIObjectReferenceRegistry(project as never);
     const tools = createBuiltInToolAgentTools(project as never, references) as unknown as Record<
@@ -141,11 +147,11 @@ describe("AI layout tool schemas", () => {
       refs: [references.getOrCreateRef(first), references.getOrCreateRef(second)],
     });
 
-    expect(result).toContain("no_internal_edges");
+    expect(result).toContain("overlapCount: 0");
     expect(autoLayoutDAG).not.toHaveBeenCalled();
   });
 
-  it("passes a valid DAG selection to the shared layout service", async () => {
+  it("uses measured geometry for a valid DAG without invoking legacy layout", async () => {
     const first = createNode("first");
     const second = createNode("second");
     const edge = Object.assign(Object.create(Edge.prototype), { source: first, target: second }) as Edge;
@@ -158,9 +164,12 @@ describe("AI layout tool schemas", () => {
       stageManager: {
         get: (uuid: string) => objects.get(uuid),
         getEdges: () => [edge],
+        getEntities: () => [first, second],
+        updateReferences: vi.fn(),
       },
       graphMethods: { isDAGByNodes: () => true },
       autoLayout: { autoLayoutDAG },
+      historyManager: { recordStep: vi.fn() },
     };
     const references = new AIObjectReferenceRegistry(project as never);
     const tools = createBuiltInToolAgentTools(project as never, references) as unknown as Record<
@@ -172,7 +181,8 @@ describe("AI layout tool schemas", () => {
       refs: [references.getOrCreateRef(first), references.getOrCreateRef(second)],
     });
 
-    expect(autoLayoutDAG).toHaveBeenCalledWith([first, second]);
+    expect(autoLayoutDAG).not.toHaveBeenCalled();
+    expect(second.collisionBox.getRectangle().left).toBeGreaterThan(first.collisionBox.getRectangle().right);
     expect(result).toContain("movedCount");
   });
 });

@@ -119,6 +119,15 @@ const edgeRefSchema = z
   .describe("当前项目中的连线引用，例如e1");
 
 const output = Object.freeze({ contract: "existing-handler-result" as const });
+const pointSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
+const treeLayoutFields = {
+  direction: z.enum(["right", "down"]).optional().describe("right：左右结构（默认）；down：上下结构，均按实际尺寸居中"),
+  levelGap: z.number().min(20).max(2000).optional().describe("层级间净留白，默认100"),
+  nodeGap: z.number().min(10).max(2000).optional().describe("同层节点/子树间净留白，默认40"),
+  treeGap: z.number().min(20).max(2000).optional().describe("不同树之间的净留白，默认80"),
+  safetyGap: z.number().min(20).max(2000).optional().describe("避让原图的安全距离，默认60"),
+  position: pointSchema.optional().describe("目标外接矩形左上角；冲突时整树移到安全空白区"),
+};
 
 function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || typeof value !== "object" || value instanceof RegExp || seen.has(value)) return value;
@@ -240,19 +249,21 @@ const definitions: BuiltInToolDefinition[] = [
   defineTool({
     name: "auto_layout_dag",
     description:
-      "将同一分组层级中已经通过有向连线连接的普通节点，按从左到右的 DAG 分层方式整体布局。创建并连线完成后调用一次；不能用于 Section、孤立节点或有环图。",
-    inputSchema: z.object({ refs: z.array(nodeRefSchema).min(2).describe("需要整体布局的节点项目级引用") }),
+      "按实际换行尺寸居中布局同一分组层级的普通节点、树、DAG或孤立备注，支持right左右结构和down上下结构。只移动refs内节点，避让其他原图，框内空间不足时拒绝且不改变原图；循环图或分组框本身请使用move_nodes整组平移。",
+    inputSchema: z.object({ refs: z.array(nodeRefSchema).min(1), ...treeLayoutFields }),
     capabilities: ["project", "references", "history", "effects", "graph", "layout", "settings"],
     projectReferences: { reads: true, allocates: false },
     cancellation: "none",
-    transaction: "non-transactional",
+    transaction: "rollback-on-error",
     persistence: "project",
   }),
   defineTool({
     name: "create_text_node",
-    description: "创建 TextNode。节点会插入到当前视野中心；完成连线后使用 auto_layout_dag 整体整理，不要尝试提供坐标。",
+    description:
+      "创建TextNode，遵守用户设置的最大宽度并换行。可指定position，自动避让原图；只有用户明确要求时才能传color。完成连线后使用auto_layout_dag整体整理。",
     inputSchema: z.object({
       text: z.string(),
+      position: pointSchema.optional(),
       color: z.array(z.number()).optional().describe("[R,G,B,A]，不填写时使用透明色"),
       width: z.number().min(16).max(4096).optional().describe("手动宽度模式下的文本框宽度"),
       sizeAdjust: z
@@ -270,17 +281,29 @@ const definitions: BuiltInToolDefinition[] = [
   }),
   defineTool({
     name: "generate_node_tree_by_text",
-    description: "根据纯文本缩进结构生成树状节点",
+    description:
+      "按每层2空格的文本生成树或多棵树，严格保留每行内容与父子关系，不添加虚构根节点。默认左右结构，可用direction切换上下结构；限制宽度、按真实高度布局、避让原图、失败回滚。返回创建节点引用与位置，请勿盲目重试。",
     inputSchema: z.object({
       text: z
         .string()
         .describe("包含缩进结构的文本，每一层缩进2个空格，例如：'root\\n  child1\\n  child2\\n    grandchild'"),
+      ...treeLayoutFields,
     }),
-    capabilities: ["project", "history", "effects", "graph", "tree-import", "dom", "settings", "viewport"],
-    projectReferences: { reads: false, allocates: false },
+    capabilities: [
+      "project",
+      "references",
+      "history",
+      "effects",
+      "graph",
+      "tree-import",
+      "dom",
+      "settings",
+      "viewport",
+    ],
+    projectReferences: { reads: false, allocates: true },
     cancellation: "none",
-    transaction: "non-transactional",
-    persistence: "project",
+    transaction: "rollback-on-error",
+    persistence: "project-and-references",
   }),
   defineTool({
     name: "expand_node_tree_from_node",
@@ -288,12 +311,42 @@ const definitions: BuiltInToolDefinition[] = [
     inputSchema: z.object({
       ref: nodeRefSchema.describe("根节点引用"),
       text: z.string().describe("包含缩进结构的文本，每一层缩进2个空格，例如：'child1\\n  grandchild\\nchild2'"),
+      ...treeLayoutFields,
     }),
     capabilities: ["project", "references", "history", "effects", "graph", "tree-import", "dom", "settings"],
+    projectReferences: { reads: true, allocates: true },
+    cancellation: "none",
+    transaction: "rollback-on-error",
+    persistence: "project-and-references",
+  }),
+  defineTool({
+    name: "move_nodes",
+    description:
+      "把指定节点或整棵树（传完整refs）平移到position，或平移delta距离，二选一。内部结构、颜色、宽度不变；分组框自动带上子节点，循环图也可平移。若覆盖原图则拒绝操作。",
+    inputSchema: z.object({
+      refs: z.array(nodeRefSchema).min(1),
+      position: pointSchema.optional(),
+      delta: pointSchema.optional(),
+    }),
+    capabilities: ["project", "references", "history"],
     projectReferences: { reads: true, allocates: false },
     cancellation: "none",
-    transaction: "non-transactional",
+    transaction: "rollback-on-error",
     persistence: "project",
+  }),
+  defineTool({
+    name: "check_node_overlaps",
+    description:
+      "检查指定节点内部及与原图的矩形重叠，refs省略时检查全画布。只报告不修改；分组框与其内部节点的包含关系不视作重叠。",
+    inputSchema: z.object({
+      refs: z.array(nodeRefSchema).min(1).optional(),
+      gap: z.number().min(0).max(2000).optional(),
+    }),
+    capabilities: ["project", "references"],
+    projectReferences: { reads: true, allocates: true },
+    cancellation: "none",
+    transaction: "none",
+    persistence: "project-references",
   }),
   defineTool({
     name: "search_text_nodes_by_regex",
@@ -437,11 +490,12 @@ const definitions: BuiltInToolDefinition[] = [
     inputSchema: z.object({
       ref: nodeRefSchema.describe("源节点引用"),
       texts: z.array(z.string()).describe("要添加的子节点文本数组"),
+      ...treeLayoutFields,
     }),
     capabilities: ["project", "references", "history", "effects", "node-connect", "dom", "settings"],
     projectReferences: { reads: true, allocates: true },
     cancellation: "none",
-    transaction: "partial-success",
+    transaction: "rollback-on-error",
     persistence: "project-and-references",
   }),
   defineTool({
@@ -450,11 +504,12 @@ const definitions: BuiltInToolDefinition[] = [
     inputSchema: z.object({
       ref: nodeRefSchema.describe("根节点引用"),
       texts: z.array(z.string()).describe("要添加的链式节点文本数组"),
+      ...treeLayoutFields,
     }),
     capabilities: ["project", "references", "history", "effects", "node-connect", "dom", "settings"],
     projectReferences: { reads: true, allocates: true },
     cancellation: "none",
-    transaction: "partial-success",
+    transaction: "rollback-on-error",
     persistence: "project-and-references",
   }),
   defineTool({
@@ -492,9 +547,10 @@ const definitions: BuiltInToolDefinition[] = [
   defineTool({
     name: "search_and_add_image_node",
     description:
-      "从 Openverse 搜索开放授权的网络图片，下载后在当前视野中心创建 ImageNode。完成连线后使用 auto_layout_dag 整体整理；工具不返回图片 URL、附件 ID 或坐标。",
+      "从Openverse搜索图片，创建到可选position或当前视野，自动避让已有节点。完成连线后可用auto_layout_dag整体整理。",
     inputSchema: z.object({
       query: z.string().min(1).max(400).describe("图片搜索关键词，建议包含主体、场景和风格"),
+      position: pointSchema.optional(),
       preferredOrientation: z
         .union([z.literal("square"), z.literal("landscape"), z.literal("portrait")])
         .optional()

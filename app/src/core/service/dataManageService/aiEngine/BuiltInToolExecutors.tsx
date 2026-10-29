@@ -13,6 +13,7 @@ import { Rectangle } from "@graphif/shapes";
 import type { BuiltInToolExecutor } from "./BuiltInToolRegistry";
 import { findFirstImageInChildren } from "./imageNodeFinder";
 import type { ImageOrientation, OpenverseImageCandidate } from "./OpenverseImageSearch";
+import { findOverlaps, getAINodeOrigin, objectRect, placeInFreeSpace } from "./AITreeLayout";
 
 const builtInToolExecutorLoaders: Record<string, () => BuiltInToolExecutor> = {};
 
@@ -36,6 +37,7 @@ function toAgentObjectInfo(object: StageObject, references: AIObjectReferenceReg
     size: { width: rect.size.x, height: rect.size.y },
   };
   if (object instanceof TextNode) info.text = object.text;
+  if (object instanceof Entity) info.origin = getAINodeOrigin(object);
   if (object instanceof ImageNode) {
     info.isBackground = object.isBackground;
     info.imageState = object.state;
@@ -137,7 +139,7 @@ addExecutor("delete_all_nodes", () => (project) => {
   }
   return { deletedEntities: entities.length, deletedAssociations: associations.length };
 });
-addExecutor("edit_text_node", () => (project, { ref, data }, references) => {
+addExecutor("edit_text_node", () => async (project, { ref, data }, references) => {
   const node = references.resolve(ref, "node");
   if (!(node instanceof TextNode)) {
     return {
@@ -161,6 +163,7 @@ addExecutor("edit_text_node", () => (project, { ref, data }, references) => {
     };
   }
 
+  const { limitAITextWidth } = await import("./AITreeOperations");
   const previous = {
     text: node.text,
     color: node.color,
@@ -180,6 +183,7 @@ addExecutor("edit_text_node", () => (project, { ref, data }, references) => {
     } else {
       node.forceAdjustSizeByText();
     }
+    limitAITextWidth(node);
 
     project.historyManager.recordStep();
     const finalRect = node.collisionBox.getRectangle();
@@ -276,7 +280,7 @@ addExecutor("edit_image_node", () => (project, { ref, data }, references) => {
     throw error;
   }
 });
-addExecutor("auto_layout_dag", () => (project, { refs }, references) => {
+addExecutor("auto_layout_dag", () => async (project, { refs, ...options }, references) => {
   const uniqueRefs = [...new Set<string>(refs)];
   if (uniqueRefs.length !== refs.length) {
     return { success: false, error: { code: "duplicate_refs", message: "refs 不能包含重复节点引用" } };
@@ -304,24 +308,10 @@ addExecutor("auto_layout_dag", () => (project, { refs }, references) => {
     };
   }
 
-  const nodeIds = new Set(entities.map((entity) => entity.uuid));
-  const internalEdgeCount = project.stageManager
-    .getEdges()
-    .filter((edge) => nodeIds.has(edge.source.uuid) && nodeIds.has(edge.target.uuid)).length;
-  if (internalEdgeCount === 0) {
-    return {
-      success: false,
-      error: { code: "no_internal_edges", message: "DAG 布局至少需要一条位于 refs 范围内的有向连线" },
-    };
-  }
-  if (!project.graphMethods.isDAGByNodes(entities)) {
-    return { success: false, error: { code: "not_dag", message: "指定节点不构成有向无环图" } };
-  }
-
-  const result = project.autoLayout.autoLayoutDAG(entities);
-  return { success: true, ...result };
+  const { layoutAINodes } = await import("./AITreeOperations");
+  return layoutAINodes(project, entities, options);
 });
-addExecutor("create_text_node", () => (project, { text, color, width, sizeAdjust }, references) => {
+addExecutor("create_text_node", () => async (project, { text, color, width, sizeAdjust, position }, references) => {
   if (width !== undefined && sizeAdjust === "auto") {
     return {
       success: false,
@@ -342,7 +332,14 @@ addExecutor("create_text_node", () => (project, { text, color, width, sizeAdjust
     collisionBox: new CollisionBox([new Rectangle(Vector.getZero(), new Vector(width ?? 100, 50))]),
     sizeAdjust: resolvedSizeAdjust,
   });
-  node.moveTo(getViewportCenteredLocation(project, node.collisionBox.getRectangle().size));
+  const { limitAITextWidth } = await import("./AITreeOperations");
+  limitAITextWidth(node);
+  const preferred = position ?? getViewportCenteredLocation(project, node.collisionBox.getRectangle().size);
+  const planned = placeInFreeSpace(
+    [{ ...objectRect(node), x: preferred.x, y: preferred.y }],
+    project.stageManager.getEntities().map(objectRect),
+  );
+  node.collisionBox.updateShapeList([new Rectangle(new Vector(planned[0].x, planned[0].y), node.rectangle.size)]);
   project.stageManager.add(node);
   project.historyManager.recordStep();
   const rect = node.collisionBox.getRectangle();
@@ -353,16 +350,49 @@ addExecutor("create_text_node", () => (project, { text, color, width, sizeAdjust
     sizeAdjust: node.sizeAdjust,
   };
 });
-addExecutor("generate_node_tree_by_text", () => (project, { text }) => {
-  project.stageManager.generateNodeTreeByText(text, 2);
+addExecutor("generate_node_tree_by_text", () => async (project, { text, ...options }, references) => {
+  const { generateAITree } = await import("./AITreeOperations");
+  return generateAITree(project, text, references, options);
 });
-addExecutor("expand_node_tree_from_node", () => (project, { ref, text }, references) => {
+addExecutor("expand_node_tree_from_node", () => async (project, { ref, text, ...options }, references) => {
   const root = references.resolve(ref, "node");
-  const result = project.stageImport.addNodeTreeByTextFromNode(root.uuid, text, 2);
-  if (result.success && result.nodeCount && result.nodeCount > 0) {
-    project.historyManager.recordStep();
-  }
-  return result;
+  if (!(root instanceof TextNode)) throw new Error("扩展根节点必须是文本节点");
+  const { generateAITree } = await import("./AITreeOperations");
+  return generateAITree(project, text, references, options, root);
+});
+addExecutor("move_nodes", () => async (project, { refs, position, delta }, references) => {
+  if (!!position === !!delta) throw new Error("position 与 delta 必须且只能提供一个");
+  const { moveAINodes } = await import("./AITreeOperations");
+  return moveAINodes(project, resolveEntityRefs(refs, references), position ?? delta, !!delta);
+});
+addExecutor("check_node_overlaps", () => (project, { refs, gap }, references) => {
+  const all = project.stageManager.getEntities();
+  const selected = refs ? resolveEntityRefs(refs, references) : all;
+  const ids = new Set(selected.map((node) => node.uuid));
+  const pairs = findOverlaps(
+    selected.map(objectRect),
+    all.filter((node) => !ids.has(node.uuid)).map(objectRect),
+    gap ?? 0,
+  ).filter((pair) => {
+    const first = project.stageManager.get(pair.first) as Entity;
+    const second = project.stageManager.get(pair.second) as Entity;
+    const isAncestor = (ancestor: Entity, child: Entity) => {
+      const visited = new Set<Entity>();
+      for (let parent = child.parentSection; parent && !visited.has(parent); parent = parent.parentSection) {
+        if (parent === ancestor) return true;
+        visited.add(parent);
+      }
+      return false;
+    };
+    return !isAncestor(first, second) && !isAncestor(second, first);
+  });
+  return {
+    overlapCount: pairs.length,
+    overlaps: pairs.map((pair) => ({
+      first: references.getOrCreateRef(project.stageManager.get(pair.first)!),
+      second: references.getOrCreateRef(project.stageManager.get(pair.second)!),
+    })),
+  };
 });
 addExecutor("search_text_nodes_by_regex", () => (project, { regex }, references) => {
   const results: { text: string; ref: string }[] = [];
@@ -559,103 +589,33 @@ addExecutor("get_selected_refs", () => (project, _data, references) => {
   return { refs };
 });
 
-addExecutor("breadth_expand_node", () => (project, { ref, texts }, references) => {
-  const sourceObject = references.resolve(ref, "node");
-  const sourceNode = project.stageManager.getConnectableEntityByUUID(sourceObject.uuid);
-  if (!sourceNode) {
-    return { success: false, error: "源节点不存在或不是可连接对象" };
-  }
-
-  const sourceRect = sourceNode.collisionBox.getRectangle();
-  const startX = sourceRect.location.x + sourceRect.size.x + 100; // 右侧100像素
-  const startY = sourceRect.location.y;
-  const verticalSpacing = 60;
-
-  const results: Array<{ text: string; ref?: string; success: boolean; error?: string }> = [];
-
-  for (let i = 0; i < texts.length; i++) {
-    const text = texts[i];
-    try {
-      const node = new TextNode(project, {
-        text,
-        color: new Color(0, 0, 0, 0), // 透明
-        collisionBox: new CollisionBox([
-          new Rectangle(new Vector(startX, startY + i * verticalSpacing), new Vector(100, 50)),
-        ]),
-        sizeAdjust: "auto" as "auto" | "manual",
-      });
-      project.stageManager.add(node);
-
-      // 创建连线
-      project.nodeConnector.connectConnectableEntity(sourceNode, node, "");
-
-      results.push({ text, ref: references.getOrCreateRef(node), success: true });
-    } catch (error) {
-      results.push({
-        text,
-        success: false,
-        error: error instanceof Error ? error.message : "创建节点失败",
-      });
-    }
-  }
-
-  if (results.some((r) => r.success)) {
-    project.historyManager.recordStep();
-  }
-
-  return { results };
+addExecutor("breadth_expand_node", () => async (project, { ref, texts, ...options }, references) => {
+  const root = references.resolve(ref, "node");
+  if (!(root instanceof ConnectableEntity)) throw new Error("根节点必须是可连接节点");
+  const { generateAITreeEntries } = await import("./AITreeOperations");
+  const result = generateAITreeEntries(
+    project,
+    texts.map((text: string) => ({ text, parent: null })),
+    references,
+    options,
+    root,
+  );
+  return { ...result, results: result.nodes.map((node) => ({ text: node.text, ref: node.ref, success: true })) };
 });
 
-addExecutor("depth_expand_node", () => (project, { ref, texts }, references) => {
-  const rootObject = references.resolve(ref, "node");
-  const rootNode = project.stageManager.getConnectableEntityByUUID(rootObject.uuid);
-  if (!rootNode) {
-    return { success: false, error: "根节点不存在或不是可连接对象" };
-  }
-
-  const results: Array<{ text: string; ref?: string; success: boolean; error?: string }> = [];
-  let currentNode = rootNode;
-  const horizontalSpacing = 150;
-
-  for (let i = 0; i < texts.length; i++) {
-    const text = texts[i];
-    try {
-      const currentRect = currentNode.collisionBox.getRectangle();
-      const node = new TextNode(project, {
-        text,
-        color: new Color(0, 0, 0, 0), // 透明
-        collisionBox: new CollisionBox([
-          new Rectangle(
-            new Vector(currentRect.location.x + horizontalSpacing, currentRect.location.y),
-            new Vector(100, 50),
-          ),
-        ]),
-        sizeAdjust: "auto" as "auto" | "manual",
-      });
-      project.stageManager.add(node);
-
-      // 创建连线：从前一个节点连接到新节点
-      project.nodeConnector.connectConnectableEntity(currentNode, node, "");
-
-      results.push({ text, ref: references.getOrCreateRef(node), success: true });
-      currentNode = node; // 更新当前节点为新建的节点，继续链式扩展
-    } catch (error) {
-      results.push({
-        text,
-        success: false,
-        error: error instanceof Error ? error.message : "创建节点失败",
-      });
-      break; // 链式结构中一旦失败就停止
-    }
-  }
-
-  if (results.some((r) => r.success)) {
-    project.historyManager.recordStep();
-  }
-
-  return { results };
+addExecutor("depth_expand_node", () => async (project, { ref, texts, ...options }, references) => {
+  const root = references.resolve(ref, "node");
+  if (!(root instanceof ConnectableEntity)) throw new Error("根节点必须是可连接节点");
+  const { generateAITreeEntries } = await import("./AITreeOperations");
+  const result = generateAITreeEntries(
+    project,
+    texts.map((text: string, i: number) => ({ text, parent: i === 0 ? null : i - 1 })),
+    references,
+    options,
+    root,
+  );
+  return { ...result, results: result.nodes.map((node) => ({ text: node.text, ref: node.ref, success: true })) };
 });
-
 addExecutor("sort_selected_nodes_by_y", () => (project, { current_order, desired_order }) => {
   // 获取所有选中的TextNode
   const selectedTextNodes = project.stageManager
@@ -772,7 +732,7 @@ addExecutor("sort_selected_nodes_by_x", () => (project, { current_order, desired
 addExecutor(
   "search_and_add_image_node",
   () =>
-    async (project, { query, preferredOrientation, maxDisplaySize }, references, { abortSignal }) => {
+    async (project, { query, preferredOrientation, maxDisplaySize, position }, references, { abortSignal }) => {
       const [imageUtils, imageNodeFactory, entityDetailsManager, openverseImageSearch] = await Promise.all([
         import("@/core/service/dataManageService/imageUtils"),
         import("@/core/service/dataManageService/imageNodeFactory"),
@@ -789,8 +749,14 @@ addExecutor(
         transform: prepareImageBlobForImport,
       });
       const targetDisplaySize = calculateImageDisplaySize(prepared.width, prepared.height, maxDisplaySize ?? 480);
+      const preferred =
+        position ?? getViewportCenteredLocation(project, new Vector(targetDisplaySize.width, targetDisplaySize.height));
+      const [safe] = placeInFreeSpace(
+        [{ id: "new-image", ...preferred, ...targetDisplaySize }],
+        project.stageManager.getEntities().map(objectRect),
+      );
       const { node, width, height } = await createImageNodeFromBlob(project, prepared.blob, {
-        location: getViewportCenteredLocation(project, new Vector(targetDisplaySize.width, targetDisplaySize.height)),
+        location: new Vector(safe.x, safe.y),
         intrinsicSize: prepared,
         maxDisplaySize: maxDisplaySize ?? 480,
         details: createOpenverseImageDetails(candidate, DetailsManager.markdownToDetails),

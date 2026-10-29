@@ -59,6 +59,7 @@ import {
   Bot,
   Check,
   ChevronRight,
+  Copy,
   FolderOpen,
   History,
   MoreHorizontal,
@@ -79,6 +80,7 @@ import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
 import { getOriginalNameOf } from "virtual:original-class-name";
 import { useTranslation } from "react-i18next";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
 let pendingInitialText: string | null = null;
 let pendingInitialPrompt: string | null = null;
@@ -757,7 +759,12 @@ function AIChatPanel({
           {aiConnectionMode === "chatgpt" && (
             <div className="flex items-center gap-2 text-xs">
               <span>{t("chatgpt.usingPlan")}</span>
-              <a className="underline underline-offset-2" href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">
+              <a
+                className="underline underline-offset-2"
+                href="https://chatgpt.com/settings/usage"
+                target="_blank"
+                rel="noreferrer"
+              >
                 {t("chatgpt.manageUsage")}
               </a>
             </div>
@@ -960,7 +967,7 @@ function MessageBubble({
             <div
               key={bubbleIndex}
               className={cn(
-                "flex cursor-text flex-col gap-2 rounded-2xl px-3 py-2 text-sm select-text",
+                "flex cursor-text flex-col gap-2 rounded-2xl px-3 py-2 text-sm select-text [&_*]:select-text",
                 isUser
                   ? "bg-accent text-accent-foreground rounded-br-md"
                   : "bg-card border-border/70 rounded-bl-md border shadow-sm",
@@ -993,7 +1000,7 @@ function MessageBubble({
         ) : (
           <div
             className={cn(
-              "cursor-text rounded-2xl px-3 py-2 text-sm select-text",
+              "cursor-text rounded-2xl px-3 py-2 text-sm select-text [&_*]:select-text",
               isUser
                 ? "bg-accent text-accent-foreground rounded-br-md"
                 : "bg-card border-border/70 rounded-bl-md border shadow-sm",
@@ -1009,6 +1016,30 @@ function MessageBubble({
               {String(message.content ?? "")}
             </Streamdown>
           </div>
+        )}
+        {(!isLast || !requesting) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 self-end text-xs"
+            aria-label="复制回答"
+            onClick={async () => {
+              const text =
+                parts
+                  .filter((part: any) => part.type === "text")
+                  .map((part: any) => part.text)
+                  .join("\n\n") || String(message.content ?? "");
+              try {
+                await writeText(text);
+                toast.success("已复制");
+              } catch {
+                toast.error("复制失败，请重新尝试");
+              }
+            }}
+          >
+            <Copy className="size-3.5" />
+            复制
+          </Button>
         )}
         {!isUser && selectedCount === 1 && parts.some((p: any) => p.type === "text") && (!isLast || !requesting) && (
           <button
@@ -1147,6 +1178,9 @@ function ToolApprovalPart({
       <div className="text-muted-foreground text-xs">
         <span className="font-mono">{name}</span> 请求执行
       </div>
+      {(name === "batch_change_color" || part.input?.color || part.input?.data?.color) && (
+        <div className="text-xs">此操作会设置节点颜色，只有你允许后才会执行；整理结构无需改色。</div>
+      )}
       <pre className="bg-muted max-h-48 overflow-auto rounded-md p-2 font-mono text-xs select-text">
         {JSON.stringify(part.input, null, 2)}
       </pre>
@@ -1198,4 +1232,3 @@ AIWindow.open = () => {
     rect: new Rectangle(new Vector(8, 88), new Vector(380, window.innerHeight - 96)),
   });
 };
-
