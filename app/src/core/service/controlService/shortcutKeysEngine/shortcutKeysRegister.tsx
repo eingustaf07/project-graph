@@ -3943,7 +3943,7 @@ export const allKeyBinds: KeyBindItem[] = [
   // ===================== AI 菜单 =====================
   {
     id: "openAIPanel",
-    defaultKey: "",
+    defaultKey: "a+i",
     icon: ExternalLink,
     when: whenHasProject,
     onPress: () => {

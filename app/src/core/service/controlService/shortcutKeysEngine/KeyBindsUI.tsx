@@ -236,6 +236,10 @@ export namespace KeyBindsUI {
         key = savedData.key;
         isEnabled = savedData.isEnabled !== false;
       }
+      if (keybind.id === "openAIPanel" && key === "" && isEnabled) {
+        key = keybind.defaultKey;
+        await store.set(keybind.id, { key, isEnabled });
+      }
 
       KeyBindsUI.registerOneUIKeyBind(
         keybind.id,
@@ -459,11 +463,18 @@ export namespace KeyBindsUI {
 
   // 跟踪当前按下的持续型快捷键（存放 id，防止重复触发）
   const pressedContinuousKeyBindIds = new Set<string>();
+  const heldLetterKeys = new Set<string>();
+  const clearHeldLetters = () => heldLetterKeys.clear();
+  function clearLettersInInput() {
+    if (!shouldProcessKeyboardEvent()) heldLetterKeys.clear();
+  }
 
   export function uiStartListen() {
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("blur", clearHeldLetters);
+    window.addEventListener("focusin", clearLettersInInput);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("wheel", onWheel, { passive: true });
   }
@@ -472,6 +483,9 @@ export namespace KeyBindsUI {
     window.removeEventListener("mousedown", onMouseDown);
     window.removeEventListener("mouseup", onMouseUp);
     window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("blur", clearHeldLetters);
+    window.removeEventListener("focusin", clearLettersInInput);
+    heldLetterKeys.clear();
     window.removeEventListener("keyup", onKeyUp);
     window.removeEventListener("wheel", onWheel);
     pressedSingleKeyBinds.clear();
@@ -544,19 +558,54 @@ export namespace KeyBindsUI {
     }
   }
   async function onKeyDown(event: KeyboardEvent) {
+    if (event.isComposing || event.keyCode === 229) {
+      heldLetterKeys.clear();
+      return;
+    }
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!shouldProcessKeyboardEvent()) {
       // 清空队列，防止事件积累
       userEventQueue.clear();
+      heldLetterKeys.clear();
       return;
     }
     if (["control", "alt", "shift", "meta"].includes(event.key.toLowerCase())) return;
 
     const activeProject = getFocusedProject();
+    const letter = event.key.toLowerCase();
+    if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey)
+      heldLetterKeys.clear();
+    else if (/^[a-z]$/.test(letter)) heldLetterKeys.add(letter);
+    const letterChords =
+      !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey
+        ? allUIKeyBinds.filter(
+            (bind) =>
+              bind.isEnabled &&
+              /^[a-z]\+[a-z]$/.test(bind.key) &&
+              heldLetterKeys.size === 2 &&
+              bind.key.split("+").every((key) => heldLetterKeys.has(key)),
+          )
+        : [];
 
     enqueue(event);
     if (await interceptInput(event)) {
       event.preventDefault();
+      return;
+    }
+    for (const chord of letterChords) {
+      if (!(await chord.when(activeProject))) continue;
+      event.preventDefault();
+      userEventQueue.clear();
+      for (const binding of allUIKeyBinds) {
+        if (
+          pressedContinuousKeyBindIds.has(binding.id) &&
+          chord.key.split("+").includes(parseSingleEmacsKey(binding.key).key)
+        ) {
+          pressedContinuousKeyBindIds.delete(binding.id);
+          binding.onRelease?.(activeProject);
+        }
+      }
+      if (!event.repeat) await chord.onPress(activeProject);
       return;
     }
 
@@ -595,6 +644,7 @@ export namespace KeyBindsUI {
     }
   }
   async function onKeyUp(event: KeyboardEvent) {
+    heldLetterKeys.delete(event.key.toLowerCase());
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!isMac && !shouldProcessKeyboardEvent()) {
       return;

@@ -275,6 +275,7 @@ export default function KeyBindsPage() {
               </TooltipContent>
             </Tooltip>
             <KeyBind
+              allowLetterChord={id === "openAIPanel"}
               key={keyBindData?.key}
               defaultValue={keyBindData?.key}
               isContinuous={keyBind?.isContinuous}
@@ -630,6 +631,7 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
       "windowOpacityAlphaIncrease",
       "windowOpacityAlphaDecrease",
       "openColorPanel",
+      "openAIPanel",
       "clickAppMenuSettingsButton",
       "clickTagPanelButton",
       "openOutlineWindow",

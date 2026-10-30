@@ -14,20 +14,41 @@ export default function KeyBind({
   defaultValue = "",
   onChange = () => {},
   isContinuous = false,
+  allowLetterChord = false,
 }: {
   defaultValue?: string;
   onChange?: (value: string) => void;
   isContinuous?: boolean;
+  allowLetterChord?: boolean;
 }) {
   const [choosing, setChoosing] = useState(false);
   const [value, setValue] = useState(defaultValue);
   const { t } = useTranslation("keyBinds");
 
   const endInputRef = useRef<() => void>(() => {});
+  const heldLetters = useRef(new Set<string>());
+  const handleKeyUp = useCallback((event: KeyboardEvent) => heldLetters.current.delete(event.key.toLowerCase()), []);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       event.preventDefault();
+      if (
+        allowLetterChord &&
+        !event.repeat &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !event.metaKey &&
+        /^[a-z]$/i.test(event.key)
+      ) {
+        const letter = event.key.toLowerCase();
+        if (heldLetters.current.size === 1 && !heldLetters.current.has(letter)) {
+          setValue([...heldLetters.current, letter].join("+"));
+          heldLetters.current.add(letter);
+          return;
+        }
+        heldLetters.current.add(letter);
+      }
       if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
       if (isContinuous) {
         // 持续型：只允许单键，录入第一个键后立即完成
@@ -46,7 +67,7 @@ export default function KeyBind({
         setValue((prev) => `${prev} ${formatEmacsKey(event)}`);
       }
     },
-    [isContinuous, onChange], // eslint-disable-line react-hooks/exhaustive-deps
+    [isContinuous, onChange, allowLetterChord], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
@@ -69,15 +90,19 @@ export default function KeyBind({
   }, []);
 
   const startInput = useCallback(() => {
+    heldLetters.current.clear();
+    document.addEventListener("keyup", handleKeyUp);
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("mousedown", handleMouseDown);
     document.addEventListener("mouseup", handleMouseUp);
     document.addEventListener("wheel", handleWheel);
     setChoosing(true);
     setValue("");
-  }, [handleKeyDown, handleMouseDown, handleMouseUp, handleWheel]);
+  }, [handleKeyDown, handleKeyUp, handleMouseDown, handleMouseUp, handleWheel]);
 
   const endInputCallback = useCallback(() => {
+    document.removeEventListener("keyup", handleKeyUp);
+    heldLetters.current.clear();
     document.removeEventListener("keydown", handleKeyDown);
     document.removeEventListener("mousedown", handleMouseDown);
     document.removeEventListener("mouseup", handleMouseUp);
@@ -88,6 +113,7 @@ export default function KeyBind({
 
   useEffect(() => {
     return () => {
+      document.removeEventListener("keyup", handleKeyUp);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleMouseDown);
       document.removeEventListener("mouseup", handleMouseUp);
@@ -116,7 +142,7 @@ export default function KeyBind({
       <Button onClick={startInput} variant={choosing ? "outline" : "default"} className="gap-0">
         {value
           ? formatKeyBindSequence(value.trim()).map((item, index) => (
-              <span key={index} className="not-first:before:content-[',_'] flex gap-1 font-bold">
+              <span key={index} className="flex gap-1 font-bold not-first:before:content-[',_']">
                 {item.modifiers.map((modifier, modIndex) => (
                   <span className="bg-card text-foreground rounded-sm px-1 font-semibold" key={modIndex}>
                     {modifier}
@@ -153,7 +179,7 @@ export function RenderKey({ data }: { data: ReturnType<typeof import("@/utils/em
   const modifiers = getModifierDisplayTexts(data);
   const keyShow = formatSigalKeyForDisplay(data.key);
   return (
-    <span className="not-first:before:content-[',_'] flex gap-1 font-bold">
+    <span className="flex gap-1 font-bold not-first:before:content-[',_']">
       {modifiers.map((modifier, index) => (
         <span className="bg-card text-foreground rounded-sm px-1 font-semibold" key={index}>
           {modifier}
