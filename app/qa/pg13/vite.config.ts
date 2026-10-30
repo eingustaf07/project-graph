@@ -14,6 +14,7 @@ const stubs = new Map([
     'export const Settings={clipboardPasteMode:"tauri",textNodeMaxCharWidth:15,textNodePasteSizeAdjustMode:"auto",defaultFontFamily:"Microsoft YaHei",historyManagerMode:"memoryEfficient",historySize:100,showDebug:false,watch:()=>()=>{},ignoreTextNodeTextRenderLessThanFontSize:0};',
   ],
   ["@/core/render/canvas2d/renderer", "export const Renderer={FONT_SIZE:32,NODE_PADDING:14,NODE_ROUNDED_RADIUS:8};"],
+  ["@/core/stage/stageObject/entity/ReferenceBlockNode", "export class ReferenceBlockNode {}"],
   [
     "@/core/stage/stageObject/tools/entityDetailsManager",
     'export class DetailsManager { static markdownToDetails(text) { return [{type:"p",children:[{text}]}]; } }',
@@ -27,7 +28,11 @@ const stubs = new Map([
   ],
   [
     "@tauri-apps/plugin-clipboard-manager",
-    'export const readText=async()=>window.pgClipboard||""; export const writeText=async(text)=>{window.pgClipboard=text}; export const readImage=async()=>{throw new Error("No test image")};',
+    'export { readText, writeText, readImage } from "/qa/pg13/clipboardFixture.ts";',
+  ],
+  [
+    "@/core/service/dataManageService/copyEngine/clipboardFiles",
+    'export { readClipboardImagePaths, readFile } from "/qa/pg13/clipboardFixture.ts";',
   ],
 ]);
 

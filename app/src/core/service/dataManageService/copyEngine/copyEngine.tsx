@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { v4 } from "uuid";
 import { RectangleNoteEffect } from "../../feedbackService/effectEngine/concrete/RectangleNoteEffect";
 import { RectangleNoteReversedEffect } from "../../feedbackService/effectEngine/concrete/RectangleNoteReversedEffect";
-import { CopyEngineImage } from "./copyEngineImage";
+import { ClipboardImageUnavailable, CopyEngineImage } from "./copyEngineImage";
 import { CopyEngineText } from "./copyEngineText";
 import { CopyEngineUtils } from "./copyEngineUtils";
 import { chooseCopyMode, type CopyMode } from "./CopyModeDialog";
@@ -78,6 +78,8 @@ export class CopyEngine {
     const location = this.project.renderer.transformView2World(MouseLocation.vector()).clone();
     try {
       await this.readSystemClipboardAndPaste(location);
+      this.project.controller.resetCountdownTimer();
+      this.project.loop();
     } catch (error) {
       toast.error(`粘贴失败：${String(error)}`);
     }
@@ -157,32 +159,49 @@ export class CopyEngine {
     location = this.project.renderer.transformView2World(MouseLocation.vector()).clone(),
   ) {
     const web = Settings.clipboardPasteMode === "webview" || (Settings.clipboardPasteMode === "auto" && isMac);
-    const pasteImage = async () => {
-      if (web) await this.copyEngineImage.pasteImageFromWebClipboard(location);
-      else await this.copyEngineImage.pasteImageFromTauriClipboard(location);
-      this.project.historyManager.recordStep();
-    };
-    let text: string;
+    let text = "";
+    let textError: unknown;
     try {
       text = web ? await navigator.clipboard.readText() : await readText();
-    } catch (textError) {
-      // Image-only Windows clipboards can reject readText instead of returning an empty string.
+    } catch (error) {
+      textError = error;
+    }
+    const payload = decodeClipboardPayload(text);
+    if (payload) {
+      await this.pasteNodes(payload, location);
+      return;
+    }
+    // Screenshot apps and browsers can publish image and text formats together. Prefer the actual image.
+    const imageErrors: unknown[] = [];
+    const imageReaders = web
+      ? [
+          () => this.copyEngineImage.pasteImageFromWebClipboard(location),
+          () => this.copyEngineImage.pasteImagesFromFileClipboard(location),
+          () => this.copyEngineImage.pasteImageFromTauriClipboard(location),
+        ]
+      : [
+          () => this.copyEngineImage.pasteImagesFromFileClipboard(location),
+          () => this.copyEngineImage.pasteImageFromTauriClipboard(location),
+          () => this.copyEngineImage.pasteImageFromWebClipboard(location),
+        ];
+    for (const readImage of imageReaders) {
       try {
-        await pasteImage();
+        if (!(await readImage())) continue;
+        this.project.historyManager.recordStep();
         return;
-      } catch (imageError) {
-        throw new Error(`无法读取剪贴板：${String(textError)}；${String(imageError)}`, { cause: imageError });
+      } catch (error) {
+        if (!(error instanceof ClipboardImageUnavailable)) throw error;
+        imageErrors.push(error);
       }
     }
     if (text) {
-      const payload = decodeClipboardPayload(text);
-      if (payload) await this.pasteNodes(payload, location);
-      else {
-        await this.copyEngineText.copyEnginePastePlainText(text, location);
-        this.project.historyManager.recordStep();
-      }
+      await this.copyEngineText.copyEnginePastePlainText(text, location);
+      this.project.historyManager.recordStep();
     } else {
-      await pasteImage();
+      throw new AggregateError(
+        [textError, ...imageErrors].filter(Boolean),
+        "剪贴板没有可读取的图片或文字；请在 Snipaste 截图后选择复制到剪贴板，再回到 PG 粘贴",
+      );
     }
   }
 }

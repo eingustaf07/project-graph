@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const clipboard = vi.hoisted(() => ({ text: "", choose: vi.fn(), read: vi.fn(), write: vi.fn() }));
 vi.hoisted(() =>
@@ -58,6 +58,8 @@ import { getMultiLineTextSize } from "@/utils/font";
 import { CopyEngine } from "./copyEngine";
 import { decodeClipboardPayload, encodeClipboardPayload } from "./ClipboardPayload";
 import { toast } from "sonner";
+import { ClipboardImageUnavailable, CopyEngineImage } from "./copyEngineImage";
+import { Settings } from "@/core/service/Settings";
 
 function fixture() {
   const p: any = {
@@ -70,7 +72,8 @@ function fixture() {
       measureMultiLineTextSize: (text: string, size: number, width: number, height: number) =>
         getMultiLineTextSize(text, size, height, width),
     },
-    controller: { pressingKeySet: new Set() },
+    controller: { pressingKeySet: new Set(), resetCountdownTimer: vi.fn() },
+    loop: vi.fn(),
     addAttachment(blob: Blob) {
       const id = crypto.randomUUID();
       this.attachments.set(id, blob);
@@ -107,6 +110,8 @@ function expectPoint(actual: Vector, expected: Vector) {
 }
 
 beforeEach(() => {
+  vi.spyOn(CopyEngineImage.prototype, "pasteImagesFromFileClipboard").mockResolvedValue(false);
+  Settings.clipboardPasteMode = "tauri";
   clipboard.text = "";
   clipboard.read.mockReset().mockImplementation(async () => clipboard.text);
   clipboard.write.mockReset().mockImplementation(async (text: string) => {
@@ -117,8 +122,114 @@ beforeEach(() => {
   MouseLocation.x = 200;
   MouseLocation.y = 150;
 });
+afterEach(() => vi.restoreAllMocks());
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
+  it("routes Explorer image file lists ahead of metadata and bitmap readers", async () => {
+    const p = fixture();
+    addTree(p);
+    clipboard.text = "C:\\Pictures\\test.png";
+    vi.mocked(CopyEngineImage.prototype.pasteImagesFromFileClipboard).mockResolvedValue(true);
+    const native = vi.spyOn(CopyEngineImage.prototype, "pasteImageFromTauriClipboard").mockResolvedValue(true);
+    const record = vi.spyOn(p.historyManager, "recordStep");
+    await p.copyEngine.paste();
+    expect(CopyEngineImage.prototype.pasteImagesFromFileClipboard).toHaveBeenCalledWith(new Vector(-4600, 3300));
+    expect(native).not.toHaveBeenCalled();
+    expect(record).toHaveBeenCalledOnce();
+    expect(p.stage).toHaveLength(3);
+    expect(p.controller.resetCountdownTimer).toHaveBeenCalledOnce();
+    expect(p.loop).toHaveBeenCalledOnce();
+  });
+
+  it("reports an unreadable image file without falling back to filename text", async () => {
+    const p = fixture();
+    addTree(p);
+    clipboard.text = "C:\\Pictures\\missing.png";
+    vi.mocked(CopyEngineImage.prototype.pasteImagesFromFileClipboard).mockRejectedValue(new Error("图片文件已删除"));
+    const record = vi.spyOn(p.historyManager, "recordStep");
+    await p.copyEngine.paste();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("图片文件已删除"));
+    expect(record).not.toHaveBeenCalled();
+    expect(p.stage).toHaveLength(3);
+  });
+  it("prioritizes screenshot pixels over accompanying text metadata", async () => {
+    const p = fixture();
+    addTree(p);
+    clipboard.text = "Snipaste screenshot metadata";
+    const native = vi.spyOn(CopyEngineImage.prototype, "pasteImageFromTauriClipboard").mockResolvedValue(true);
+    const web = vi.spyOn(CopyEngineImage.prototype, "pasteImageFromWebClipboard").mockResolvedValue(false);
+    const record = vi.spyOn(p.historyManager, "recordStep");
+    await p.copyEngine.paste();
+    expect(native).toHaveBeenCalledWith(new Vector(-4600, 3300));
+    expect(web).not.toHaveBeenCalled();
+    expect(record).toHaveBeenCalledOnce();
+    expect(p.stage).toHaveLength(3);
+  });
+
+  it("uses the web image reader when native clipboard format is unavailable", async () => {
+    const p = fixture();
+    addTree(p);
+    vi.spyOn(CopyEngineImage.prototype, "pasteImageFromTauriClipboard").mockRejectedValue(
+      new ClipboardImageUnavailable("unsupported format"),
+    );
+    const web = vi.spyOn(CopyEngineImage.prototype, "pasteImageFromWebClipboard").mockResolvedValue(true);
+    clipboard.read.mockRejectedValueOnce(new Error("no text format"));
+    await p.copyEngine.paste();
+    expect(web).toHaveBeenCalledOnce();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the Windows reader if configured web clipboard permission is denied", async () => {
+    const p = fixture();
+    addTree(p);
+    Settings.clipboardPasteMode = "webview";
+    const web = vi
+      .spyOn(CopyEngineImage.prototype, "pasteImageFromWebClipboard")
+      .mockRejectedValue(new ClipboardImageUnavailable("permission denied"));
+    const native = vi.spyOn(CopyEngineImage.prototype, "pasteImageFromTauriClipboard").mockResolvedValue(true);
+    await p.copyEngine.paste();
+    expect(web).toHaveBeenCalledOnce();
+    expect(native).toHaveBeenCalledOnce();
+    expect(Settings.clipboardPasteMode).toBe("webview");
+  });
+
+  it("reports damaged image data without pasting metadata or recording a false success", async () => {
+    const p = fixture();
+    addTree(p);
+    clipboard.text = "image source text";
+    vi.spyOn(CopyEngineImage.prototype, "pasteImageFromTauriClipboard").mockRejectedValue(new Error("incomplete RGBA"));
+    const web = vi.spyOn(CopyEngineImage.prototype, "pasteImageFromWebClipboard").mockResolvedValue(false);
+    const record = vi.spyOn(p.historyManager, "recordStep");
+    await p.copyEngine.paste();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("incomplete RGBA"));
+    expect(web).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+    expect(p.stage).toHaveLength(3);
+  });
+
+  it("keeps node payloads ahead of image formats and stale screenshot data", async () => {
+    const p = fixture();
+    addTree(p);
+    await p.copyEngine.copy("nodes");
+    const native = vi.spyOn(CopyEngineImage.prototype, "pasteImageFromTauriClipboard").mockResolvedValue(true);
+    await p.copyEngine.paste();
+    expect(native).not.toHaveBeenCalled();
+    expect(p.stage).toHaveLength(6);
+  });
+
+  it("reports an empty clipboard without creating history", async () => {
+    const p = fixture();
+    addTree(p);
+    vi.spyOn(CopyEngineImage.prototype, "pasteImageFromTauriClipboard").mockRejectedValue(
+      new ClipboardImageUnavailable("empty"),
+    );
+    vi.spyOn(CopyEngineImage.prototype, "pasteImageFromWebClipboard").mockResolvedValue(false);
+    const record = vi.spyOn(p.historyManager, "recordStep");
+    await p.copyEngine.paste();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("Snipaste"));
+    expect(record).not.toHaveBeenCalled();
+    expect(p.stage).toHaveLength(3);
+  });
   it("offers both copy modes and keeps the original selection", async () => {
     const p = fixture();
     const { a, b } = addTree(p);

@@ -10,6 +10,7 @@ import { TabWorkspace } from "@/core/TabWorkspace";
 import { getTabGroups } from "@/core/TabGroup";
 import { CopyEngine } from "@/core/service/dataManageService/copyEngine/copyEngine";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageManager } from "@/core/stage/stageManager/StageManager";
@@ -19,9 +20,13 @@ import { MouseLocation } from "@/core/service/controlService/MouseLocation";
 import { TextRenderer } from "@/core/render/canvas2d/basicRenderer/textRenderer";
 import { ShapeRenderer } from "@/core/render/canvas2d/basicRenderer/shapeRenderer";
 import { TextNodeRenderer } from "@/core/render/canvas2d/entityRenderer/textNode/TextNodeRenderer";
+import { ImageRenderer } from "@/core/render/canvas2d/basicRenderer/ImageRenderer";
+import { DeleteManager } from "@/core/stage/stageManager/concreteMethods/StageDeleteManager";
+import { ControllerImageScaleClass } from "@/core/service/controlService/controller/concrete/ControllerImageScale";
 import { Vector, Color } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
-import { serialize } from "@graphif/serializer";
+import { serialize, deserialize } from "@graphif/serializer";
+import { Encoder, decode } from "@msgpack/msgpack";
 
 let current: DocumentTab;
 class DocumentTab extends Tab {
@@ -47,11 +52,16 @@ class DocumentTab extends Tab {
       autoComputeUtils: { isNameIsLogicNode: () => false },
       keyboardOnlyEngine: { isOpenning: () => false },
       collisionBoxRenderer: { render() {} },
-      syncAssociationManager: { getSyncAssociationsByObject: () => [], getSyncSiblings: () => [] },
+      syncAssociationManager: {
+        getSyncAssociationsByObject: () => [],
+        getSyncSiblings: () => [],
+        onStageObjectDeleted() {},
+      },
       stageStyleManager: {
         currentStyle: { Background: new Color(20, 20, 20), StageObjectBorder: new Color(185, 210, 210) },
       },
-      controller: { pressingKeySet: new Set() },
+      controller: { pressingKeySet: new Set(), resetCountdownTimer() {} },
+      loop() {},
       addAttachment(blob: Blob) {
         const id = crypto.randomUUID();
         this.attachments.set(id, blob);
@@ -61,6 +71,7 @@ class DocumentTab extends Tab {
     p.textRenderer = new TextRenderer(p);
     p.shapeRenderer = new ShapeRenderer(p);
     p.stageManager = new StageManager(p);
+    p.deleteManager = new DeleteManager(p);
     p.sectionMethods = new SectionMethods(p);
     p.copyEngine = new CopyEngine(p);
     if (withTree) {
@@ -92,7 +103,7 @@ function draw(tab: DocumentTab, canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d")!;
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
-  p.canvas = { ctx, width: canvas.width, height: canvas.height };
+  p.canvas = { ctx, width: canvas.width, height: canvas.height, element: canvas };
   p.renderer.w = canvas.width;
   p.renderer.h = canvas.height;
   ctx.fillStyle = "#141414";
@@ -108,6 +119,11 @@ function draw(tab: DocumentTab, canvas: HTMLCanvasElement) {
   }
   const renderer = new TextNodeRenderer(p);
   for (const n of p.stage.filter((n: unknown) => n instanceof TextNode)) renderer.renderTextNode(n);
+  const images = new ImageRenderer(p);
+  for (const node of p.stage.filter((n: unknown) => n instanceof ImageNode)) {
+    if (node.state === "success")
+      images.renderImageElement(node.bitmap, p.renderer.transformWorld2View(node.rectangle.location), node.scale);
+  }
 }
 function Graph({ tab }: { tab: DocumentTab }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -172,6 +188,76 @@ Object.assign(window, {
       return Rectangle.getBoundingRectangle(nodes.map((n: Entity) => n.collisionBox.getRectangle())).center;
     },
     instancesIntact: () => store.get(tabsAtom).includes(first) && store.get(tabsAtom).includes(second),
+    async imageSnapshot() {
+      const p = second.project;
+      const result = [];
+      for (const node of p.stage.filter((n: unknown) => n instanceof ImageNode)) {
+        await node.waitForClipboardBitmap();
+        const canvas = document.createElement("canvas");
+        canvas.width = node.bitmap.width;
+        canvas.height = node.bitmap.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(node.bitmap, 0, 0);
+        result.push({
+          id: node.uuid,
+          center: node.rectangle.center,
+          width: node.bitmap.width,
+          height: node.bitmap.height,
+          firstPixel: [...ctx.getImageData(2, 2, 1, 1).data],
+          transparentPixel: [...ctx.getImageData(canvas.width - 2, canvas.height - 2, 1, 1).data],
+          attachmentBytes: p.attachments.get(node.attachmentId)?.size,
+        });
+      }
+      return result;
+    },
+    async imageNodeOperations() {
+      const p = second.project;
+      const image = p.stage.find((node: unknown) => node instanceof ImageNode) as ImageNode;
+      p.stageManager.clearSelectAll();
+      image.isSelected = true;
+      const original = image.rectangle.location.clone();
+      image.move(new Vector(40, 25));
+      const moved = image.rectangle.location.subtract(original);
+      p.controller.pressingKeySet.add("control");
+      const scaler = new ControllerImageScaleClass(p);
+      const point = p.renderer.transformWorld2View(image.rectangle.center);
+      const beforeScale = image.scale;
+      scaler.mousewheel(new WheelEvent("wheel", { clientX: point.x, clientY: point.y, deltaY: -100 }));
+      scaler.dispose();
+      p.controller.pressingKeySet.clear();
+      const scaled = image.scale > beforeScale;
+      const target = new TextNode(p, { text: "图片也能连线" });
+      p.stageManager.add(target);
+      const edge = new LineEdge(p, { associationList: [image, target] });
+      p.stageManager.add(edge);
+      p.historyManager.recordStep();
+      const linked = edge.source === image && edge.target === target;
+      await p.copyEngine.copy("nodes");
+      const beforePaste = p.stage.length;
+      await p.copyEngine.paste();
+      const copied = p.stage.slice(beforePaste).find((node: unknown) => node instanceof ImageNode) as ImageNode;
+      const copiedCorrectly = !!copied && copied.uuid !== image.uuid && copied.attachmentId !== image.attachmentId;
+      const count = p.stage.length;
+      p.stageManager.deleteEntities([image]);
+      const deleted = !p.stage.includes(image) && !p.stage.includes(edge);
+      p.historyManager.undo();
+      const undone = p.stage.length === count && !!p.stageManager.get(image.uuid);
+      p.historyManager.redo();
+      const redone = !p.stageManager.get(image.uuid);
+      window.dispatchEvent(new Event("qa-redraw"));
+      return { moved, scaled, linked, copiedCorrectly, deleted, undone, redone };
+    },
+    async reloadImagesFromMsgpack() {
+      const p = second.project;
+      const saved = new Encoder().encode(serialize(p.stage));
+      await Promise.all(p.stage.filter((n: unknown) => n instanceof ImageNode).map((n: ImageNode) => n.dispose()));
+      p.stage = deserialize(decode(saved), p);
+      p.stageManager.updateReferences();
+      await Promise.all(
+        p.stage.filter((n: unknown) => n instanceof ImageNode).map((n: ImageNode) => n.waitForClipboardBitmap()),
+      );
+      window.dispatchEvent(new Event("qa-redraw"));
+    },
   },
 });
 createRoot(document.getElementById("root")!).render(
