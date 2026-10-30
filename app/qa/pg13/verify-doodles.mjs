@@ -175,6 +175,13 @@ try {
     await page.locator("canvas").hover({ position: { x: 1070, y: 620 } });
     await page.keyboard.press("Control+v");
     await page.waitForFunction((length) => window.doodleQA.images().length === length, wrap ? 2 : 1);
+    await page.waitForFunction(
+      ({ wrap, container }) => {
+        const image = window.doodleQA.images().at(-1);
+        return wrap ? image?.parent && image.parent !== container : image?.parent === container;
+      },
+      { wrap, container: cage.id },
+    );
     const image = (await page.evaluate(() => window.doodleQA.images())).at(-1);
     contains((await shapes())[1], image);
     if (!wrap) assert.equal(image.parent, cage.id);

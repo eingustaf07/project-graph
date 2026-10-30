@@ -98,7 +98,36 @@ try {
   await directTitle.press("Enter");
   assert.equal((await shapes())[1].name, "第二个图形");
   assert.equal((await shapes())[0].name, "");
+  await page.locator("canvas").dblclick({ position: { x: 250, y: 250 } });
+  const beforeMove = await shapes();
+  const beforeNodes = await page.evaluate(() => window.doodleQA.nodes());
+  assert.equal(beforeNodes[0].parent, beforeMove[0].id);
   await page.evaluate(() => (window.doodleQA.settings.mouseLeftMode = "draw"));
+  await drag([250, 100], [330, 180]);
+  let moved = await shapes();
+  assert.equal(moved[0].rect.x, beforeMove[0].rect.x + 80);
+  assert.equal(moved[0].rect.y, beforeMove[0].rect.y + 80);
+  assert.deepEqual(moved[1], beforeMove[1]);
+  const movedNodes = await page.evaluate(() => window.doodleQA.nodes());
+  assert.equal(movedNodes[0].x, beforeNodes[0].x + 80);
+  assert.equal(movedNodes[0].y, beforeNodes[0].y + 80);
+  assert.equal(movedNodes[0].parent, beforeNodes[0].parent);
+  await page.keyboard.press("Control+z");
+  assert.deepEqual(await shapes(), beforeMove, "one undo restores the whole container drag");
+  assert.deepEqual(await page.evaluate(() => window.doodleQA.nodes()), beforeNodes);
+  await page.keyboard.press("Control+y");
+  assert.deepEqual(await shapes(), moved);
+  await drag([800, 100], [780, 130]);
+  moved = await shapes();
+  assert.equal(moved[1].rect.x, beforeMove[1].rect.x - 20);
+  assert.equal(moved[1].rect.y, beforeMove[1].rect.y + 30);
+  const beforeCancel = await shapes();
+  await page.mouse.move(300, 180);
+  await page.mouse.down();
+  await page.mouse.move(400, 280, { steps: 5 });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  assert.deepEqual(await shapes(), beforeCancel, "Escape cancels container drag");
   const snapshot = await shapes();
   await page.evaluate(() => window.doodleQA.reload());
   assert.deepEqual(await shapes(), snapshot);
@@ -123,6 +152,9 @@ try {
           "rename and clear title",
           "double click focuses inline title in draw and select modes",
           "Enter saves, Escape cancels, outside click saves empty title",
+          "direct border drag moves container and its nodes together",
+          "one drag is one undo step and Escape cancels",
+          "decorative frame drag leaves other frames unchanged",
           "undo redo",
           "binary reload",
           "drawing mode unchanged and no extra strokes",

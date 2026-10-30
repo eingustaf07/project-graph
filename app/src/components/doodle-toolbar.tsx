@@ -114,6 +114,46 @@ export default function DoodleToolbar({ project }: { project: Project }) {
   };
   useEffect(() => {
     let frame = 0;
+    let moving: { entity: Doodle; pointerId: number; start: Vector; original: Vector; moved: boolean } | undefined;
+    const moveFrame = (event: globalThis.PointerEvent) => {
+      if (!moving || moving.pointerId !== event.pointerId) return;
+      const point = project.canvas.clientToView(event.clientX, event.clientY);
+      const delta = project.renderer.transformView2World(point).subtract(moving.start);
+      if (!moving.moved && delta.magnitude() * project.camera.currentScale < 3) return;
+      moving.moved = true;
+      moving.entity.moveTo(moving.original.add(delta));
+      project.controller.resetCountdownTimer();
+      project.loop();
+      redraw((value) => value + 1);
+    };
+    const stopFrameDrag = (event: globalThis.PointerEvent) => {
+      if (!moving || moving.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      moveFrame(event);
+      const finished = moving;
+      moving = undefined;
+      if (project.canvas.element.hasPointerCapture(event.pointerId))
+        project.canvas.element.releasePointerCapture(event.pointerId);
+      if (finished.moved) {
+        project.stageManager.updateReferences();
+        project.historyManager.recordStep();
+      }
+    };
+    const cancelFrameDrag = () => {
+      if (!moving) return;
+      const cancelled = moving;
+      moving = undefined;
+      if (cancelled.moved) cancelled.entity.moveTo(cancelled.original);
+      if (project.canvas.element.hasPointerCapture(cancelled.pointerId))
+        project.canvas.element.releasePointerCapture(cancelled.pointerId);
+      project.controller.resetCountdownTimer();
+      project.loop();
+      redraw((value) => value + 1);
+    };
+    const cancelFrameDragByKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") cancelFrameDrag();
+    };
     const sync = () => {
       frame = 0;
       setSelected(
@@ -131,6 +171,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
         event.metaKey ||
         event.shiftKey ||
         Settings.viewerMode ||
+        project.controller.camera?.isPreGrabbingWhenSpace ||
         Settings.penStrokeEraser
       )
         return;
@@ -147,6 +188,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     const selectFrameInDrawingMode = (event: globalThis.PointerEvent) => {
       if (
         Settings.mouseLeftMode !== "draw" ||
+        project.controller.camera?.isPreGrabbingWhenSpace ||
         Settings.penStrokeEraser ||
         Settings.viewerMode ||
         event.pointerType === "pen" ||
@@ -165,6 +207,14 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       entity.isSelected = true;
       setSelected(entity);
       setEditingId(entity.uuid);
+      moving = {
+        entity,
+        pointerId: event.pointerId,
+        start: project.renderer.transformView2World(point),
+        original: entity.frame.location.clone(),
+        moved: false,
+      };
+      project.canvas.element.setPointerCapture(event.pointerId);
       project.controller.resetCountdownTimer();
       project.loop();
     };
@@ -195,6 +245,11 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     };
     project.on("state-change", schedule);
     project.canvas.element.addEventListener("dblclick", editTitle, true);
+    project.canvas.element.addEventListener("pointermove", moveFrame, true);
+    project.canvas.element.addEventListener("pointerup", stopFrameDrag, true);
+    project.canvas.element.addEventListener("pointercancel", cancelFrameDrag);
+    project.canvas.element.addEventListener("lostpointercapture", cancelFrameDrag);
+    window.addEventListener("keydown", cancelFrameDragByKey);
     project.canvas.element.addEventListener("pointerdown", selectFrameInDrawingMode, true);
     project.canvas.element.addEventListener("pointerup", clickFrame);
     window.addEventListener("pointerup", schedule);
@@ -206,6 +261,12 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       cancelAnimationFrame(frame);
       project.off("state-change", schedule);
       project.canvas.element.removeEventListener("dblclick", editTitle, true);
+      project.canvas.element.removeEventListener("pointermove", moveFrame, true);
+      project.canvas.element.removeEventListener("pointerup", stopFrameDrag, true);
+      project.canvas.element.removeEventListener("pointercancel", cancelFrameDrag);
+      project.canvas.element.removeEventListener("lostpointercapture", cancelFrameDrag);
+      window.removeEventListener("keydown", cancelFrameDragByKey);
+      cancelFrameDrag();
       project.canvas.element.removeEventListener("pointerdown", selectFrameInDrawingMode, true);
       project.canvas.element.removeEventListener("pointerup", clickFrame);
       window.removeEventListener("pointerup", schedule);
