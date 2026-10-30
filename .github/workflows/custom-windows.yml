@@ -1,7 +1,8 @@
 name: Custom Windows installer
 on:
   push:
-    branches: [pg1.1-chatgpt-signin, pg11-ui-fix-package-20261012, pg11-ai-tree-safety-20261029]
+    branches:
+      [pg1.1-chatgpt-signin, pg11-ui-fix-package-20261012, pg11-ai-tree-safety-20261029, pg13-clipboard-20261030]
     paths-ignore:
       - "**/*.md"
   workflow_dispatch:
@@ -38,6 +39,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @graphif/project-graph type-check
       - run: cargo test --manifest-path app/src-tauri/Cargo.toml --lib chatgpt_auth::tests
+      - run: cargo test --manifest-path app/src-tauri/Cargo.toml --lib windows_clipboard_files::tests
       - run: cargo build --manifest-path app/src-tauri/Cargo.toml --bin project-graph-ownership-helper
       - name: Verify regression gate
         run: node --test scripts/pg11-regression-gate-checks.mjs
@@ -47,7 +49,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: PG1.2-regression-results
+          name: PG1.3-regression-results
           path: regression-results.json
           if-no-files-found: error
       - uses: actions/download-artifact@v4
@@ -63,7 +65,7 @@ jobs:
           TAURI_BUILD_ARGS: --bundles nsis
       - uses: actions/upload-artifact@v4
         with:
-          name: Project-Graph-PG1.2-Windows
+          name: Project-Graph-PG1.3-Windows
           path: app/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
       - name: Save installer as a draft release
@@ -73,10 +75,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $installers = @(Get-ChildItem app/src-tauri/target/release/bundle/nsis/*.exe | ForEach-Object FullName)
-          gh release create "pg1.2-build-${{ github.run_number }}" @installers --target "${{ github.sha }}" --draft --title "Project Graph PG1.2 ${{ github.run_number }}" --notes-file PG1.2-RELEASE.txt
+          gh release create "pg1.3-build-${{ github.run_number }}" @installers --target "${{ github.sha }}" --draft --title "Project Graph PG1.3 ${{ github.run_number }}" --notes-file PG1.3-RELEASE.txt
 
   pg10-baseline:
-    if: github.ref == 'refs/heads/pg1.1-chatgpt-signin' || github.ref == 'refs/heads/pg11-ui-fix-package-20261012' || github.ref == 'refs/heads/pg11-ai-tree-safety-20261029'
+    if: github.ref == 'refs/heads/pg1.1-chatgpt-signin' || github.ref == 'refs/heads/pg11-ui-fix-package-20261012' || github.ref == 'refs/heads/pg11-ai-tree-safety-20261029' || github.ref == 'refs/heads/pg13-clipboard-20261030'
     name: PG1.0 immutable baseline regression
     defaults:
       run:
