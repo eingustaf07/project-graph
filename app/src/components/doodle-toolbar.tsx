@@ -59,6 +59,8 @@ export default function DoodleToolbar({ project }: { project: Project }) {
   const [color, setColor] = useState("#16a085");
   const [selected, setSelected] = useState<Doodle>();
   const [editingId, setEditingId] = useState<string>();
+  const [titleEditingId, setTitleEditingId] = useState<string>();
+  const titleInput = useRef<HTMLInputElement>(null);
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
   const [legacy, setLegacy] = useState(false);
@@ -166,7 +168,33 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       project.controller.resetCountdownTimer();
       project.loop();
     };
+    const editTitle = (event: MouseEvent) => {
+      if (
+        event.button !== 0 ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        Settings.viewerMode ||
+        Settings.penStrokeEraser
+      )
+        return;
+      const point = project.canvas.clientToView(event.clientX, event.clientY);
+      const entity = project.stageManager.findEntityByLocation(project.renderer.transformView2World(point));
+      if (!(entity instanceof Doodle) || project.sectionMethods.isObjectBeLockedBySection(entity)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      project.stageManager.clearSelectAll();
+      entity.isSelected = true;
+      setSelected(entity);
+      setName(entity.text);
+      setEditingId(entity.uuid);
+      setTitleEditingId(entity.uuid);
+      setOptionsOpen(false);
+      project.controller.resetCountdownTimer();
+      project.loop();
+    };
     project.on("state-change", schedule);
+    project.canvas.element.addEventListener("dblclick", editTitle, true);
     project.canvas.element.addEventListener("pointerdown", selectFrameInDrawingMode, true);
     project.canvas.element.addEventListener("pointerup", clickFrame);
     window.addEventListener("pointerup", schedule);
@@ -177,6 +205,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     return () => {
       cancelAnimationFrame(frame);
       project.off("state-change", schedule);
+      project.canvas.element.removeEventListener("dblclick", editTitle, true);
       project.canvas.element.removeEventListener("pointerdown", selectFrameInDrawingMode, true);
       project.canvas.element.removeEventListener("pointerup", clickFrame);
       window.removeEventListener("pointerup", schedule);
@@ -188,6 +217,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
   useEffect(() => {
     if (!selected) {
       setEditingId(undefined);
+      setTitleEditingId(undefined);
       return;
     }
     setBounded(selected.bounded);
@@ -196,6 +226,12 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     setWidth(String(Math.round(selected.frame.width)));
     setHeight(String(Math.round(selected.frame.height)));
   }, [selected]);
+  useEffect(() => {
+    if (titleEditingId && selected?.uuid === titleEditingId) {
+      titleInput.current?.focus();
+      titleInput.current?.select();
+    }
+  }, [titleEditingId, selected]);
   useEffect(() => {
     if (!tool && !resize) return;
     const cancel = (event: KeyboardEvent) => {
@@ -300,6 +336,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
         project.historyManager.recordStep();
       }
       setEditingId(undefined);
+      setTitleEditingId(undefined);
       setOptionsOpen(false);
       refresh();
       return true;
@@ -341,6 +378,33 @@ export default function DoodleToolbar({ project }: { project: Project }) {
 
   return (
     <>
+      {editing && titleEditingId === selected?.uuid && viewFrame && (
+        <Input
+          ref={titleInput}
+          data-pg-doodle-parameters
+          aria-label="编辑图形标题"
+          placeholder="标题（可留空）"
+          className="bg-popover absolute z-50 h-8"
+          style={{
+            left: Math.max(4, viewFrame.left),
+            top: Math.max(4, viewFrame.top - 38),
+            width: Math.max(160, Math.min(360, viewFrame.width)),
+          }}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              fixBoundary();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              setName(selected.text);
+              setTitleEditingId(undefined);
+            }
+          }}
+        />
+      )}
       {tool && !viewer && (
         <div
           ref={layer}

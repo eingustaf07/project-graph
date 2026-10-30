@@ -76,6 +76,29 @@ try {
   assert.equal((await shapes())[0].name, "研究区");
   await page.keyboard.press("Control+y");
   assert.equal((await shapes())[0].name, "");
+  const directTitle = page.getByRole("textbox", { name: "编辑图形标题", exact: true });
+  await page.locator("canvas").dblclick({ position: { x: 250, y: 100 } });
+  await directTitle.waitFor({ state: "visible" });
+  assert.equal(await directTitle.evaluate((element) => element === document.activeElement), true);
+  await directTitle.fill("双击直接改名");
+  await directTitle.press("Enter");
+  assert.equal((await shapes())[0].name, "双击直接改名");
+  await page.locator("canvas").dblclick({ position: { x: 250, y: 100 } });
+  await directTitle.fill("取消的标题");
+  await directTitle.press("Escape");
+  assert.equal((await shapes())[0].name, "双击直接改名");
+  assert.equal(await directTitle.count(), 0);
+  await page.locator("canvas").dblclick({ position: { x: 250, y: 100 } });
+  await directTitle.fill("");
+  await finish();
+  assert.equal((await shapes())[0].name, "");
+  await page.evaluate(() => (window.doodleQA.settings.mouseLeftMode = "selectAndMove"));
+  await page.locator("canvas").dblclick({ position: { x: 800, y: 100 } });
+  await directTitle.fill("第二个图形");
+  await directTitle.press("Enter");
+  assert.equal((await shapes())[1].name, "第二个图形");
+  assert.equal((await shapes())[0].name, "");
+  await page.evaluate(() => (window.doodleQA.settings.mouseLeftMode = "draw"));
   const snapshot = await shapes();
   await page.evaluate(() => window.doodleQA.reload());
   assert.deepEqual(await shapes(), snapshot);
@@ -98,6 +121,8 @@ try {
           "unselected frame unchanged",
           "default empty title",
           "rename and clear title",
+          "double click focuses inline title in draw and select modes",
+          "Enter saves, Escape cancels, outside click saves empty title",
           "undo redo",
           "binary reload",
           "drawing mode unchanged and no extra strokes",
