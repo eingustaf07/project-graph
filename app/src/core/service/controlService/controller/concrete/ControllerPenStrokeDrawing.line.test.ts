@@ -17,6 +17,7 @@ vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsM
 vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: {} }));
 vi.mock("@/utils/platform", () => ({ isMac: false, isWeb: false }));
 vi.mock("@/core/stage/stageObject/entity/LatexNode", () => ({ LatexNode: class {} }));
+vi.mock("@/core/stage/stageObject/entity/ReferenceBlockNode", () => ({ ReferenceBlockNode: class {} }));
 vi.mock("sonner", () => ({ toast: { warning: vi.fn(), error: vi.fn(), success: vi.fn(), promise: vi.fn() } }));
 import { Settings } from "@/core/service/Settings";
 import type { Project } from "@/core/Project";
@@ -36,6 +37,11 @@ import { Rectangle } from "@graphif/shapes";
 import { serialize, deserialize } from "@graphif/serializer";
 import { Encoder, decode } from "@msgpack/msgpack";
 import { toast } from "sonner";
+import { CanvasEraser } from "./CanvasEraser";
+import { DeleteManager } from "@/core/stage/stageManager/concreteMethods/StageDeleteManager";
+import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
+import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { Section } from "@/core/stage/stageObject/entity/Section";
 const controls: ControllerPenStrokeDrawingClass[] = [];
 function fixture() {
   const p: any = {
@@ -53,7 +59,7 @@ function fixture() {
     },
     effects: { addEffect: vi.fn() },
     sectionCollisionSolver: { solveOverlaps: vi.fn() },
-    syncAssociationManager: { syncFrom: vi.fn() },
+    syncAssociationManager: { syncFrom: vi.fn(), onStageObjectDeleted: vi.fn() },
     stageStyleManager: { currentStyle: { StageObjectBorder: new Color(200, 200, 200) } },
     curveRenderer: { renderSolidLine: vi.fn(), renderPenStroke: vi.fn() },
     shapeRenderer: { renderCircle: vi.fn() },
@@ -63,6 +69,7 @@ function fixture() {
     transformWorld2View: (v: Vector) => v.subtract(new Vector(100, 50)).multiply(2),
   };
   p.stageManager = new StageManager(p);
+  p.deleteManager = new DeleteManager(p);
   p.sectionMethods = new SectionMethods(p);
   p.sectionInOutManager = new SectionInOutManager(p);
   p.historyManager = new HistoryManager(p);
@@ -93,6 +100,9 @@ beforeEach(() => {
     mouseLeftMode: "draw",
     penStrokeStraightLine: true,
     penStrokeLineWidth: 8,
+    penStrokeEraser: false,
+    penStrokeEraserSize: 32,
+    viewerMode: false,
     autoFillPenStrokeColorEnable: true,
     autoFillPenStrokeColor: [220, 30, 80, 0.6],
     enableOCR: false,
@@ -233,5 +243,173 @@ describe("straight and colored drawing with real PG strokes", () => {
     expect(record).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalled();
     expect(drawing.isUsingStraightLine).toBe(false);
+  });
+});
+
+describe("local image/ink erasing and whole-object node erasing", () => {
+  it("erases just one edge of a thick stroke without removing the untouched half", () => {
+    const { p, drawing } = fixture();
+    drawing.mousedown(event(100, 100));
+    drawing.mouseup(event(700, 100));
+    const n = stroke(p),
+      erase = new CanvasEraser(p);
+    erase.begin(new Vector(250, 97), 1);
+    erase.finish(new Vector(250, 97));
+    expect(n.erasures).toHaveLength(1);
+    expect(n.isPointErased(new Vector(250, 97))).toBe(true);
+    expect(n.isPointErased(new Vector(250, 100))).toBe(false);
+  });
+  function image(p: Project) {
+    const n = new ImageNode(p, {
+      collisionBox: new CollisionBox([new Rectangle(new Vector(100, 100), new Vector(200, 100))]),
+    });
+    p.stageManager.add(n);
+    return n;
+  }
+  function note(p: Project, text: string, at: Vector) {
+    const n = new TextNode(p, { text, collisionBox: new CollisionBox([new Rectangle(at, Vector.getZero())]) });
+    p.stageManager.add(n);
+    return n;
+  }
+  it("keeps the same stroke, geometry, pressure and color while erasing only a swept portion", () => {
+    const { p, drawing, record } = fixture();
+    drawing.mousedown(event(100, 100));
+    drawing.mouseup(event(700, 100));
+    const n = stroke(p),
+      before = serialize(n),
+      line = n.getPath();
+    record.mockClear();
+    const erase = new CanvasEraser(p);
+    erase.begin(new Vector(250, 70), 12);
+    erase.move(new Vector(250, 130));
+    erase.finish(new Vector(250, 130));
+    expect(stroke(p)).toBe(n);
+    expect(n.getPath()).toEqual(line);
+    expect(n.isPointErased(new Vector(250, 100))).toBe(true);
+    expect(n.isPointErased(new Vector(180, 100))).toBe(false);
+    expect(n.color.toArray()).toEqual([220, 30, 80, 0.6]);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(p.stageManager.findEntityByLocation(new Vector(250, 100))).toBeNull();
+    p.historyManager.undo();
+    expect(serialize(stroke(p))).toEqual(before);
+    p.historyManager.redo();
+    expect(stroke(p).isPointErased(new Vector(250, 100))).toBe(true);
+  });
+  it("stores image erasure in image-local coordinates so movement, scaling and MsgPack keep it aligned", () => {
+    const { p } = fixture();
+    const n = image(p),
+      erase = new CanvasEraser(p);
+    erase.begin(new Vector(160, 140), 10);
+    erase.finish(new Vector(160, 140));
+    const id = n.uuid;
+    n.move(new Vector(50, 30));
+    expect(n.isPointErased(new Vector(210, 170))).toBe(true);
+    expect(n.isPointErased(new Vector(160, 140))).toBe(false);
+    n.bitmap = { width: 200, height: 100 } as ImageBitmap;
+    n.scaleUpdate(1);
+    expect(n.isPointErased(new Vector(270, 210))).toBe(true);
+    expect(n.isPointErased(new Vector(210, 170))).toBe(false);
+    const saved = serialize(p.stage);
+    p.stage = deserialize(decode(new Encoder().encode(saved)), p);
+    p.stageManager.updateReferences();
+    expect(serialize(p.stage)).toEqual(saved);
+    const loaded = p.stageManager.getImageNodes()[0];
+    expect(loaded.uuid).toBe(id);
+    expect(loaded.isPointErased(new Vector(270, 210))).toBe(true);
+  });
+  it("removes a contacted node and its connections, retains untouched nodes and records one complete undo transaction", () => {
+    const { p, record } = fixture();
+    const a = note(p, "甲", new Vector(100, 100)),
+      b = note(p, "乙", new Vector(600, 300));
+    const edge = new LineEdge(p, { associationList: [a, b] });
+    p.stageManager.add(edge);
+    p.historyManager = new HistoryManager(p);
+    const before = serialize(p.stage);
+    const spy = vi.spyOn(p.historyManager, "recordStep");
+    record.mockClear();
+    const erase = new CanvasEraser(p);
+    erase.begin(a.rectangle.center, 12);
+    erase.finish(a.rectangle.center);
+    expect(p.stage).not.toContain(a);
+    expect(p.stage).not.toContain(edge);
+    expect(p.stage).toContain(b);
+    expect(spy).toHaveBeenCalledTimes(1);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+  });
+  it("erases an edge crossed between sparse pointer samples without deleting either endpoint", () => {
+    const { p } = fixture();
+    const a = note(p, "甲", new Vector(100, 100)),
+      b = note(p, "乙", new Vector(600, 100));
+    const edge = new LineEdge(p, { associationList: [a, b] });
+    p.stageManager.add(edge);
+    const erase = new CanvasEraser(p);
+    erase.begin(new Vector(360, 0), 8);
+    erase.finish(new Vector(360, 300));
+    expect(p.stage).not.toContain(edge);
+    expect(p.stage).toContain(a);
+    expect(p.stage).toContain(b);
+  });
+  it("preserves a fixed container and its actual boundary while locally erasing its visible outline", () => {
+    const { p } = fixture();
+    const d = new Doodle(p, { frame: new Rectangle(Vector.getZero(), new Vector(500, 400)), bounded: true });
+    p.stageManager.add(d);
+    const n = note(p, "内部", new Vector(200, 150));
+    const erase = new CanvasEraser(p);
+    erase.begin(new Vector(100, 0), 20);
+    erase.finish(new Vector(100, 0));
+    expect(d.isPointErased(new Vector(100, 0))).toBe(true);
+    expect(d.frame.width).toBe(500);
+    expect(n.parentSection).toBe(d);
+    n.move(new Vector(1000, 1000));
+    expect(n.rectangle.right).toBeLessThanOrEqual(492);
+  });
+  it("respects viewer mode and locked groups", () => {
+    const { p, record } = fixture();
+    const n = image(p);
+    const group = Section.fromEntities(p, [n]);
+    group.locked = true;
+    p.stageManager.add(group);
+    const erase = new CanvasEraser(p);
+    erase.begin(n.rectangle.center, 20);
+    erase.finish(n.rectangle.center);
+    expect(n.erasures).toEqual([]);
+    expect(record).not.toHaveBeenCalled();
+    group.locked = false;
+    p.stageManager.updateReferences();
+    Settings.viewerMode = true;
+    erase.begin(n.rectangle.center, 20);
+    erase.finish(n.rectangle.center);
+    expect(n.erasures).toEqual([]);
+    expect(record).not.toHaveBeenCalled();
+  });
+  it("cancels an eraser preview and leaves original data and history unchanged", () => {
+    const { p, drawing, record } = fixture();
+    const n = image(p);
+    const before = serialize(p.stage);
+    Settings.penStrokeEraser = true;
+    drawing.mousedown(event(120, 180));
+    drawing.mousemove(event(180, 180));
+    expect(drawing.getEraserPreview(n)).toBeDefined();
+    drawing.keydown({ key: "Escape" } as KeyboardEvent);
+    drawing.mouseup(event(180, 180));
+    expect(serialize(p.stage)).toEqual(before);
+    expect(record).not.toHaveBeenCalled();
+  });
+  it("rolls back partial masks and node deletion together if the transaction fails", () => {
+    const { p } = fixture();
+    const n = image(p);
+    const a = note(p, "删除候选", new Vector(350, 130));
+    const before = serialize(p.stage);
+    vi.spyOn(p.historyManager, "recordStep").mockImplementation(() => {
+      throw new Error("history failure");
+    });
+    const erase = new CanvasEraser(p);
+    erase.begin(new Vector(150, 150), 15);
+    expect(() => erase.finish(new Vector(450, 150))).toThrow("history failure");
+    expect(serialize(p.stage)).toEqual(before);
+    expect(p.stage).toContain(n);
+    expect(p.stage).toContain(a);
+    expect(erase.active).toBe(false);
   });
 });

@@ -9,8 +9,11 @@ import { Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
 import type { Value } from "platejs";
+import type { EraserMark } from "@/core/algorithm/eraserGeometry";
+import { applyEraserMarks } from "@/core/render/canvas2d/eraserMask";
 
 type ImageNodeOptions = {
+  erasures?: EraserMark[];
   uuid?: string;
   collisionBox?: CollisionBox;
   details?: Value;
@@ -36,6 +39,7 @@ type ImageNodeOptions = {
 @passExtraAtArg1
 @passObject
 export class ImageNode extends ConnectableEntity implements ResizeAble {
+  @serializable override erasures: EraserMark[];
   isHiddenBySectionCollapse: boolean = false;
   @id
   @serializable
@@ -81,6 +85,7 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
       attachmentId = "",
       scale = 1,
       isBackground = false,
+      erasures = [],
     }: ImageNodeOptions,
     public unknown = false,
     public onReady?: () => void,
@@ -92,6 +97,7 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
     this.attachmentId = attachmentId;
     this.scale = scale;
     this.isBackground = isBackground;
+    this.erasures = erasures;
 
     const blob = project.attachments.get(attachmentId);
     if (!blob) {
@@ -126,6 +132,23 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
 
   async waitForClipboardBitmap(): Promise<void> {
     await Promise.all(this.pendingBitmapTasks);
+  }
+
+  async getVisibleBlob(): Promise<Blob | undefined> {
+    const original = this.project.attachments.get(this.attachmentId);
+    if (!original || !this.erasures.length) return original;
+    await this.waitForClipboardBitmap();
+    if (!this.bitmap) throw new Error("图片尚未加载，无法导出擦除结果");
+    const canvas = document.createElement("canvas");
+    canvas.width = this.bitmap.width;
+    canvas.height = this.bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("无法创建图片导出画布");
+    ctx.drawImage(this.bitmap, 0, 0);
+    applyEraserMarks(ctx, this.erasures, Vector.getZero(), canvas.width, canvas.height);
+    return new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("无法编码擦除后的图片"))), "image/png"),
+    );
   }
 
   async dispose(): Promise<void> {

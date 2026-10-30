@@ -20,6 +20,16 @@ export class DrawingControllerRenderer {
     if (Settings.mouseLeftMode !== "draw") {
       return;
     }
+    if (Settings.penStrokeEraser || this.project.controller.penStrokeDrawing.isErasing) {
+      this.project.shapeRenderer.renderCircle(
+        MouseLocation.vector(),
+        Settings.penStrokeEraserSize / 2,
+        Color.Transparent,
+        this.project.stageStyleManager.currentStyle.StageObjectBorder,
+        1,
+      );
+      return;
+    }
 
     if (this.project.controller.penStrokeDrawing.currentSegments.length > 0) {
       // 画鼠标绘制过程，还未抬起鼠标左键的 笔迹

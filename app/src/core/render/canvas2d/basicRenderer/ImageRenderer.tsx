@@ -1,5 +1,7 @@
 import { Project, service } from "@/core/Project";
 import { Vector } from "@graphif/data-structures";
+import type { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
+import { paintWithErasures } from "../eraserMask";
 
 /**
  * 图片渲染器
@@ -19,14 +21,18 @@ export class ImageRenderer {
     source: Exclude<CanvasImageSource, VideoFrame | SVGElement>,
     location: Vector,
     scale: number = 1 / (window.devicePixelRatio || 1),
+    entity?: Entity,
   ) {
-    this.project.canvas.ctx.drawImage(
-      source,
-      location.x,
-      location.y,
-      source.width * scale * this.project.camera.currentScale,
-      source.height * scale * this.project.camera.currentScale,
-    );
+    const paint = (ctx: CanvasRenderingContext2D) =>
+      ctx.drawImage(
+        source,
+        location.x,
+        location.y,
+        source.width * scale * this.project.camera.currentScale,
+        source.height * scale * this.project.camera.currentScale,
+      );
+    if (entity) paintWithErasures(this.project, entity, paint);
+    else paint(this.project.canvas.ctx);
   }
 
   /**

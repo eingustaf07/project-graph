@@ -221,6 +221,12 @@ settings:
   penStrokeLineWidth:
     title: Straight-line width
     description: Width of new straight lines in canvas world units; existing strokes stay unchanged.
+  penStrokeEraser:
+    title: Eraser mode
+    description: Erase locally on images and ink in drawing mode. Nodes and connections are removed as objects. Undo restores a complete gesture.
+  penStrokeEraserSize:
+    title: Eraser size
+    description: Brush diameter in screen pixels, independent of canvas zoom.
   penPressureCurve:
     title: Pen Pressure Curve
     description: Adjust the mapping curve of pen pressure input, changing the relationship between pressure and stroke width

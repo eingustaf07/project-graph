@@ -256,6 +256,12 @@ settings:
   penStrokeLineWidth:
     title: Lebar garis lurus
     description: Lebar garis baru dalam satuan kanvas; goresan lama tidak berubah.
+  penStrokeEraser:
+    title: Mode penghapus
+    description: Hapus sebagian gambar dan goresan dalam mode gambar. Simpul dan koneksi dihapus seluruhnya. Urungkan memulihkan satu gerakan.
+  penStrokeEraserSize:
+    title: Ukuran penghapus
+    description: Diameter penghapus dalam piksel layar, tidak berubah saat zoom kanvas.
   penPressureCurve:
     title: Kurva Tekanan Pena
     description: Sesuaikan kurva pemetaan input tekanan pena, mengubah hubungan antara tekanan dan lebar goresan

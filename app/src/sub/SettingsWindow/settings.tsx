@@ -379,7 +379,14 @@ export const categories = {
       "enableCtrlWheelRotateStructure",
     ],
     touchpad: ["enableWindowsTouchPad", "macTrackpadAndMouseWheelDifference", "macTrackpadScaleSensitivity"],
-    pen: ["hideCursorInPenMode", "penPressureCurve", "penStrokeStraightLine", "penStrokeLineWidth"],
+    pen: [
+      "hideCursorInPenMode",
+      "penPressureCurve",
+      "penStrokeStraightLine",
+      "penStrokeLineWidth",
+      "penStrokeEraser",
+      "penStrokeEraserSize",
+    ],
     cameraMove: ["moveAmplitude", "moveFriction"],
     cameraZoom: [
       "scaleExponent",

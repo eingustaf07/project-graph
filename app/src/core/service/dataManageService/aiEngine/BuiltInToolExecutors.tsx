@@ -790,11 +790,11 @@ addExecutor("recognize_image", () => async (project, { ref, prompt }, references
   if (!imageNode) {
     return { success: false, error: "该节点不是 ImageNode，且其内部未找到图片" };
   }
-  const blob = project.attachments.get(imageNode.attachmentId);
-  if (!blob) {
-    return { success: false, error: "图片数据未找到（附件可能已丢失）" };
-  }
   try {
+    const blob = imageNode.erasures?.length
+      ? await imageNode.getVisibleBlob()
+      : project.attachments.get(imageNode.attachmentId);
+    if (!blob) return { success: false, error: "图片数据未找到（附件可能已丢失）" };
     const dataUrl = await encodeModelImageDataUrl(blob, Settings.maxPastedImageSize);
     const description = await recognizeImage(dataUrl, prompt);
     return { success: true, description };

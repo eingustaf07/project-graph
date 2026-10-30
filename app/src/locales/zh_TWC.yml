@@ -313,6 +313,12 @@ settings:
   penStrokeLineWidth:
     title: 直線塗鴉粗細
     description: 新直線的畫布座標寬度，不改變已有筆跡。
+  penStrokeEraser:
+    title: 橡皮模式
+    description: 在原滑鼠塗鴉模式擦除。圖片和筆跡局部擦除，節點與連線整塊刪除，每筆可復原。
+  penStrokeEraserSize:
+    title: 橡皮大小
+    description: 橡皮直徑，以螢幕像素計，不隨畫布縮放改變。
   penPressureCurve:
     title: 筆壓曲線
     description: 調整筆壓輸入的映射曲線，改變壓力與筆畫寬度的關係

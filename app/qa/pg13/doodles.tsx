@@ -31,6 +31,7 @@ import { ControllerPenStrokeDrawingClass } from "@/core/service/controlService/c
 import { DrawingControllerRenderer } from "@/core/render/canvas2d/controllerRenderer/drawingRenderer";
 import { CurveRenderer } from "@/core/render/canvas2d/basicRenderer/curveRenderer";
 import { PenStroke } from "@/core/stage/stageObject/entity/PenStroke";
+import { paintWithErasures } from "@/core/render/canvas2d/eraserMask";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
 const ctx = canvas.getContext("2d")!;
@@ -184,14 +185,21 @@ function draw() {
         entity.bitmap,
         project.renderer.transformWorld2View(entity.rectangle.location),
         entity.scale,
+        entity,
       );
     if (penQA && entity instanceof PenStroke)
-      project.curveRenderer.renderPenStroke(
-        entity.segments.map((s) => ({
-          location: project.renderer.transformWorld2View(s.location),
-          pressure: s.pressure,
-        })),
-        entity.color.a === 0 ? project.stageStyleManager.currentStyle.StageObjectBorder : entity.color,
+      paintWithErasures(
+        project,
+        entity,
+        () =>
+          project.curveRenderer.renderPenStroke(
+            entity.segments.map((s) => ({
+              location: project.renderer.transformWorld2View(s.location),
+              pressure: s.pressure,
+            })),
+            entity.color.a === 0 ? project.stageStyleManager.currentStyle.StageObjectBorder : entity.color,
+          ),
+        Math.max(4, ...entity.segments.map((s) => s.pressure * 2.5 + 1)),
       );
   }
   if (penQA) project.drawingControllerRenderer.renderTempDrawing();

@@ -14,6 +14,8 @@ import { join, tempDir } from "@tauri-apps/api/path";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import debounce from "lodash/debounce.js";
 import { toast } from "sonner";
+import { CanvasEraser } from "./CanvasEraser";
+import type { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 
 /**
  * 涂鸦功能
@@ -26,6 +28,16 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
   /** 当前是否是在绘制直线 */
   public isDrawingLine = false;
   private straightLineStart?: Vector;
+  private eraser: CanvasEraser;
+  public get isErasing(): boolean {
+    return this.eraser.active;
+  }
+  public get eraserPoints(): readonly Vector[] {
+    return this.eraser.points;
+  }
+  public getEraserPreview(entity: Entity) {
+    return this.eraser.preview(entity);
+  }
 
   public get isUsingStraightLine(): boolean {
     return !!this.straightLineStart;
@@ -55,10 +67,11 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
    */
   constructor(protected readonly project: Project) {
     super(project);
+    this.eraser = new CanvasEraser(project);
   }
 
   public mousedown = (event: PointerEvent) => {
-    if (event.button === 2 && this.straightLineStart) {
+    if (event.button === 2 && (this.straightLineStart || this.eraser.active)) {
       this.releaseMouseAndClear();
       return;
     }
@@ -76,6 +89,10 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
       this.project.controller.setCursorName(CursorNameEnum.None);
     }
     const pressWorldLocation = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
+    if (Settings.penStrokeEraser) {
+      this.eraser.begin(pressWorldLocation, Settings.penStrokeEraserSize / 2 / this.project.camera.currentScale);
+      return;
+    }
     if (Settings.penStrokeStraightLine) {
       this.straightLineStart = pressWorldLocation.clone();
       this.currentSegments = [
@@ -94,6 +111,10 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
     if (!this._isUsing) return;
     if (!this.project.controller.isMouseDown[0] && Settings.mouseLeftMode === "draw") return;
     if (this.project.controller.isMouseDown[0] && Settings.mouseLeftMode !== "draw") return;
+    if (this.eraser.active) {
+      this.eraser.move(this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY)));
+      return;
+    }
     if (this.straightLineStart) {
       const end = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
       const [from, to] = this.getStraightLinePreview(
@@ -145,11 +166,21 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
 
   public mouseup = (event: MouseEvent) => {
     if (!this._isUsing) return;
-    if (event.button === 0 && Settings.mouseLeftMode !== "draw" && this.straightLineStart) {
+    if (event.button === 0 && Settings.mouseLeftMode !== "draw" && (this.straightLineStart || this.eraser.active)) {
       this.releaseMouseAndClear();
       return;
     }
     if (!(event.button === 0 && Settings.mouseLeftMode === "draw")) {
+      return;
+    }
+    if (this.eraser.active) {
+      try {
+        this.eraser.finish(this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY)));
+      } catch (error) {
+        toast.error(`无法擦除：${String(error)}`);
+      } finally {
+        this.releaseMouseAndClear();
+      }
       return;
     }
     if (this.straightLineStart) {
@@ -419,10 +450,11 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
     this._isUsing = false;
     this.isDrawingLine = false;
     this.straightLineStart = undefined;
+    this.eraser.cancel();
   }
 
   public keydown = (event: KeyboardEvent) => {
-    if (event.key === "Escape" && this.straightLineStart) this.releaseMouseAndClear();
+    if (event.key === "Escape" && (this.straightLineStart || this.eraser.active)) this.releaseMouseAndClear();
   };
 
   public mouseMoveOutWindowForcedShutdown(_outsideLocation: Vector) {
@@ -433,6 +465,7 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
   }
 
   public mousewheel: (event: WheelEvent) => void = (event: WheelEvent) => {
+    if (Settings.penStrokeEraser || this.eraser.active) return;
     if (!this.project.controller.pressingKeySet.has("shift")) {
       return;
     }

@@ -6,6 +6,7 @@ import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { getTextSize } from "@/utils/font";
 import { Color, colorInvert, mixColors, Vector } from "@graphif/data-structures";
 import { CubicBezierCurve, Rectangle } from "@graphif/shapes";
+import { paintWithErasures } from "../../eraserMask";
 
 @service("sectionRenderer")
 export class SectionRenderer {
@@ -252,26 +253,36 @@ export class SectionRenderer {
       return;
     }
     if (section instanceof Doodle) {
-      const ctx = this.project.canvas.ctx;
-      const rect = new Rectangle(
-        this.project.renderer.transformWorld2View(section.frame.location),
-        section.frame.size.multiply(this.project.camera.currentScale),
+      paintWithErasures(
+        this.project,
+        section,
+        (ctx) => {
+          const rect = new Rectangle(
+            this.project.renderer.transformWorld2View(section.frame.location),
+            section.frame.size.multiply(this.project.camera.currentScale),
+          );
+          ctx.save();
+          ctx.strokeStyle = section.color.toString();
+          ctx.lineWidth = Math.max(1, 2 * this.project.camera.currentScale);
+          if (section.isSelected) ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          if (section.shape === "circle")
+            ctx.arc(rect.center.x, rect.center.y, Math.min(rect.width, rect.height) / 2, 0, Math.PI * 2);
+          else ctx.rect(rect.left, rect.top, rect.width, rect.height);
+          ctx.stroke();
+          if (section.text) {
+            ctx.font = `${Math.max(12, 24 * this.project.camera.currentScale)}px ${Settings.defaultFontFamily}`;
+            ctx.fillStyle = section.color.toString();
+            ctx.fillText(section.text, rect.left + 8, rect.top - 8);
+          }
+          ctx.restore();
+        },
+        Math.max(
+          40,
+          (section.text.length * Math.max(12, 24 * this.project.camera.currentScale) + 24) /
+            this.project.camera.currentScale,
+        ),
       );
-      ctx.save();
-      ctx.strokeStyle = section.color.toString();
-      ctx.lineWidth = Math.max(1, 2 * this.project.camera.currentScale);
-      if (section.isSelected) ctx.setLineDash([6, 4]);
-      ctx.beginPath();
-      if (section.shape === "circle")
-        ctx.arc(rect.center.x, rect.center.y, Math.min(rect.width, rect.height) / 2, 0, Math.PI * 2);
-      else ctx.rect(rect.left, rect.top, rect.width, rect.height);
-      ctx.stroke();
-      if (section.text) {
-        ctx.font = `${Math.max(12, 24 * this.project.camera.currentScale)}px ${Settings.defaultFontFamily}`;
-        ctx.fillStyle = section.color.toString();
-        ctx.fillText(section.text, rect.left + 8, rect.top - 8);
-      }
-      ctx.restore();
       return;
     }
 

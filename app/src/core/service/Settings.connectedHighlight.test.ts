@@ -73,15 +73,27 @@ describe("connected highlight setting compatibility and persistence", () => {
     const { Settings } = await import("./Settings");
     expect(Settings.penStrokeStraightLine).toBe(false);
     expect(Settings.penStrokeLineWidth).toBe(5);
+    expect(Settings.penStrokeEraser).toBe(false);
+    expect(Settings.penStrokeEraserSize).toBe(32);
     storage.writtenKeys = [];
     Settings.penStrokeStraightLine = true;
     Settings.penStrokeLineWidth = 9;
     Settings.autoFillPenStrokeColor = [220, 30, 80, 0.6];
-    expect(storage.writtenKeys).toEqual(["penStrokeStraightLine", "penStrokeLineWidth", "autoFillPenStrokeColor"]);
+    Settings.penStrokeEraser = true;
+    Settings.penStrokeEraserSize = 80;
+    expect(storage.writtenKeys).toEqual([
+      "penStrokeStraightLine",
+      "penStrokeLineWidth",
+      "autoFillPenStrokeColor",
+      "penStrokeEraser",
+      "penStrokeEraserSize",
+    ]);
     vi.resetModules();
     const restored = await import("./Settings");
     expect(restored.Settings.penStrokeStraightLine).toBe(true);
     expect(restored.Settings.penStrokeLineWidth).toBe(9);
+    expect(restored.Settings.penStrokeEraser).toBe(true);
+    expect(restored.Settings.penStrokeEraserSize).toBe(80);
     expect(restored.Settings.autoFillPenStrokeColor).toEqual([220, 30, 80, 0.6]);
     expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
     expect(restored.Settings.textNodeMaxCharWidth).toBe(22);

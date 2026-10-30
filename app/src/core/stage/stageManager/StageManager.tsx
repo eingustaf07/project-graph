@@ -520,7 +520,7 @@ export class StageManager {
 
   findImageNodeByLocation(location: Vector): ImageNode | null {
     for (const node of this.getImageNodes()) {
-      if (!node.isBackground && node.collisionBox.isContainsPoint(location)) {
+      if (!node.isBackground && node.collisionBox.isContainsPoint(location) && !node.isPointErased(location)) {
         return node;
       }
     }
@@ -569,7 +569,7 @@ export class StageManager {
         if (entity.isHiddenBySectionCollapse) {
           continue;
         }
-        if (entity.collisionBox.isContainsPoint(location)) {
+        if (entity.collisionBox.isContainsPoint(location) && !entity.isPointErased(location)) {
           return accept(entity) ? entity : null;
         }
       }
@@ -610,13 +610,13 @@ export class StageManager {
             }
           }
         }
-        if (accept(entity) && entity.collisionBox.isContainsPoint(location)) {
+        if (accept(entity) && entity.collisionBox.isContainsPoint(location) && !entity.isPointErased(location)) {
           return entity;
         }
         continue;
       }
 
-      if (accept(entity) && entity.collisionBox.isContainsPoint(location)) {
+      if (accept(entity) && entity.collisionBox.isContainsPoint(location) && !entity.isPointErased(location)) {
         return entity;
       }
     }
@@ -690,7 +690,7 @@ export class StageManager {
       if (entity instanceof ImageNode && entity.isBackground) {
         continue;
       }
-      if (entity.collisionBox.isContainsPoint(location)) {
+      if (entity.collisionBox.isContainsPoint(location) && !entity.isPointErased(location)) {
         return true;
       }
     }

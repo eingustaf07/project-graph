@@ -2249,13 +2249,12 @@ export const allKeyBinds: KeyBindItem[] = [
       }
 
       const imageNode = selectedImageNodes[0];
-      const blob = project!.attachments.get(imageNode.attachmentId);
-      if (!blob) {
-        toast.error("无法获取图片数据");
-        return;
-      }
-
       try {
+        const blob = await imageNode.getVisibleBlob();
+        if (!blob) {
+          toast.error("无法获取图片数据");
+          return;
+        }
         const arrayBuffer = await blob.arrayBuffer();
         const tauriImage = await TauriImage.fromBytes(new Uint8Array(arrayBuffer));
         await writeImage(tauriImage);

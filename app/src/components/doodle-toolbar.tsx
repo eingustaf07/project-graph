@@ -39,6 +39,8 @@ export default function DoodleToolbar({ project }: { project: Project }) {
   const [viewer, setViewer] = useState(Settings.viewerMode);
   const [penLine, setPenLine] = useState(Settings.penStrokeStraightLine);
   const [penWidth, setPenWidth] = useState(Settings.penStrokeLineWidth);
+  const [eraser, setEraser] = useState(Settings.penStrokeEraser);
+  const [eraserSize, setEraserSize] = useState(Settings.penStrokeEraserSize);
   const [penInk, setPenInk] = useState(Settings.autoFillPenStrokeColor);
   const [penInkEnabled, setPenInkEnabled] = useState(Settings.autoFillPenStrokeColorEnable);
   const [gesture, setGesture] = useState<Gesture>();
@@ -60,6 +62,8 @@ export default function DoodleToolbar({ project }: { project: Project }) {
   useEffect(() => Settings.watch("viewerMode", setViewer), []);
   useEffect(() => {
     const stops = [
+      Settings.watch("penStrokeEraser", setEraser),
+      Settings.watch("penStrokeEraserSize", setEraserSize),
       Settings.watch("penStrokeStraightLine", setPenLine),
       Settings.watch("penStrokeLineWidth", setPenWidth),
       Settings.watch("autoFillPenStrokeColor", setPenInk),
@@ -343,6 +347,43 @@ export default function DoodleToolbar({ project }: { project: Project }) {
           className="bg-popover/95 border-border absolute top-1/2 right-2 z-50 flex max-h-[85%] w-52 -translate-y-1/2 flex-col gap-2 overflow-auto rounded-lg border p-3 text-sm shadow-xl backdrop-blur-md"
         >
           <strong>涂鸦与容器</strong>
+          <label className="flex items-center justify-between gap-2 text-xs">
+            橡皮模式
+            <Switch
+              aria-label="橡皮模式"
+              checked={eraser ?? false}
+              disabled={viewer}
+              onCheckedChange={(value) => {
+                Settings.penStrokeEraser = value;
+                setEraser(value);
+                refresh();
+              }}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 text-xs">
+            橡皮大小
+            <Input
+              aria-label="橡皮大小"
+              type="number"
+              min={4}
+              max={300}
+              className="w-20"
+              value={eraserSize ?? 32}
+              disabled={viewer}
+              onChange={(event) => {
+                const size = Math.max(4, Math.min(300, Number(event.target.value) || 4));
+                Settings.penStrokeEraserSize = size;
+                setEraserSize(size);
+                refresh();
+              }}
+            />
+          </label>
+          <p className="text-muted-foreground text-xs">
+            图片和涂鸦局部擦除，节点与连线整块删除。松开提交，Esc取消；一笔可撤销。
+          </p>
+          {eraser && (
+            <p className="text-muted-foreground text-xs">擦除容器边线不改变其固定范围；解除限制请切换涂鸦模式。</p>
+          )}
           <label className="flex items-center justify-between gap-2 text-xs">
             直线涂鸦
             <Switch

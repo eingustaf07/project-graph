@@ -16,6 +16,7 @@ import { DetailsManager } from "@/core/stage/stageObject/tools/entityDetailsMana
 import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { ExtensionEntityRenderer } from "./ExtensionEntityRenderer";
+import { paintWithErasures } from "../eraserMask";
 
 /**
  * 处理节点相关的绘制
@@ -184,7 +185,7 @@ export class EntityRenderer {
     } else if (entity instanceof PenStroke) {
       this.renderPenStroke(entity);
     } else if (entity instanceof SvgNode) {
-      this.project.svgNodeRenderer.render(entity);
+      paintWithErasures(this.project, entity, () => this.project.svgNodeRenderer.render(entity));
     } else if (entity instanceof LatexNode) {
       this.project.latexNodeRenderer.render(entity);
     } else if (entity instanceof ReferenceBlockNode) {
@@ -281,6 +282,7 @@ export class EntityRenderer {
         imageNode.bitmap!,
         this.project.renderer.transformWorld2View(imageNode.rectangle.location),
         imageNode.scale,
+        imageNode,
       );
     } else if (imageNode.state === "notFound") {
       this.project.textRenderer.renderTextFromCenter(
@@ -354,12 +356,18 @@ export class EntityRenderer {
     //     penStroke.getSegmentList()[0].width * this.project.camera.currentScale,
     //   );
     // }
-    this.project.curveRenderer.renderPenStroke(
-      penStroke.segments.map((segment) => ({
-        location: this.project.renderer.transformWorld2View(segment.location),
-        pressure: segment.pressure,
-      })),
-      penStrokeColor,
+    paintWithErasures(
+      this.project,
+      penStroke,
+      () =>
+        this.project.curveRenderer.renderPenStroke(
+          penStroke.segments.map((segment) => ({
+            location: this.project.renderer.transformWorld2View(segment.location),
+            pressure: segment.pressure,
+          })),
+          penStrokeColor,
+        ),
+      Math.max(4, ...penStroke.segments.map((s) => s.pressure * 2.5 + 1)),
     );
     if (penStroke.isMouseHover) {
       this.project.collisionBoxRenderer.render(

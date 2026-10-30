@@ -4,6 +4,7 @@ import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox
 import { Color, Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
 import { Line } from "@graphif/shapes";
+import type { EraserMark } from "@/core/algorithm/eraserGeometry";
 
 /**
  * 一笔画中的某一个小段
@@ -23,6 +24,7 @@ export class PenStrokeSegment {
 @passExtraAtArg1
 @passObject
 export class PenStroke extends Entity {
+  @serializable override erasures: EraserMark[];
   /** 涂鸦不参与吸附对齐 */
   public isAlignExcluded: boolean = true;
 
@@ -69,12 +71,18 @@ export class PenStroke extends Entity {
 
   constructor(
     protected readonly project: Project,
-    { uuid = crypto.randomUUID() as string, segments = [] as PenStrokeSegment[], color = Color.White },
+    {
+      uuid = crypto.randomUUID() as string,
+      segments = [] as PenStrokeSegment[],
+      color = Color.White,
+      erasures = [] as EraserMark[],
+    },
   ) {
     super();
     this.uuid = uuid;
     this.segments = segments;
     this.color = color;
+    this.erasures = erasures;
     this.updateCollisionBoxBySegmentList();
   }
 

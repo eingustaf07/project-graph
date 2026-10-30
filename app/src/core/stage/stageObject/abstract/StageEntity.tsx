@@ -6,11 +6,19 @@ import { serializable } from "@graphif/serializer";
 import { Circle, Rectangle } from "@graphif/shapes";
 import type { Value } from "platejs";
 import { DetailsManager } from "../tools/entityDetailsManager";
+import { eraserMarkContains, type EraserMark } from "@/core/algorithm/eraserGeometry";
 /**
  * 一切独立存在、能被移动的东西，且放在框里能被连带移动的东西
  * 实体
  */
 export abstract class Entity extends StageObject {
+  declare erasures?: EraserMark[];
+  get eraserBounds(): Rectangle {
+    return this.collisionBox.getRectangle();
+  }
+  isPointErased(point: Vector): boolean {
+    return !!this.erasures?.some((mark) => eraserMarkContains(mark, point, this.eraserBounds));
+  }
   /**
    * 将某个物体移动某个距离
    * @param delta

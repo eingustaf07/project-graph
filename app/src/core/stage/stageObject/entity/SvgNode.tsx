@@ -5,6 +5,7 @@ import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox
 import { Color, Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
+import type { EraserMark } from "@/core/algorithm/eraserGeometry";
 
 /**
  * Svg 节点
@@ -12,6 +13,7 @@ import { Rectangle } from "@graphif/shapes";
 @passExtraAtArg1
 @passObject
 export class SvgNode extends ConnectableEntity implements ResizeAble {
+  @serializable override erasures: EraserMark[];
   @serializable
   color: Color = Color.Transparent;
   @id
@@ -37,6 +39,7 @@ export class SvgNode extends ConnectableEntity implements ResizeAble {
       collisionBox = new CollisionBox([new Rectangle(Vector.getZero(), Vector.getZero())]),
       scale = 1,
       color = Color.Transparent,
+      erasures = [] as EraserMark[],
     },
   ) {
     super();
@@ -46,6 +49,7 @@ export class SvgNode extends ConnectableEntity implements ResizeAble {
     this.attachmentId = attachmentId;
     this.collisionBox = collisionBox;
     this.color = color;
+    this.erasures = erasures;
 
     const blob = project.attachments.get(attachmentId);
     if (!blob) {

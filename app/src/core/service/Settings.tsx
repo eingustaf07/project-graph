@@ -260,6 +260,8 @@ export const settingsSchema = z.object({
   autoFillPenStrokeColorEnable: z.boolean().default(true),
   penStrokeStraightLine: z.boolean().default(false),
   penStrokeLineWidth: z.number().min(1).max(50).default(5),
+  penStrokeEraser: z.boolean().default(false),
+  penStrokeEraserSize: z.number().min(4).max(300).default(32),
   colorPanelMouseEnterPreview: z.boolean().default(false),
   autoFillEdgeColor: z.tuple([z.number(), z.number(), z.number(), z.number()]).default([0, 0, 0, 0]),
   autoOpenPath: z.string().default(""), // 废弃

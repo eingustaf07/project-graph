@@ -10,6 +10,7 @@ import { Line, Rectangle } from "@graphif/shapes";
 import { toast } from "sonner";
 import { getTextSize } from "@/utils/font";
 import { Renderer } from "@/core/render/canvas2d/renderer";
+import type { EraserMark } from "@/core/algorithm/eraserGeometry";
 
 function tree(entity: Entity): Entity[] {
   const result: Entity[] = [],
@@ -35,16 +36,22 @@ const editableKeys = [
   "segments",
   "frame",
   "isCollapsed",
+  "erasures",
 ];
 type DoodleOptions = NonNullable<ConstructorParameters<typeof Section>[1]> & {
   frame?: Rectangle;
   shape?: DoodleShape;
   bounded?: boolean;
+  erasures?: EraserMark[];
 };
 
 @passExtraAtArg1
 @passObject
 export class Doodle extends Section {
+  @serializable override erasures: EraserMark[];
+  override get eraserBounds(): Rectangle {
+    return this.frame;
+  }
   override readonly isDoodle = true;
   override isAlignExcluded = true;
   @serializable frame: Rectangle;
@@ -59,6 +66,7 @@ export class Doodle extends Section {
       frame = new Rectangle(Vector.getZero(), new Vector(400, 300)),
       shape = "rectangle",
       bounded = false,
+      erasures = [],
       ...options
     }: DoodleOptions = {},
   ) {
@@ -66,6 +74,7 @@ export class Doodle extends Section {
     this.frame = frame;
     this.shape = shape;
     this.bounded = bounded;
+    this.erasures = erasures;
     if (!bounded) this.children = [];
     this.children.forEach((child) => this.remember(child));
   }

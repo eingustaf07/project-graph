@@ -29,7 +29,9 @@ export async function exportImagesToProjectDirectory(
 
     try {
       // 获取图片 Blob
-      const blob = attachments.get(imageNode.attachmentId);
+      const blob = imageNode.erasures.length
+        ? await imageNode.getVisibleBlob()
+        : attachments.get(imageNode.attachmentId);
       if (!blob) {
         console.warn(`跳过：无法找到图片 ${i + 1} 的数据`);
         failedCount++;

@@ -11,7 +11,7 @@ const stubs = new Map([
   ],
   [
     "@/core/service/Settings",
-    'export const Settings={clipboardPasteMode:"tauri",textNodeMaxCharWidth:15,textNodePasteSizeAdjustMode:"auto",defaultFontFamily:"Microsoft YaHei",historyManagerMode:"memoryEfficient",historySize:100,showDebug:false,penStrokeStraightLine:false,penStrokeLineWidth:5,autoFillPenStrokeColor:[0,0,0,0],autoFillPenStrokeColorEnable:true,watch:()=>()=>{},ignoreTextNodeTextRenderLessThanFontSize:0};',
+    'export const Settings={clipboardPasteMode:"tauri",textNodeMaxCharWidth:15,textNodePasteSizeAdjustMode:"auto",defaultFontFamily:"Microsoft YaHei",historyManagerMode:"memoryEfficient",historySize:100,showDebug:false,penStrokeStraightLine:false,penStrokeLineWidth:5,penStrokeEraser:false,penStrokeEraserSize:32,autoFillPenStrokeColor:[0,0,0,0],autoFillPenStrokeColorEnable:true,watch:()=>()=>{},ignoreTextNodeTextRenderLessThanFontSize:0};',
   ],
   ["@/core/render/canvas2d/renderer", "export const Renderer={FONT_SIZE:32,NODE_PADDING:14,NODE_ROUNDED_RADIUS:8};"],
   ["@/core/stage/stageObject/entity/ReferenceBlockNode", "export class ReferenceBlockNode {}"],

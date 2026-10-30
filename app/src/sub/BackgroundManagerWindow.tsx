@@ -27,12 +27,24 @@ export default function BackgroundManagerWindow() {
   useEffect(() => {
     if (!project) return;
     const newUrls = new Map<string, string>();
+    let active = true;
     for (const imageNode of backgroundImages) {
+      if (imageNode.erasures.length) {
+        void imageNode
+          .getVisibleBlob()
+          .then((blob) => {
+            if (!active || !blob) return;
+            newUrls.set(imageNode.uuid, URL.createObjectURL(blob));
+            setUrls(new Map(newUrls));
+          })
+          .catch((error) => toast.error(`无法生成擦除后的背景图预览：${String(error)}`));
+        continue;
+      }
       const blob = project.attachments.get(imageNode.attachmentId);
       if (!blob) continue;
       newUrls.set(imageNode.uuid, URL.createObjectURL(blob));
     }
-    setUrls(newUrls);
+    setUrls(new Map(newUrls));
     setBrokenUuids((prev) => {
       if (prev.size === 0) return prev;
       const next = new Set<string>();
@@ -42,6 +54,7 @@ export default function BackgroundManagerWindow() {
       return next;
     });
     return () => {
+      active = false;
       newUrls.forEach((url) => {
         URL.revokeObjectURL(url);
       });
