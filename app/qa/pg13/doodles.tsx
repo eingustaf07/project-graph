@@ -24,6 +24,9 @@ import { Vector, Color } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { serialize, deserialize } from "@graphif/serializer";
 import { Encoder, decode } from "@msgpack/msgpack";
+import { Camera } from "@/core/stage/Camera";
+import { ControllerCameraClass } from "@/core/service/controlService/controller/concrete/ControllerCamera";
+import { ControllerImageScaleClass } from "@/core/service/controlService/controller/concrete/ControllerImageScale";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
 const ctx = canvas.getContext("2d")!;
@@ -92,6 +95,51 @@ Object.defineProperty(project, "projectState", {
   },
 });
 project.historyManager = new HistoryManager(project);
+if (new URLSearchParams(location.search).has("zoom")) {
+  Object.assign(Settings, {
+    mouseWheelWithCtrlMode: "none",
+    mouseWheelWithCtrlModeReverse: false,
+    scaleCameraByMouseLocation: false,
+    enableWindowsTouchPad: false,
+    mouseWheelMode: "zoom",
+    mouseWheelModeReverse: false,
+    scaleExponent: 0.25,
+    moveAmplitude: 0,
+    moveFriction: 0.1,
+    viewerMode: false,
+  });
+  project.camera = new Camera(project);
+  project.camera.hasResetOnOpen = true;
+  project.camera.location = new Vector(canvas.width / 2, canvas.height / 2);
+  project.renderer.transformView2World = (v: Vector) =>
+    v
+      .subtract(new Vector(canvas.width / 2, canvas.height / 2))
+      .divide(project.camera.currentScale)
+      .add(project.camera.location);
+  project.renderer.transformWorld2View = (v: Vector) =>
+    v
+      .subtract(project.camera.location)
+      .multiply(project.camera.currentScale)
+      .add(new Vector(canvas.width / 2, canvas.height / 2));
+  project.renderer.getCoverWorldRectangle = () =>
+    new Rectangle(
+      project.camera.location.subtract(
+        new Vector(canvas.width / 2, canvas.height / 2).divide(project.camera.currentScale),
+      ),
+      new Vector(canvas.width, canvas.height).divide(project.camera.currentScale),
+    );
+  new ControllerCameraClass(project);
+  new ControllerImageScaleClass(project);
+  canvas.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
+  window.addEventListener("keydown", (e) => project.controller.pressingKeySet.add(e.key.toLowerCase()));
+  window.addEventListener("keyup", (e) => project.controller.pressingKeySet.delete(e.key.toLowerCase()));
+  const animate = () => {
+    project.camera.tick();
+    draw();
+    requestAnimationFrame(animate);
+  };
+  requestAnimationFrame(animate);
+}
 function draw() {
   ctx.fillStyle = "#141414";
   ctx.fillRect(0, 0, canvas.width, canvas.height);

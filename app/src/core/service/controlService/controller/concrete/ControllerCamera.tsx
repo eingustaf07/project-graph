@@ -204,6 +204,7 @@ export class ControllerCameraClass extends ControllerClass {
     if (Settings.mouseLeftMode === "draw" && this.project.controller.pressingKeySet.has("shift")) {
       return;
     }
+    if (this.zoomBlankCanvasAtPointer(event)) return;
     // 禁用触控板在这里的滚动
     const isUsingTouchPad = !this.isMouseWheel(event);
     if (!Settings.enableWindowsTouchPad) {
@@ -233,6 +234,37 @@ export class ControllerCameraClass extends ControllerClass {
 
     this.mousewheelFunction(event);
   };
+
+  private zoomBlankCanvasAtPointer(event: WheelEvent): boolean {
+    const keys = this.project.controller.pressingKeySet;
+    if (
+      isMac ||
+      isIpad ||
+      !(event.ctrlKey || keys.has("control")) ||
+      event.shiftKey ||
+      keys.has("shift") ||
+      event.altKey ||
+      keys.has("alt") ||
+      event.metaKey ||
+      keys.has("meta") ||
+      event.deltaX !== 0 ||
+      !Number.isFinite(event.deltaY) ||
+      event.deltaY === 0
+    )
+      return false;
+    // ControllerClass has already converted the event into this canvas's local coordinates.
+    const view = new Vector(event.clientX, event.clientY);
+    const world = this.project.renderer.transformView2World(view);
+    if (
+      this.project.stageManager.findEntityByLocation(world) ||
+      this.project.stageManager.findAssociationByLocation(world)
+    )
+      return false;
+    const delta = Settings.mouseWheelWithCtrlModeReverse ? -event.deltaY : event.deltaY;
+    this.project.camera.zoomAtPointer(view, delta < 0 ? 1.2 : 0.8);
+    this.project.effects.addEffect(MouseTipFeedbackEffect.default(delta < 0 ? "expand" : "shrink"));
+    return true;
+  }
 
   private dealStealthMode(event: WheelEvent) {
     if (Settings.isStealthModeEnabled && this.project.controller.pressingKeySet.has("shift")) {

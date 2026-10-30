@@ -56,6 +56,13 @@ export class Camera {
   currentScale: number = 1;
   /** 目标镜头缩放比例 */
   targetScale: number = 1;
+  private pointerZoomTarget?: number;
+
+  zoomAtPointer(viewLocation: Vector, factor: number): void {
+    this.targetLocationByScale = this.project.renderer.transformView2World(viewLocation);
+    this.targetScale *= factor;
+    this.pointerZoomTarget = this.targetScale;
+  }
 
   /**
    * 震动特效导致的位置偏移
@@ -210,8 +217,10 @@ export class Camera {
     /** 鼠标交互位置的view坐标系相对于画面左上角的坐标 */
     const diffViewVector = this.project.renderer.transformWorld2View(this.targetLocationByScale);
     this.dealCameraScaleInTick();
-    if (Settings.scaleCameraByMouseLocation) {
-      if (this.tickNumber > this.allowScaleFollowMouseLocationTicks) {
+    const pointerZoom = this.pointerZoomTarget === this.targetScale;
+    if (!pointerZoom) this.pointerZoomTarget = undefined;
+    if (pointerZoom || Settings.scaleCameraByMouseLocation) {
+      if (pointerZoom || this.tickNumber > this.allowScaleFollowMouseLocationTicks) {
         this.setLocationByOtherLocation(this.targetLocationByScale, diffViewVector);
       }
     }

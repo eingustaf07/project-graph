@@ -21,10 +21,11 @@ const stubs = new Map([
   ],
   ["@/core/service/feedbackService/SoundService", "export const SoundService={play:new Proxy({},{get:()=>()=>{}})};"],
   ["@/core/service/Telemetry", "export const Telemetry={event:async()=>{}};"],
+  ["@/utils/externalOpen", "export const openBrowserOrFileByEntity=()=>{};"],
   ["@/core/service/controlService/shortcutKeysEngine/KeyBindsUI", "export const KeyBindsUI={getAllUIKeyBinds:()=>[]};"],
   [
     "@/utils/platform",
-    'export const isMac=false, isWindows=true, isLinux=false, isWeb=false; export const family=()=>"windows";',
+    'export const isMac=false, isIpad=false, isWindows=true, isLinux=false, isWeb=false; export const family=()=>"windows";',
   ],
   [
     "@tauri-apps/plugin-clipboard-manager",
