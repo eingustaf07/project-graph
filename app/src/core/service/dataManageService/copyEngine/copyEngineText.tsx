@@ -13,6 +13,8 @@ import { isMermaidGraphString, isSvgString } from "./stringValidTools";
 import { toast } from "sonner";
 import { DetailsManager } from "@/core/stage/stageObject/tools/entityDetailsManager";
 import { Settings } from "@/core/service/Settings";
+import { centerClipboardEntities } from "./clipboardPosition";
+import { waitForClipboardSvg } from "./clipboardImages";
 
 /**
  * 专门处理文本粘贴的服务
@@ -20,11 +22,12 @@ import { Settings } from "@/core/service/Settings";
 export class CopyEngineText {
   constructor(private project: Project) {}
 
-  async copyEnginePastePlainText(item: string) {
+  async copyEnginePastePlainText(
+    item: string,
+    location = this.project.renderer.transformView2World(MouseLocation.vector()).clone(),
+  ) {
     let entity: Entity;
-    const collisionBox = new CollisionBox([
-      new Rectangle(this.project.renderer.transformView2World(MouseLocation.vector()), Vector.getZero()),
-    ]);
+    const collisionBox = new CollisionBox([new Rectangle(location.clone(), Vector.getZero())]);
 
     if (isSvgString(item)) {
       // 是SVG类型
@@ -33,18 +36,19 @@ export class CopyEngineText {
         attachmentId,
         collisionBox,
       });
+      try {
+        await waitForClipboardSvg(entity as SvgNode);
+      } catch (error) {
+        this.project.attachments.delete(attachmentId);
+        throw error;
+      }
     } else if (PathString.isValidURL(item)) {
       // 是URL类型
       entity = new UrlNode(this.project, {
         title: "链接",
         url: item,
-        collisionBox: new CollisionBox([
-          new Rectangle(this.project.renderer.transformView2World(MouseLocation.vector()), new Vector(300, 150)),
-        ]),
+        collisionBox: new CollisionBox([new Rectangle(location.clone(), new Vector(300, 150))]),
       });
-      entity.move(
-        new Vector(-entity.collisionBox.getRectangle().width / 2, -entity.collisionBox.getRectangle().height / 2),
-      );
     } else if (isMermaidGraphString(item)) {
       // 是Mermaid图表类型
       entity = new TextNode(this.project, {
@@ -61,13 +65,8 @@ export class CopyEngineText {
           title: text,
           uuid: crypto.randomUUID(),
           url: url,
-          collisionBox: new CollisionBox([
-            new Rectangle(this.project.renderer.transformView2World(MouseLocation.vector()), new Vector(300, 150)),
-          ]),
+          collisionBox: new CollisionBox([new Rectangle(location.clone(), new Vector(300, 150))]),
         });
-        entity.move(
-          new Vector(-entity.collisionBox.getRectangle().width / 2, -entity.collisionBox.getRectangle().height / 2),
-        );
       } else if (PathString.isAbsolutePath(item)) {
         // 处理 Windows 11 下复制文件路径可能带有的双引号
         let processedItem = item.trim();
@@ -82,17 +81,12 @@ export class CopyEngineText {
 
         // 是绝对文件路径类型
         const { emoji, name } = PathString.getEmojiAndNameByPath(processedItem);
-        const collisionBox = new CollisionBox([
-          new Rectangle(this.project.renderer.transformView2World(MouseLocation.vector()), Vector.getZero()),
-        ]);
+        const collisionBox = new CollisionBox([new Rectangle(location.clone(), Vector.getZero())]);
         entity = new TextNode(this.project, {
           text: `${emoji}${name}`,
           details: DetailsManager.markdownToDetails(processedItem),
           collisionBox,
         });
-        entity.move(
-          new Vector(-entity.collisionBox.getRectangle().width / 2, -entity.collisionBox.getRectangle().height / 2),
-        );
       } else {
         if (item === "") {
           toast.warning("粘贴板中没有内容，若想快速复制多个文本节点，请交替按ctrl c、ctrl v");
@@ -106,9 +100,7 @@ export class CopyEngineText {
             details: DetailsManager.markdownToDetails(item),
           });
         } else {
-          let collisionBox = new CollisionBox([
-            new Rectangle(this.project.renderer.transformView2World(MouseLocation.vector()), Vector.getZero()),
-          ]);
+          let collisionBox = new CollisionBox([new Rectangle(location.clone(), Vector.getZero())]);
           const threshold = Settings.textNodeBigContentThresholdWhenPaste;
           const pasteMode = Settings.textNodePasteSizeAdjustMode;
 
@@ -116,9 +108,7 @@ export class CopyEngineText {
           switch (pasteMode) {
             case "manual":
               sizeAdjust = "manual";
-              collisionBox = new CollisionBox([
-                new Rectangle(this.project.renderer.transformView2World(MouseLocation.vector()), new Vector(400, 100)),
-              ]);
+              collisionBox = new CollisionBox([new Rectangle(location.clone(), new Vector(400, 100))]);
               break;
             case "auto":
               sizeAdjust = "auto";
@@ -128,12 +118,7 @@ export class CopyEngineText {
               const isBigContent = item.length > threshold;
               sizeAdjust = isBigContent ? "manual" : "auto";
               if (isBigContent) {
-                collisionBox = new CollisionBox([
-                  new Rectangle(
-                    this.project.renderer.transformView2World(MouseLocation.vector()),
-                    new Vector(400, 100),
-                  ),
-                ]);
+                collisionBox = new CollisionBox([new Rectangle(location.clone(), new Vector(400, 100))]);
               }
               break;
             }
@@ -151,20 +136,16 @@ export class CopyEngineText {
             collisionBox,
             sizeAdjust,
           });
-          entity.move(
-            new Vector(-entity.collisionBox.getRectangle().width / 2, -entity.collisionBox.getRectangle().height / 2),
-          );
         }
       }
     }
 
     if (entity !== null) {
+      centerClipboardEntities([entity], location);
       this.project.stageManager.add(entity);
       // 添加到section
 
-      const mouseSections = this.project.sectionMethods.getSectionsByInnerLocation(
-        this.project.renderer.transformView2World(MouseLocation.vector()),
-      );
+      const mouseSections = this.project.sectionMethods.getSectionsByInnerLocation(location);
 
       if (mouseSections.length > 0) {
         this.project.stageManager.goInSection([entity], mouseSections[0]);

@@ -12,7 +12,7 @@ const AUTHORIZE_URL: &str = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_URL: &str = "https://auth.openai.com/api/accounts/oauth/token";
 const RESOURCE: &str = "https://api.openai.com/v1";
 const DISCOVERY_URL: &str = "https://auth.openai.com/.well-known/openid-configuration";
-const APP_NAME: &str = "Project Graph PG1.2";
+const APP_NAME: &str = "Project Graph PG1.3";
 
 #[derive(Default)]
 pub struct ChatGPTLock(pub Arc<Mutex<()>>);

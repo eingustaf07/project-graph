@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Tab } from "@/core/Tab";
 import { TabWorkspace } from "@/core/TabWorkspace";
-import { AppWindowMac, Columns2, Dock, Rows2, X } from "lucide-react";
+import { AppWindowMac, Columns2, Dock, Rows2, X, PanelsTopLeft } from "lucide-react";
 import React from "react";
 
 export default function TabContextMenu({
@@ -33,6 +33,12 @@ export default function TabContextMenu({
               <Rows2 />
               向下拆分
             </ContextMenuItem>
+            {TabWorkspace.canMergeDocumentGroups(tab.id) && (
+              <ContextMenuItem onSelect={() => TabWorkspace.mergeDocumentGroups(tab.id)}>
+                <PanelsTopLeft />
+                合并文件分栏
+              </ContextMenuItem>
+            )}
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={() => TabWorkspace.float(tab.id)}>
               <AppWindowMac />

@@ -5,11 +5,14 @@ import { Settings } from "@/core/service/Settings";
 import { applyBlackAndWhite, prepareImageBlobForImport } from "../imageUtils";
 import { toast } from "sonner";
 import { createImageNodeFromBlob } from "../imageNodeFactory";
+import { Vector } from "@graphif/data-structures";
 
 export class CopyEngineImage {
   constructor(private project: Project) {}
 
-  public async pasteImageFromTauriClipboard() {
+  public async pasteImageFromTauriClipboard(
+    location = this.project.renderer.transformView2World(MouseLocation.vector()).clone(),
+  ) {
     // 从系统粘贴板里读取图片
     const image = await readImage();
     const { width: origW, height: origH } = await image.size();
@@ -80,17 +83,20 @@ export class CopyEngineImage {
       );
     });
 
-    await this.pasteImageBlob(blob);
+    await this.pasteImageBlob(blob, location);
   }
 
-  private async pasteImageBlob(blob: Blob) {
-    const location = this.project.renderer.transformView2World(MouseLocation.vector());
+  private async pasteImageBlob(blob: Blob, location: Vector) {
     await createImageNodeFromBlob(this.project, blob, {
       location,
+      centerAtLocation: true,
+      waitForReady: true,
     });
   }
 
-  public async pasteImageFromWebClipboard() {
+  public async pasteImageFromWebClipboard(
+    location = this.project.renderer.transformView2World(MouseLocation.vector()).clone(),
+  ) {
     const clipboard = navigator.clipboard as any;
     if (!clipboard || typeof clipboard.read !== "function") return false;
 
@@ -104,7 +110,7 @@ export class CopyEngineImage {
       if (!imageType) continue;
       const blob = await item.getType(imageType);
       const prepared = await prepareImageBlobForImport(blob);
-      await this.pasteImageBlob(prepared.blob);
+      await this.pasteImageBlob(prepared.blob, location);
     }
   }
 }

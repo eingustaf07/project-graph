@@ -16,13 +16,20 @@ vi.mock("./service/Telemetry", () => ({ Telemetry: { event: vi.fn() } }));
 vi.mock("@/components/ui/dialog", () => ({ Dialog: { buttons: vi.fn() } }));
 
 import { Tab } from "./Tab";
-import { createTabGroup } from "./TabGroup";
+import { createTabGroup, getTabGroups } from "./TabGroup";
 import { TabWorkspace } from "./TabWorkspace";
 
 class TestTab extends Tab {
   getComponent() {
     return () => null;
   }
+}
+
+class DocumentTestTab extends TestTab {
+  readonly uri = "draft:test";
+  camera = { x: 73, y: -128, scale: 0.7 };
+  unsavedText = "尚未保存的修改";
+  history = ["创建节点", "编辑文字"];
 }
 
 function openTestTab() {
@@ -141,5 +148,52 @@ describe("TabWorkspace close lifecycle", () => {
 
     await expect(closeResult).resolves.toBe(cleanupError);
     expect(store.get(tabsAtom)).not.toContain(tab);
+  });
+
+  it.each(["right", "bottom"] as const)(
+    "merges %s document splits without replacing tabs, edits, views or history",
+    (edge) => {
+      const first = TabWorkspace.open(new DocumentTestTab({}));
+      const second = TabWorkspace.open(new DocumentTestTab({}));
+      const firstState = { camera: first.camera, history: first.history, text: first.unsavedText };
+      const dispose = vi.spyOn(first, "dispose");
+      expect(TabWorkspace.split(second.id, edge)).toBe(true);
+      expect(getTabGroups(store.get(tabGroupRootAtom))).toHaveLength(2);
+      expect(TabWorkspace.canMergeDocumentGroups(second.id)).toBe(true);
+      expect(TabWorkspace.mergeDocumentGroups(second.id)).toBe(true);
+      const groups = getTabGroups(store.get(tabGroupRootAtom));
+      expect(groups).toHaveLength(1);
+      expect(groups[0].tabIds).toEqual([first.id, second.id]);
+      expect(groups[0].activeTabId).toBe(second.id);
+      expect(store.get(tabsAtom)).toEqual([first, second]);
+      expect(first.camera).toBe(firstState.camera);
+      expect(first.history).toBe(firstState.history);
+      expect(first.unsavedText).toBe(firstState.text);
+      expect(dispose).not.toHaveBeenCalled();
+      expect(TabWorkspace.mergeDocumentGroups(second.id)).toBe(false);
+      expect(TabWorkspace.split(first.id, edge)).toBe(true);
+      expect(TabWorkspace.mergeDocumentGroups(first.id)).toBe(true);
+    },
+  );
+
+  it("merges nested file splits while keeping AI/settings panels and floating documents intact", () => {
+    const first = TabWorkspace.open(new DocumentTestTab({}));
+    const second = TabWorkspace.open(new DocumentTestTab({}));
+    const third = TabWorkspace.open(new DocumentTestTab({}));
+    const floating = TabWorkspace.open(new DocumentTestTab({}));
+    TabWorkspace.float(floating.id);
+    TabWorkspace.split(second.id, "right");
+    TabWorkspace.focus(first.id);
+    TabWorkspace.split(third.id, "bottom");
+    const ai = TabWorkspace.create({ title: "AI", layout: "docked", splitEdge: "right" });
+    const aiGroup = getTabGroups(store.get(tabGroupRootAtom)).find((g) => g.tabIds.includes(ai.id))!;
+    expect(TabWorkspace.mergeDocumentGroups(second.id)).toBe(true);
+    const groups = getTabGroups(store.get(tabGroupRootAtom));
+    expect(groups).toHaveLength(2);
+    expect(groups.find((g) => g.id === aiGroup.id)?.tabIds).toEqual([ai.id]);
+    expect(groups.flatMap((g) => g.tabIds).sort()).toEqual([first.id, second.id, third.id, ai.id].sort());
+    expect(floating.layout).toBe("floating");
+    expect(store.get(activeResourceTabAtom)).toBe(second);
+    expect(TabWorkspace.canMergeDocumentGroups(ai.id)).toBe(false);
   });
 });

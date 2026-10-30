@@ -124,6 +124,10 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
     );
   }
 
+  async waitForClipboardBitmap(): Promise<void> {
+    await Promise.all(this.pendingBitmapTasks);
+  }
+
   async dispose(): Promise<void> {
     this.disposed = true;
     const results = await Promise.allSettled(this.pendingBitmapTasks);

@@ -277,6 +277,49 @@ export namespace TabWorkspace {
     return moveTab(id, { groupId: group.id, edge });
   }
 
+  export function canMergeDocumentGroups(id: string): boolean {
+    const tab = get(id);
+    if (!tab || tab.layout !== "docked" || !isResourceTab(tab) || tab.closing) return false;
+    const documents = new Set<string>(
+      store
+        .get(tabsAtom)
+        .filter((candidate) => candidate.layout === "docked" && !candidate.closing && isResourceTab(candidate))
+        .map((candidate) => candidate.id),
+    );
+    return (
+      getTabGroups(store.get(tabGroupRootAtom)).filter((group) => group.tabIds.some((tabId) => documents.has(tabId)))
+        .length > 1
+    );
+  }
+
+  export function mergeDocumentGroups(id: string): boolean {
+    if (!canMergeDocumentGroups(id)) return false;
+    const originalRoot = store.get(tabGroupRootAtom);
+    const target = findTabGroupByTabId(originalRoot, id)!;
+    const documents = new Set<string>(
+      store
+        .get(tabsAtom)
+        .filter((tab) => tab.layout === "docked" && !tab.closing && isResourceTab(tab))
+        .map((tab) => tab.id),
+    );
+    const orderedIds = getTabGroups(originalRoot).flatMap((group) =>
+      group.tabIds.filter((tabId) => documents.has(tabId)),
+    );
+    let root = originalRoot;
+    for (const tabId of orderedIds) {
+      if (!target.tabIds.includes(tabId)) root = removeTabFromGroups(root, tabId).root;
+    }
+    root = updateTabGroup(root, target.id, (group) => ({
+      ...group,
+      tabIds: [...orderedIds, ...group.tabIds.filter((tabId) => !documents.has(tabId))],
+      activeTabId: id,
+    }));
+    // Keep the actual Tab instances and services: unsaved edits, camera and undo history belong to them.
+    store.set(tabGroupRootAtom, root);
+    focus(id);
+    return true;
+  }
+
   export function resizeSplit(id: string, sizes: [number, number]) {
     store.set(tabGroupRootAtom, updateTabSplitSizes(store.get(tabGroupRootAtom), id, sizes));
   }

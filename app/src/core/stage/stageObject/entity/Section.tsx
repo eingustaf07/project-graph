@@ -238,6 +238,20 @@ export class Section extends ConnectableEntity {
     return this.rectangle.location.clone().add(this.rectangle.size.clone().multiply(0.5));
   }
 
+  /** Translate a detached clipboard section without moving its children a second time. */
+  translateClipboardGeometry(delta: Vector): void {
+    for (const box of new Set([this._collisionBoxNormal, this._collisionBoxWhenCollapsed])) {
+      for (const shape of box.shapes) {
+        if (shape instanceof Line) {
+          shape.start = shape.start.add(delta);
+          shape.end = shape.end.add(delta);
+        } else if (shape instanceof Rectangle) {
+          shape.location = shape.location.add(delta);
+        }
+      }
+    }
+  }
+
   move(delta: Vector): void {
     // 让自己移动
     for (const shape of this.collisionBox.shapes) {

@@ -10,6 +10,8 @@ import type { Value } from "platejs";
 
 export type CreateImageNodeFromBlobOptions = {
   location: Vector;
+  centerAtLocation?: boolean;
+  waitForReady?: boolean;
   intrinsicSize?: { width: number; height: number };
   maxDisplaySize?: number;
   details?: Value;
@@ -42,7 +44,9 @@ export async function createImageNodeFromBlob(
   const displaySize = calculateImageDisplaySize(width, height, maxDisplaySize);
   const scale = displaySize.scale;
   const attachmentId = project.addAttachment(blob);
-  const location = options.location.clone();
+  const location = options.centerAtLocation
+    ? options.location.subtract(new Vector(displaySize.width / 2, displaySize.height / 2))
+    : options.location.clone();
   const imageNode = new ImageNode(
     project,
     {
@@ -73,5 +77,6 @@ export async function createImageNodeFromBlob(
     );
   }
 
+  if (options.waitForReady) await imageNode.waitForClipboardBitmap();
   return { node: imageNode, width, height };
 }
