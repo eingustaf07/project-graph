@@ -250,6 +250,12 @@ settings:
   hideCursorInPenMode:
     title: Sembunyikan Kursor dalam Mode Kuas
     description: "Saat diaktifkan, kursor mouse akan disembunyikan saat menggambar dengan kuas"
+  penStrokeStraightLine:
+    title: Menggambar garis lurus
+    description: Seret garis lurus dalam mode gambar yang ada. Tahan Shift untuk arah horizontal, vertikal atau 45 derajat. Nonaktifkan untuk gambar bebas.
+  penStrokeLineWidth:
+    title: Lebar garis lurus
+    description: Lebar garis baru dalam satuan kanvas; goresan lama tidak berubah.
   penPressureCurve:
     title: Kurva Tekanan Pena
     description: Sesuaikan kurva pemetaan input tekanan pena, mengubah hubungan antara tekanan dan lebar goresan

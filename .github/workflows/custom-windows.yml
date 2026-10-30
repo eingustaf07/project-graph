@@ -1,8 +1,7 @@
 name: Custom Windows installer
 on:
   push:
-    branches:
-      [pg1.1-chatgpt-signin, pg11-ui-fix-package-20261012, pg11-ai-tree-safety-20261029, pg13-clipboard-20261030]
+    branches: [pg1.1-chatgpt-signin, pg11-ui-fix-package-20261012, pg11-ai-tree-safety-20261029]
     paths-ignore:
       - "**/*.md"
   workflow_dispatch:

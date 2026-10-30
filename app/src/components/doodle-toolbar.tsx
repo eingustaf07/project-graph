@@ -7,6 +7,7 @@ import { Rectangle } from "@graphif/shapes";
 import { useEffect, useRef, useState, lazy, Suspense, type PointerEvent } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Switch } from "./ui/switch";
 import { Circle, MousePointer2, RectangleHorizontal, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import type { DoodleShape } from "@/core/algorithm/doodleBounds";
@@ -36,6 +37,10 @@ export default function DoodleToolbar({ project }: { project: Project }) {
   const [height, setHeight] = useState("");
   const [legacy, setLegacy] = useState(false);
   const [viewer, setViewer] = useState(Settings.viewerMode);
+  const [penLine, setPenLine] = useState(Settings.penStrokeStraightLine);
+  const [penWidth, setPenWidth] = useState(Settings.penStrokeLineWidth);
+  const [penInk, setPenInk] = useState(Settings.autoFillPenStrokeColor);
+  const [penInkEnabled, setPenInkEnabled] = useState(Settings.autoFillPenStrokeColorEnable);
   const [gesture, setGesture] = useState<Gesture>();
   const [resize, setResize] = useState<Resize>();
   const [, redraw] = useState(0);
@@ -53,6 +58,27 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     return project.renderer.transformView2World(point);
   };
   useEffect(() => Settings.watch("viewerMode", setViewer), []);
+  useEffect(() => {
+    const stops = [
+      Settings.watch("penStrokeStraightLine", setPenLine),
+      Settings.watch("penStrokeLineWidth", setPenWidth),
+      Settings.watch("autoFillPenStrokeColor", setPenInk),
+      Settings.watch("autoFillPenStrokeColorEnable", setPenInkEnabled),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, []);
+  const resolvedInk =
+    penInkEnabled && penInk && penInk[3] > 0
+      ? new Color(...penInk)
+      : project.stageStyleManager.currentStyle.StageObjectBorder;
+  const setInk = (hex: string, alpha: number) => {
+    const next = Color.fromHex(hex).toNewAlpha(alpha).toArray();
+    Settings.autoFillPenStrokeColorEnable = true;
+    Settings.autoFillPenStrokeColor = next;
+    setPenInkEnabled(true);
+    setPenInk(next);
+    refresh();
+  };
   useEffect(() => {
     let frame = 0;
     const sync = () => {
@@ -317,6 +343,84 @@ export default function DoodleToolbar({ project }: { project: Project }) {
           className="bg-popover/95 border-border absolute top-1/2 right-2 z-50 flex max-h-[85%] w-52 -translate-y-1/2 flex-col gap-2 overflow-auto rounded-lg border p-3 text-sm shadow-xl backdrop-blur-md"
         >
           <strong>涂鸦与容器</strong>
+          <label className="flex items-center justify-between gap-2 text-xs">
+            直线涂鸦
+            <Switch
+              aria-label="直线涂鸦"
+              checked={penLine ?? false}
+              disabled={viewer}
+              onCheckedChange={(value) => {
+                Settings.penStrokeStraightLine = value;
+                setPenLine(value);
+                refresh();
+              }}
+            />
+          </label>
+          <p className="text-muted-foreground text-xs">
+            用于已有鼠标涂鸦模式；开启后拖动画直线，Shift 对齐水平、垂直或45°。
+          </p>
+          <label className="flex items-center justify-between gap-2 text-xs">
+            笔迹颜色
+            <input
+              aria-label="涂鸦笔迹颜色"
+              type="color"
+              value={resolvedInk.toHexStringWithoutAlpha()}
+              disabled={viewer}
+              onChange={(event) => setInk(event.target.value, penInkEnabled && penInk?.[3] > 0 ? penInk[3] : 1)}
+              className="h-6 w-10"
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 text-xs">
+            不透明度 %
+            <Input
+              aria-label="涂鸦不透明度"
+              type="number"
+              min={1}
+              max={100}
+              className="w-20"
+              value={Math.round((penInkEnabled && penInk?.[3] > 0 ? penInk[3] : 1) * 100)}
+              disabled={viewer}
+              onChange={(event) =>
+                setInk(
+                  resolvedInk.toHexStringWithoutAlpha(),
+                  Math.max(1, Math.min(100, Number(event.target.value) || 1)) / 100,
+                )
+              }
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 text-xs">
+            直线粗细
+            <Input
+              aria-label="直线涂鸦粗细"
+              type="number"
+              min={1}
+              max={50}
+              className="w-20"
+              value={penWidth ?? 5}
+              disabled={viewer || !penLine}
+              onChange={(event) => {
+                const next = Math.max(1, Math.min(50, Number(event.target.value) || 1));
+                Settings.penStrokeLineWidth = next;
+                setPenWidth(next);
+                refresh();
+              }}
+            />
+          </label>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={viewer}
+            onClick={() => {
+              Settings.autoFillPenStrokeColorEnable = true;
+              Settings.autoFillPenStrokeColor = [0, 0, 0, 0];
+              setPenInkEnabled(true);
+              setPenInk([0, 0, 0, 0]);
+              refresh();
+            }}
+          >
+            笔迹跟随主题颜色
+          </Button>
+          <div className="border-border border-t" />
           <div className="grid grid-cols-2 gap-1">
             <Button
               size="sm"

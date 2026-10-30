@@ -27,6 +27,10 @@ import { Encoder, decode } from "@msgpack/msgpack";
 import { Camera } from "@/core/stage/Camera";
 import { ControllerCameraClass } from "@/core/service/controlService/controller/concrete/ControllerCamera";
 import { ControllerImageScaleClass } from "@/core/service/controlService/controller/concrete/ControllerImageScale";
+import { ControllerPenStrokeDrawingClass } from "@/core/service/controlService/controller/concrete/ControllerPenStrokeDrawing";
+import { DrawingControllerRenderer } from "@/core/render/canvas2d/controllerRenderer/drawingRenderer";
+import { CurveRenderer } from "@/core/render/canvas2d/basicRenderer/curveRenderer";
+import { PenStroke } from "@/core/stage/stageObject/entity/PenStroke";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
 const ctx = canvas.getContext("2d")!;
@@ -95,6 +99,33 @@ Object.defineProperty(project, "projectState", {
   },
 });
 project.historyManager = new HistoryManager(project);
+const penQA = new URLSearchParams(location.search).has("pen");
+if (penQA) {
+  Settings.mouseLeftMode = "draw";
+  Settings.enableOCR = false;
+  Object.assign(project.controller, {
+    isMouseDown: [false, false, false],
+    camera: { isPreGrabbingWhenSpace: false },
+    setCursorName() {},
+    penStrokeControl: { isAdjusting: false },
+  });
+  canvas.addEventListener("pointerdown", (e) => {
+    project.controller.isMouseDown[e.button] = true;
+  });
+  canvas.addEventListener("pointerup", (e) => {
+    project.controller.isMouseDown[e.button] = false;
+  });
+  window.addEventListener("keydown", (e) => project.controller.pressingKeySet.add(e.key.toLowerCase()));
+  window.addEventListener("keyup", (e) => project.controller.pressingKeySet.delete(e.key.toLowerCase()));
+  project.controller.penStrokeDrawing = new ControllerPenStrokeDrawingClass(project);
+  project.curveRenderer = new CurveRenderer(project);
+  project.drawingControllerRenderer = new DrawingControllerRenderer(project);
+  const animate = () => {
+    draw();
+    requestAnimationFrame(animate);
+  };
+  requestAnimationFrame(animate);
+}
 if (new URLSearchParams(location.search).has("zoom")) {
   Object.assign(Settings, {
     mouseWheelWithCtrlMode: "none",
@@ -154,10 +185,23 @@ function draw() {
         project.renderer.transformWorld2View(entity.rectangle.location),
         entity.scale,
       );
+    if (penQA && entity instanceof PenStroke)
+      project.curveRenderer.renderPenStroke(
+        entity.segments.map((s) => ({
+          location: project.renderer.transformWorld2View(s.location),
+          pressure: s.pressure,
+        })),
+        entity.color.a === 0 ? project.stageStyleManager.currentStyle.StageObjectBorder : entity.color,
+      );
   }
+  if (penQA) project.drawingControllerRenderer.renderTempDrawing();
 }
 let dragging: { entity: TextNode | Doodle; last: Vector } | undefined;
 canvas.addEventListener("pointerdown", (event) => {
+  if (penQA && Settings.mouseLeftMode === "draw") {
+    canvas.setPointerCapture(event.pointerId);
+    return;
+  }
   const at = project.renderer.transformView2World(project.canvas.clientToView(event.clientX, event.clientY));
   const entity = project.stageManager.findEntityByLocation(at);
   project.stageManager.clearSelectAll();
@@ -182,6 +226,7 @@ canvas.addEventListener("pointerup", () => {
   }
 });
 canvas.addEventListener("dblclick", (event) => {
+  if (penQA && Settings.mouseLeftMode === "draw") return;
   const at = project.renderer.transformView2World(project.canvas.clientToView(event.clientX, event.clientY));
   if (project.stageManager.findEntityByLocation(at)) return;
   const node = new TextNode(project, {
@@ -246,6 +291,12 @@ Object.assign(window, {
         width: n.rectangle.width,
         height: n.rectangle.height,
         parent: n.parentSection?.uuid,
+      })),
+    strokes: () =>
+      project.stageManager.getPenStrokes().map((n: PenStroke) => ({
+        id: n.uuid,
+        segments: n.segments.map((s) => ({ x: s.location.x, y: s.location.y, pressure: s.pressure })),
+        color: n.color.toArray(),
       })),
   },
 });

@@ -307,6 +307,12 @@ settings:
   hideCursorInPenMode:
     title: 畫筆模式下隱藏游標
     description: "開啟後，在使用畫筆繪製時會隱藏滑鼠游標"
+  penStrokeStraightLine:
+    title: 直線塗鴉
+    description: 在原有滑鼠塗鴉模式拖曳畫直線；按住 Shift 對齊水平、垂直或45度。關閉後保留原自由塗鴉。
+  penStrokeLineWidth:
+    title: 直線塗鴉粗細
+    description: 新直線的畫布座標寬度，不改變已有筆跡。
   penPressureCurve:
     title: 筆壓曲線
     description: 調整筆壓輸入的映射曲線，改變壓力與筆畫寬度的關係

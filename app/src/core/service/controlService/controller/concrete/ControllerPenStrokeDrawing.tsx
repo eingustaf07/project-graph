@@ -25,6 +25,23 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
   public currentSegments: PenStrokeSegment[] = [];
   /** 当前是否是在绘制直线 */
   public isDrawingLine = false;
+  private straightLineStart?: Vector;
+
+  public get isUsingStraightLine(): boolean {
+    return !!this.straightLineStart;
+  }
+
+  public getStraightLinePreview(
+    end: Vector,
+    snap = this.project.controller.pressingKeySet.has("shift"),
+  ): [Vector, Vector] | undefined {
+    if (!this.straightLineStart) return;
+    const from = this.straightLineStart.clone();
+    if (!snap) return [from, end.clone()];
+    const diff = end.subtract(from);
+    const angle = (Math.round(Math.atan2(diff.y, diff.x) / (Math.PI / 4)) * Math.PI) / 4;
+    return [from, from.add(new Vector(Math.cos(angle), Math.sin(angle)).multiply(diff.magnitude()))];
+  }
 
   public currentStrokeWidth: number = 5;
 
@@ -41,6 +58,10 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
   }
 
   public mousedown = (event: PointerEvent) => {
+    if (event.button === 2 && this.straightLineStart) {
+      this.releaseMouseAndClear();
+      return;
+    }
     if (event.button !== 0) {
       return;
     }
@@ -55,6 +76,14 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
       this.project.controller.setCursorName(CursorNameEnum.None);
     }
     const pressWorldLocation = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
+    if (Settings.penStrokeStraightLine) {
+      this.straightLineStart = pressWorldLocation.clone();
+      this.currentSegments = [
+        new PenStrokeSegment(pressWorldLocation.clone(), 1),
+        new PenStrokeSegment(pressWorldLocation.clone(), 1),
+      ];
+      this.isDrawingLine = true;
+    }
     if (this.project.controller.pressingKeySet.has("shift")) {
       this.isDrawingLine = true;
     }
@@ -65,6 +94,18 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
     if (!this._isUsing) return;
     if (!this.project.controller.isMouseDown[0] && Settings.mouseLeftMode === "draw") return;
     if (this.project.controller.isMouseDown[0] && Settings.mouseLeftMode !== "draw") return;
+    if (this.straightLineStart) {
+      const end = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
+      const [from, to] = this.getStraightLinePreview(
+        end,
+        event.shiftKey || this.project.controller.pressingKeySet.has("shift"),
+      )!;
+      this.currentSegments = [
+        new PenStrokeSegment(from, Settings.penStrokeLineWidth / 5),
+        new PenStrokeSegment(to, Settings.penStrokeLineWidth / 5),
+      ];
+      return;
+    }
     const coalescedEvents = "getCoalescedEvents" in event ? event.getCoalescedEvents() : null;
     const events = coalescedEvents ?? [event];
     for (const e of events) {
@@ -104,7 +145,36 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
 
   public mouseup = (event: MouseEvent) => {
     if (!this._isUsing) return;
+    if (event.button === 0 && Settings.mouseLeftMode !== "draw" && this.straightLineStart) {
+      this.releaseMouseAndClear();
+      return;
+    }
     if (!(event.button === 0 && Settings.mouseLeftMode === "draw")) {
+      return;
+    }
+    if (this.straightLineStart) {
+      try {
+        const end = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
+        const [from, to] = this.getStraightLinePreview(
+          end,
+          event.shiftKey || this.project.controller.pressingKeySet.has("shift"),
+        )!;
+        if (from.distance(to) * this.project.camera.currentScale < 2) return;
+        const stroke = new PenStroke(this.project, {
+          segments: [
+            new PenStrokeSegment(from, Settings.penStrokeLineWidth / 5),
+            new PenStrokeSegment(to, Settings.penStrokeLineWidth / 5),
+          ],
+          color: this.getCurrentStrokeColor().clone(),
+        });
+        this.project.stageManager.add(stroke);
+        this.tryAttachStrokeToSection(stroke, from, to);
+        this.project.historyManager.recordStep();
+      } catch (error) {
+        toast.error(`无法绘制直线：${String(error)}`);
+      } finally {
+        this.releaseMouseAndClear();
+      }
       return;
     }
     // // 计算总长度
@@ -348,7 +418,12 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
     this.currentSegments = [];
     this._isUsing = false;
     this.isDrawingLine = false;
+    this.straightLineStart = undefined;
   }
+
+  public keydown = (event: KeyboardEvent) => {
+    if (event.key === "Escape" && this.straightLineStart) this.releaseMouseAndClear();
+  };
 
   public mouseMoveOutWindowForcedShutdown(_outsideLocation: Vector) {
     super.mouseMoveOutWindowForcedShutdown(_outsideLocation);

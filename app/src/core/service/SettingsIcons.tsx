@@ -105,6 +105,8 @@ import {
 
 export const settingsIcons = {
   hideCursorInPenMode: MouseOff,
+  penStrokeStraightLine: Minus,
+  penStrokeLineWidth: Minus,
   penPressureCurve: Spline,
   autoNamerTemplate: Tag,
   autoNamerSectionTemplate: Tag,

@@ -35,6 +35,17 @@ export class DrawingControllerRenderer {
   }
 
   private renderTrace(currentStrokeColor: Color) {
+    const drawing = this.project.controller.penStrokeDrawing;
+    const straight = drawing.getStraightLinePreview(this.project.renderer.transformView2World(MouseLocation.vector()));
+    if (straight) {
+      this.project.curveRenderer.renderSolidLine(
+        this.project.renderer.transformWorld2View(straight[0]),
+        this.project.renderer.transformWorld2View(straight[1]),
+        currentStrokeColor.a === 0 ? this.project.stageStyleManager.currentStyle.StageObjectBorder : currentStrokeColor,
+        Settings.penStrokeLineWidth * this.project.camera.currentScale,
+      );
+      return;
+    }
     const startLocation = this.project.controller.penStrokeDrawing.currentSegments[0].location;
     const endLocation = this.project.renderer.transformView2World(MouseLocation.vector());
 
@@ -92,7 +103,7 @@ export class DrawingControllerRenderer {
       0,
     );
     // 如果按下shift键，说明正在画直线
-    if (this.project.controller.pressingKeySet.has("shift")) {
+    if (this.project.controller.pressingKeySet.has("shift") && !Settings.penStrokeStraightLine) {
       this.renderAxisMouse();
     }
   }

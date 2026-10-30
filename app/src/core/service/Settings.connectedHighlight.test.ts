@@ -69,4 +69,22 @@ describe("connected highlight setting compatibility and persistence", () => {
     expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
     expect(restored.Settings.textNodeMaxCharWidth).toBe(22);
   });
+  it("defaults to freehand and saves only requested pen options without rewriting existing settings", async () => {
+    const { Settings } = await import("./Settings");
+    expect(Settings.penStrokeStraightLine).toBe(false);
+    expect(Settings.penStrokeLineWidth).toBe(5);
+    storage.writtenKeys = [];
+    Settings.penStrokeStraightLine = true;
+    Settings.penStrokeLineWidth = 9;
+    Settings.autoFillPenStrokeColor = [220, 30, 80, 0.6];
+    expect(storage.writtenKeys).toEqual(["penStrokeStraightLine", "penStrokeLineWidth", "autoFillPenStrokeColor"]);
+    vi.resetModules();
+    const restored = await import("./Settings");
+    expect(restored.Settings.penStrokeStraightLine).toBe(true);
+    expect(restored.Settings.penStrokeLineWidth).toBe(9);
+    expect(restored.Settings.autoFillPenStrokeColor).toEqual([220, 30, 80, 0.6]);
+    expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
+    expect(restored.Settings.textNodeMaxCharWidth).toBe(22);
+    expect(restored.Settings.aiConnectionMode).toBe("chatgpt");
+  });
 });

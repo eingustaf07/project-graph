@@ -215,6 +215,12 @@ settings:
   hideCursorInPenMode:
     title: Hide Cursor in Brush Mode
     description: "When enabled, hides the mouse cursor while drawing with the brush tool"
+  penStrokeStraightLine:
+    title: Straight-line drawing
+    description: Drag a straight line in the existing drawing mode. Hold Shift to align horizontally, vertically or at 45 degrees. Off preserves freehand drawing.
+  penStrokeLineWidth:
+    title: Straight-line width
+    description: Width of new straight lines in canvas world units; existing strokes stay unchanged.
   penPressureCurve:
     title: Pen Pressure Curve
     description: Adjust the mapping curve of pen pressure input, changing the relationship between pressure and stroke width
