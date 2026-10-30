@@ -1,6 +1,16 @@
 #[cfg(debug_assertions)]
 mod cli_desktop_acceptance;
 mod cmd;
+#[cfg(target_os = "windows")]
+mod windows_clipboard_files;
+
+#[tauri::command]
+fn read_clipboard_image_paths() -> Result<Vec<String>, String> {
+    #[cfg(target_os = "windows")]
+    { windows_clipboard_files::read_image_paths() }
+    #[cfg(not(target_os = "windows"))]
+    { Ok(Vec::new()) }
+}
 mod chatgpt_auth;
 mod project_ownership;
 pub mod project_reference_store;
@@ -126,6 +136,7 @@ pub fn run() {
             write_stderr,
             exit,
             take_pending_open_files,
+            read_clipboard_image_paths,
             project_ownership::acquire_desktop_project_ownership,
             project_ownership::acquire_desktop_project_ownership_for_save,
             project_ownership::make_desktop_project_ownership_connectable,

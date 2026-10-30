@@ -1,0 +1,24 @@
+name: PG1.3 clipboard Windows source tests
+on:
+  push:
+    branches: [pg13-clipboard-20261030]
+    paths:
+      - app/src-tauri/src/windows_clipboard_files.rs
+      - .github/workflows/pg13-clipboard-source-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  clipboard-native-tests:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test Windows file clipboard reader without packaging PG
+        shell: pwsh
+        run: |
+          rustc --edition 2021 --test app/src-tauri/src/windows_clipboard_files.rs -o "$env:RUNNER_TEMP/pg13-clipboard-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP/pg13-clipboard-tests.exe"
+          exit $LASTEXITCODE
