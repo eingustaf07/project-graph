@@ -15,11 +15,10 @@ import {
   Settings2,
   Eraser,
   Slash,
-  Palette,
+  SlidersHorizontal,
   Frame,
   Square,
   LockKeyhole,
-  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { DoodleShape } from "@/core/algorithm/doodleBounds";
@@ -126,7 +125,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     const clickFrame = (event: globalThis.PointerEvent) => {
       const point = project.canvas.clientToView(event.clientX, event.clientY);
       const entity = project.stageManager.findEntityByLocation(project.renderer.transformView2World(point));
-      if (entity instanceof Doodle) setEditingId(entity.uuid);
+      if (entity instanceof Doodle && !Settings.penStrokeEraser) setEditingId(entity.uuid);
       schedule();
     };
     project.on("state-change", schedule);
@@ -178,7 +177,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     }
   }, [viewer]);
 
-  const editing = !!selected && editingId === selected.uuid && !tool && !viewer;
+  const editing = !!selected && editingId === selected.uuid && !tool && !viewer && !eraser;
   const shape = tool ?? selected?.shape ?? "rectangle";
   const preview = gesture
     ? frameFromPoints(gesture.start, gesture.end, shape)
@@ -242,23 +241,54 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     setResize(undefined);
   };
   const fixBoundary = () => {
-    if (!selected || viewer) return;
+    if (!selected || viewer) return false;
     try {
-      selected.resizeFrame(new Rectangle(selected.frame.location.clone(), new Vector(Number(width), Number(height))));
-      selected.rename(name);
-      selected.color = Color.fromHex(color);
-      selected.setBounded(bounded);
-      project.stageManager.updateReferences();
-      project.historyManager.recordStep();
+      const dimensionsChanged =
+        width !== String(Math.round(selected.frame.width)) || height !== String(Math.round(selected.frame.height));
+      const changed =
+        dimensionsChanged ||
+        selected.text !== name ||
+        selected.color.toHexStringWithoutAlpha() !== color ||
+        selected.bounded !== bounded;
+      if (dimensionsChanged)
+        selected.resizeFrame(new Rectangle(selected.frame.location.clone(), new Vector(Number(width), Number(height))));
+      if (selected.text !== name) selected.rename(name);
+      if (selected.color.toHexStringWithoutAlpha() !== color) selected.color = Color.fromHex(color);
+      if (selected.bounded !== bounded) selected.setBounded(bounded);
+      if (changed) {
+        project.stageManager.updateReferences();
+        project.historyManager.recordStep();
+      }
       setEditingId(undefined);
       setOptionsOpen(false);
       refresh();
-      toast.success(bounded ? "容器边界已固定，内部节点不能越界" : "涂鸦已保存，不限制节点");
+      return true;
     } catch (error) {
       toast.error(String(error));
+      return false;
     }
   };
+  useEffect(() => {
+    if (!editing || !selected) return;
+    const finishOnOutside = (event: globalThis.PointerEvent) => {
+      if (event.button !== 0 || !(event.target instanceof Element)) return;
+      if (event.target.closest("[data-pg-doodle-toolbar], [data-pg-doodle-parameters], [data-pg-doodle-handle]"))
+        return;
+      if (event.target === project.canvas.element) {
+        const point = project.canvas.clientToView(event.clientX, event.clientY);
+        if (project.stageManager.findEntityByLocation(project.renderer.transformView2World(point)) === selected) return;
+      }
+      if (!fixBoundary()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setOptionsOpen(true);
+      }
+    };
+    window.addEventListener("pointerdown", finishOnOutside, true);
+    return () => window.removeEventListener("pointerdown", finishOnOutside, true);
+  });
   const startTool = (next: DoodleShape) => {
+    if (editing && !fixBoundary()) return;
     project.stageManager.clearSelectAll();
     setSelected(undefined);
     setEditingId(undefined);
@@ -333,6 +363,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
             <button
               key={`${dx},${dy}`}
               aria-label={`调整${dy < 0 ? "上" : "下"}${dx < 0 ? "左" : "右"}角`}
+              data-pg-doodle-handle
               type="button"
               className="bg-background border-primary absolute z-40 size-3 rounded-sm border-2"
               style={{
@@ -372,6 +403,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       ) : (
         <aside
           aria-label="涂鸦面板"
+          data-pg-doodle-toolbar
           className="bg-popover/95 supports-backdrop-blur:bg-popover/80 border-border/50 absolute top-1/2 right-2 z-50 flex max-h-[calc(100%-16px)] w-11 -translate-y-1/2 flex-col items-center gap-0.5 overflow-y-auto rounded-lg border px-1 py-1.5 shadow-xl backdrop-blur-md"
         >
           <ToolButton
@@ -381,6 +413,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
             variant={eraser ? "default" : "ghost"}
             disabled={viewer}
             onClick={() => {
+              if (!eraser && editing && !fixBoundary()) return;
               const value = !eraser;
               Settings.penStrokeEraser = value;
               setEraser(value);
@@ -407,10 +440,11 @@ export default function DoodleToolbar({ project }: { project: Project }) {
           <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
             <PopoverTrigger asChild>
               <ToolButton label="涂鸦参数">
-                <Palette className="size-4" />
+                <SlidersHorizontal className="size-4" />
               </ToolButton>
             </PopoverTrigger>
             <PopoverContent
+              data-pg-doodle-parameters
               side="left"
               align="center"
               sideOffset={8}
@@ -529,7 +563,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
               {selected && (
                 <>
                   <span className="text-xs">
-                    {editing ? "边界编辑中：可拖动四角调整大小" : "已固定；点击图形边框重新编辑"}
+                    {editing ? "拖动四角调整大小，点击其他位置自动固定" : "已固定；点击图形边框重新编辑"}
                   </span>
                   {editing ? (
                     <>
@@ -559,9 +593,6 @@ export default function DoodleToolbar({ project }: { project: Project }) {
                           }}
                         />
                       </label>
-                      <Button size="sm" onClick={fixBoundary}>
-                        保存图形参数
-                      </Button>
                     </>
                   ) : (
                     <Button size="sm" variant="outline" disabled={viewer} onClick={() => setEditingId(selected.uuid)}>
@@ -618,24 +649,22 @@ export default function DoodleToolbar({ project }: { project: Project }) {
               <MousePointer2 className="size-4" />
             </ToolButton>
           )}
-          {selected && (
+          {selected && !editing && (
             <ToolButton
-              label={editing ? "固定边界" : "编辑边界"}
+              label="编辑边界"
               disabled={viewer}
               onClick={() => {
-                if (editing) fixBoundary();
-                else {
-                  setEditingId(selected.uuid);
-                  setOptionsOpen(true);
-                }
+                setEditingId(selected.uuid);
+                setOptionsOpen(true);
               }}
             >
-              {editing ? <Check className="size-4" /> : <LockKeyhole className="size-4" />}
+              <LockKeyhole className="size-4" />
             </ToolButton>
           )}
           <ToolButton
             label="原快捷设置"
             onClick={() => {
+              if (editing && !fixBoundary()) return;
               setTool(null);
               setLegacy(true);
             }}

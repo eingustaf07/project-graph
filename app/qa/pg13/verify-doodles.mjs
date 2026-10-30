@@ -18,6 +18,11 @@ try {
   const openParameters = async () => {
     if (!(await page.getByLabel("涂鸦线条颜色", { exact: true }).isVisible())) await button("涂鸦参数").click();
   };
+  const finishEditing = async (valid = true) => {
+    await page.mouse.click(1200, 880);
+    await page.waitForTimeout(100);
+    if (valid) assert.equal(await page.getByRole("button", { name: /^调整[上下][左右]角$/ }).count(), 0);
+  };
   const rail = await page.getByRole("complementary", { name: "涂鸦面板" }).boundingBox();
   assert.equal(rail.width, 44);
   assert.ok(Math.abs(rail.x + rail.width - 1442) < 1);
@@ -61,7 +66,21 @@ try {
     }),
     "selected doodle border must be continuously solid",
   );
-  await button("固定边界").click();
+  assert.equal(await button("固定边界").count(), 0);
+  assert.equal(await button("保存图形参数").count(), 0);
+  await finishEditing();
+  const afterOutside = await page.evaluate(() => window.doodleQA.snapshot());
+  await page.keyboard.press("Control+z");
+  assert.equal((await shapes()).length, 0, "finishing unchanged geometry must not add a redundant undo step");
+  await page.keyboard.press("Control+y");
+  assert.deepEqual(await page.evaluate(() => window.doodleQA.snapshot()), afterOutside);
+  await page.mouse.click(200, 70);
+  await page.waitForTimeout(100);
+  assert.equal(await page.getByRole("button", { name: /^调整[上下][左右]角$/ }).count(), 4);
+  await page.getByRole("switch", { name: "橡皮模式", exact: true }).click();
+  assert.equal(await page.getByRole("button", { name: /^调整[上下][左右]角$/ }).count(), 0);
+  await page.getByRole("switch", { name: "橡皮模式", exact: true }).click();
+  assert.equal(await page.getByRole("button", { name: /^调整[上下][左右]角$/ }).count(), 0);
   await page.locator("canvas").dblclick({ position: { x: 180, y: 180 } });
   assert.equal((await nodes())[0].parent, undefined);
   await drag([200, 200], [470, 430]);
@@ -69,7 +88,7 @@ try {
   await draw("容器模式", "长方形", [480, 70], [1000, 600]);
   await openParameters();
   await page.getByLabel("图形或容器名称").fill("固定知识区");
-  await button("固定边界").click();
+  await finishEditing();
   await page.locator("canvas").dblclick({ position: { x: 700, y: 260 } });
   let cage = (await shapes())[1],
     member = (await nodes())[1];
@@ -84,14 +103,14 @@ try {
   await page.waitForTimeout(150);
   await openParameters();
   await page.getByLabel("图形宽度").fill("580");
-  await button("固定边界").click();
+  await finishEditing();
   assert.equal((await shapes())[1].rect.width, 580);
   await page.mouse.click(740, 70);
   await page.waitForTimeout(150);
   const handle = page.getByRole("button", { name: "调整下右角" });
   const box = await handle.boundingBox();
   await drag([box.x + box.width / 2, box.y + box.height / 2], [1100, 650]);
-  await button("固定边界").click();
+  await finishEditing();
   assert.equal((await shapes())[1].rect.width, 620);
   contains((await shapes())[1], (await nodes())[1]);
   await page.mouse.click(740, 70);
@@ -100,16 +119,16 @@ try {
   await page.getByLabel("图形宽度").fill("40");
   await page.getByLabel("图形高度").fill("40");
   const beforeShrink = await shapes();
-  await button("固定边界").click();
+  await finishEditing(false);
   assert.deepEqual(await shapes(), beforeShrink);
   await page.getByLabel("图形宽度").fill("620");
   await page.getByLabel("图形高度").fill("580");
-  await button("固定边界").click();
+  await finishEditing();
   await page.screenshot({ path: path.join(output, "rectangle-container.png") });
   await draw("容器模式", "圆形", [40, 440], [430, 830]);
   await openParameters();
   await page.getByLabel("图形或容器名称").fill("圆形知识区");
-  await button("固定边界").click();
+  await finishEditing();
   await page.locator("canvas").dblclick({ position: { x: 220, y: 620 } });
   const circle = (await shapes())[2];
   let circular = (await nodes()).at(-1);
@@ -136,7 +155,7 @@ try {
   await page.waitForTimeout(150);
   const prior = (await nodes())[1];
   await button("涂鸦模式").click();
-  await button("固定边界").click();
+  await finishEditing();
   assert.equal((await nodes())[1].parent, undefined);
   assert.equal((await nodes())[1].x, prior.x);
   assert.equal((await nodes())[1].y, prior.y);
@@ -232,6 +251,9 @@ try {
         passed: true,
         checks: [
           "decorative mode",
+          "outside click finishes editing without a save button",
+          "unchanged finish does not add undo history",
+          "eraser finishes editing and hides resize controls",
           "rectangle and circle",
           "new node containment",
           "drag containment",
