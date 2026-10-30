@@ -422,7 +422,8 @@ describe("Project Graph CLI process contract", () => {
     const tools = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
 
     expect(result).toMatchObject({ status: 0, stderr: "" });
-    expect(tools).toHaveLength(29);
+    expect(tools).toHaveLength(31);
+    expect(tools.map(({ name }) => name)).toEqual(expect.arrayContaining(["move_nodes", "check_node_overlaps"]));
     expect(tools[0]).toMatchObject({
       name: "get_all_nodes",
       description: expect.any(String),

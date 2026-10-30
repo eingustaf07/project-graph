@@ -1,0 +1,38 @@
+[
+  {
+    "file": "app/src/core/service/dataManageService/aiEngine/AITools.test.ts",
+    "from": "AI layout tool schemas exposes DAG layout without exposing placement",
+    "to": "AI layout tool schemas exposes measured layout with direction, spacing and an optional target",
+    "reason": "User-requested measured AI tree layout adds explicit direction, spacing and target options; the replacement also retains the no-placement-tool check."
+  },
+  {
+    "file": "app/src/core/service/dataManageService/aiEngine/AITools.test.ts",
+    "from": "AI layout tool schemas does not expose coordinates on text or image creation and editing tools",
+    "to": "AI layout tool schemas allows creation coordinates while keeping text/image editing separate from movement",
+    "reason": "AI tree generation supports explicit creation placement; editing still cannot silently change position."
+  },
+  {
+    "file": "app/src/core/service/dataManageService/aiEngine/AITools.test.ts",
+    "from": "AI layout tool schemas rejects unconnected nodes before invoking the DAG layout service",
+    "to": "AI layout tool schemas safely lays out unconnected notes without invoking legacy layout",
+    "reason": "Measured layout now handles disconnected notes as a forest; it still avoids legacy layout side effects and verifies zero overlap."
+  },
+  {
+    "file": "app/src/core/service/dataManageService/aiEngine/AITools.test.ts",
+    "from": "AI layout tool schemas passes a valid DAG selection to the shared layout service",
+    "to": "AI layout tool schemas uses measured geometry for a valid DAG without invoking legacy layout",
+    "reason": "The measured AI layout replaces the old forwarding path; the replacement verifies the resulting node geometry and move summary."
+  },
+  {
+    "file": "app/src/core/service/dataManageService/aiEngine/BuiltInToolRegistry.test.ts",
+    "from": "Built-in Tool Registry catalog exposes the closed, ordered set of 29 built-in tools without loading executors",
+    "to": "Built-in Tool Registry catalog exposes the closed, ordered set of built-in tools without loading executors",
+    "reason": "The cumulative AI feature adds move_nodes and check_node_overlaps. The replacement asserts the complete explicit ordered list of 31 tools and lazy loading."
+  },
+  {
+    "file": "app/src/core/service/dataManageService/aiEngine/BuiltInToolRegistry.test.ts",
+    "from": "Built-in Tool Registry catalog classifies the complete catalog into 19 closed, 6 live-selection, and 4 live-viewport tools",
+    "to": "Built-in Tool Registry catalog classifies the complete catalog by runtime requirements",
+    "reason": "Two new closed-context tools extend the old 19/6/4 catalog; the replacement asserts the complete explicit tool lists by runtime requirement."
+  }
+]

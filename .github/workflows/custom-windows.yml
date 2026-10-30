@@ -55,7 +55,7 @@ jobs:
           name: PG1.0-regression-results
           path: baseline-results
       - name: Block new regressions before packaging
-        run: node scripts/pg11-regression-gate.mjs baseline-results/regression-results.json regression-results.json
+        run: node scripts/pg11-regression-gate.mjs baseline-results/regression-results.json regression-results.json scripts/pg12-test-migrations.json
       - run: pnpm --filter @graphif/project-graph sync-locales
       - name: Build Windows installer
         run: pnpm build:ci

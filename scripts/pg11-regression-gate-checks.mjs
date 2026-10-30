@@ -15,6 +15,29 @@ function report(states = ['passed', 'failed']) {
 test('identical existing failures are reported honestly', () => {
   assert.match(compareReports(report(), report()), /not a clean test pass/);
 });
+
+function renamedReport(name, state = 'passed') {
+  const result = report([state]);
+  result.testResults[0].assertionResults[0].fullName = name;
+  return result;
+}
+const rename = { file: 'test.ts', from: 'old coverage', to: 'expanded coverage', reason: 'Explicit feature addition with replacement coverage' };
+test('explicit passing replacement coverage can be traced without losing a baseline test', () => {
+  assert.match(compareReports(renamedReport(rename.from), renamedReport(rename.to), [rename]), /1 explicit, passing test migrations/);
+});
+test('replacement coverage still must actually pass', () => {
+  for (const state of ['failed', 'skipped', 'todo']) assert.throws(() => compareReports(renamedReport(rename.from), renamedReport(rename.to, state), [rename]));
+});
+test('unknown, duplicate and undocumented migrations cannot bypass the gate', () => {
+  for (const entries of [[{ ...rename, reason: '' }], [{ ...rename, from: 'not in baseline' }], [{ ...rename, to: 'not in candidate' }], [rename, rename]]) {
+    assert.throws(() => compareReports(renamedReport(rename.from), renamedReport(rename.to), entries));
+  }
+});
+test('test migrations cannot hide a new failed test', () => {
+  const candidate = report(['passed', 'failed']);
+  candidate.testResults[0].assertionResults[0].fullName = rename.to;
+  assert.throws(() => compareReports(renamedReport(rename.from), candidate, [rename]), /New failed test/);
+});
 test('previously passing tests cannot fail or be skipped', () => {
   for (const state of ['failed', 'skipped', 'todo']) assert.throws(() => compareReports(report(), report([state, 'failed'])));
 });

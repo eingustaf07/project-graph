@@ -40,9 +40,23 @@ function indexReport(report) {
   return { tests, files, errors };
 }
 
-export function compareReports(baseline, candidate) {
+export function compareReports(baseline, candidate, migrations = []) {
   const before = indexReport(baseline);
   const after = indexReport(candidate);
+  if (!Array.isArray(migrations)) throw new Error('Test migrations must be an explicit array');
+  const usedTargets = new Set();
+  for (const migration of migrations) {
+    if (!migration || typeof migration.file !== 'string' || !migration.file || migration.file.includes('..') ||
+        typeof migration.from !== 'string' || typeof migration.to !== 'string' || migration.from === migration.to ||
+        typeof migration.reason !== 'string' || !migration.reason.trim()) throw new Error('Invalid test migration');
+    const from = JSON.stringify([`<root>/${migration.file}`, migration.from]);
+    const to = JSON.stringify([`<root>/${migration.file}`, migration.to]);
+    if (before.tests.get(from) !== 'passed' || before.tests.has(to) || after.tests.has(from) ||
+        after.tests.get(to) !== 'passed' || usedTargets.has(to)) throw new Error(`Unverified test migration: ${from}`);
+    usedTargets.add(to);
+    before.tests.delete(from);
+    before.tests.set(to, 'passed');
+  }
   const regressions = [];
   for (const [key, status] of before.tests) {
     const next = after.tests.get(key);
@@ -64,10 +78,10 @@ export function compareReports(baseline, candidate) {
   const caveat = candidate.numFailedTests || candidate.pgRegression.unhandledErrors.length || candidate.pgRegression.suiteErrors.length
     ? 'Known baseline failures remain unresolved; this is not a clean test pass.'
     : 'All candidate tests in this report passed.';
-  return `No new regression detected in ${before.tests.size} baseline tests; candidate: ${candidate.numPassedTests} passed, ${candidate.numFailedTests} failed, ${candidate.pgRegression.unhandledErrors.length} unhandled errors. ${caveat}`;
+  return `No new regression detected in ${before.tests.size} baseline tests (${migrations.length} explicit, passing test migrations); candidate: ${candidate.numPassedTests} passed, ${candidate.numFailedTests} failed, ${candidate.pgRegression.unhandledErrors.length} unhandled errors. ${caveat}`;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  if (process.argv.length !== 4) throw new Error('Usage: node pg11-regression-gate.mjs baseline.json candidate.json');
+  if (![4, 5].includes(process.argv.length)) throw new Error('Usage: node pg11-regression-gate.mjs baseline.json candidate.json [test-migrations.json]');
   console.log(compareReports(...process.argv.slice(2).map(path => JSON.parse(readFileSync(path, 'utf8')))));
 }
