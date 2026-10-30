@@ -123,12 +123,51 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       if (!frame) frame = requestAnimationFrame(sync);
     };
     const clickFrame = (event: globalThis.PointerEvent) => {
+      if (
+        event.button !== 0 ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        Settings.viewerMode ||
+        Settings.penStrokeEraser
+      )
+        return;
       const point = project.canvas.clientToView(event.clientX, event.clientY);
       const entity = project.stageManager.findEntityByLocation(project.renderer.transformView2World(point));
-      if (entity instanceof Doodle && !Settings.penStrokeEraser) setEditingId(entity.uuid);
+      if (entity instanceof Doodle && !project.sectionMethods.isObjectBeLockedBySection(entity)) {
+        project.stageManager.clearSelectAll();
+        entity.isSelected = true;
+        setSelected(entity);
+        setEditingId(entity.uuid);
+      }
       schedule();
     };
+    const selectFrameInDrawingMode = (event: globalThis.PointerEvent) => {
+      if (
+        Settings.mouseLeftMode !== "draw" ||
+        Settings.penStrokeEraser ||
+        Settings.viewerMode ||
+        event.pointerType === "pen" ||
+        event.button !== 0 ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return;
+      const point = project.canvas.clientToView(event.clientX, event.clientY);
+      const entity = project.stageManager.findEntityByLocation(project.renderer.transformView2World(point));
+      if (!(entity instanceof Doodle) || project.sectionMethods.isObjectBeLockedBySection(entity)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      project.stageManager.clearSelectAll();
+      entity.isSelected = true;
+      setSelected(entity);
+      setEditingId(entity.uuid);
+      project.controller.resetCountdownTimer();
+      project.loop();
+    };
     project.on("state-change", schedule);
+    project.canvas.element.addEventListener("pointerdown", selectFrameInDrawingMode, true);
     project.canvas.element.addEventListener("pointerup", clickFrame);
     window.addEventListener("pointerup", schedule);
     window.addEventListener("keyup", schedule);
@@ -138,6 +177,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     return () => {
       cancelAnimationFrame(frame);
       project.off("state-change", schedule);
+      project.canvas.element.removeEventListener("pointerdown", selectFrameInDrawingMode, true);
       project.canvas.element.removeEventListener("pointerup", clickFrame);
       window.removeEventListener("pointerup", schedule);
       window.removeEventListener("keyup", schedule);
@@ -207,7 +247,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
         frame,
         shape: tool,
         bounded,
-        text: name || (bounded ? "容器" : ""),
+        text: name,
         color: Color.fromHex(color),
       });
       doodle.captureEnclosed();
@@ -292,7 +332,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     project.stageManager.clearSelectAll();
     setSelected(undefined);
     setEditingId(undefined);
-    setName(bounded ? "容器" : "");
+    setName("");
     setTool(next);
     setOptionsOpen(false);
     setLegacy(false);
@@ -554,7 +594,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
               {(bounded || selected) && (
                 <Input
                   aria-label="图形或容器名称"
-                  placeholder="容器名称"
+                  placeholder="标题（可留空）"
                   value={name}
                   disabled={viewer || (!!selected && !editing)}
                   onChange={(event) => setName(event.target.value)}
