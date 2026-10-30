@@ -20,6 +20,7 @@ vi.mock("@/core/service/Settings", () => ({
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 30, NODE_PADDING: 10 } }));
 vi.mock("@/core/stage/stageObject/abstract/ConnectableEntity", () => ({
   ConnectableEntity: class {
+    constrainToFixedBoundary() {}
     updateFatherSectionByMove() {}
     updateOtherEntityLocationByMove() {}
   },

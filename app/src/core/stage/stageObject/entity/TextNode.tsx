@@ -297,6 +297,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       this.rectangle.location.clone(),
       new Vector(width, wrappedSize.y).add(Vector.same(this.getPadding()).multiply(2)),
     );
+    this.constrainToFixedBoundary();
   }
 
   public getAutoMaxTextWidth(): number {

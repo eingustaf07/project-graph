@@ -21,6 +21,11 @@ export function centerClipboardEntities(entities: Entity[], location: Vector): R
     entities.filter((entity) => !hidden.has(entity)).map((entity) => entity.collisionBox.getRectangle()),
   );
   const delta = location.subtract(bounds.center);
+  translateClipboardEntities(entities, delta);
+  return new Rectangle(bounds.location.add(delta), bounds.size.clone());
+}
+
+export function translateClipboardEntities(entities: Entity[], delta: Vector): void {
   for (const entity of entities) {
     if (entity instanceof Section) {
       entity.translateClipboardGeometry(delta);
@@ -39,5 +44,4 @@ export function centerClipboardEntities(entities: Entity[], location: Vector): R
       }),
     );
   }
-  return new Rectangle(bounds.location.add(delta), bounds.size.clone());
 }

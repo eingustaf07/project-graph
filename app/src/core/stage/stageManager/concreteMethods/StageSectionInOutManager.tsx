@@ -1,6 +1,8 @@
 import { Project, service } from "@/core/Project";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { Section } from "@/core/stage/stageObject/entity/Section";
+import { boundedDoodleOf, Doodle } from "@/core/stage/stageObject/entity/Doodle";
+import { toast } from "sonner";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
@@ -47,7 +49,13 @@ export class SectionInOutManager {
   goOutSection(entities: Entity[], section: Section) {
     let changed = false;
     for (const entity of entities) {
+      const boundary = boundedDoodleOf(entity);
+      if (section === boundary) {
+        toast.warning("请在侧栏切换为涂鸦模式并确认，以解除固定容器约束");
+        continue;
+      }
       changed = this.sectionDropChild(section, entity) || changed;
+      if (boundary) boundary.adopt(entity);
     }
     if (changed) {
       this.project.stageManager.updateReferences();
@@ -62,6 +70,14 @@ export class SectionInOutManager {
     if (entity === section) {
       return false;
     }
+    const boundary = boundedDoodleOf(entity);
+    if (boundary && section !== boundary && boundedDoodleOf(section) !== boundary) {
+      toast.warning("节点受固定容器约束；如需解除，请在侧栏切换为涂鸦模式并确认");
+      return false;
+    }
+    const targetBoundary = section instanceof Doodle ? section : boundedDoodleOf(section);
+    targetBoundary?.validateNewChild?.(section, entity);
+    if (section.acceptsChild && !section.acceptsChild(entity)) throw new Error("节点放不进该容器，请先扩大边界");
     let changed = false;
     changed = this.entityDropParent(entity, false, section) || changed;
     if (!section.children.includes(entity)) {
@@ -80,6 +96,9 @@ export class SectionInOutManager {
     convertEmptySectionToTextNode: boolean = false,
     excludeSection: Section | null = null,
   ): boolean {
+    const boundary = boundedDoodleOf(entity);
+    if (boundary && (!excludeSection || (excludeSection !== boundary && boundedDoodleOf(excludeSection) !== boundary)))
+      return false;
     const currentParent = entity.parentSection;
     if (currentParent && currentParent !== excludeSection) {
       return this.sectionDropChild(currentParent, entity, convertEmptySectionToTextNode);
@@ -118,7 +137,7 @@ export class SectionInOutManager {
     if (entity.parentSection === section) {
       entity.parentSection = null;
     }
-    if (convertEmptySectionToTextNode && section.children.length === 0) {
+    if (convertEmptySectionToTextNode && section.children.length === 0 && !section.isDoodle) {
       this.convertSectionToTextNode(section);
     }
     return true;

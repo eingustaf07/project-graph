@@ -140,7 +140,7 @@ export class SectionMethods {
     if (cached !== undefined) {
       return cached;
     }
-    if (section.isCollapsed || section.isHiddenBySectionCollapse) {
+    if (section.isDoodle || section.isCollapsed || section.isHiddenBySectionCollapse) {
       this.bigTitleActiveCache.set(section, false);
       return false;
     }
@@ -419,7 +419,7 @@ export class SectionMethods {
     if (section.isCollapsed || section.isHiddenBySectionCollapse) {
       return [];
     }
-    if (!section.collisionBox.getRectangle().isPointIn(location)) {
+    if (!section.containsContentPoint(location)) {
       return [];
     }
 

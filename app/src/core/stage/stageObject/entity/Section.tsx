@@ -14,6 +14,13 @@ import { Value } from "platejs";
 @passExtraAtArg1
 @passObject
 export class Section extends ConnectableEntity {
+  readonly isDoodle: boolean = false;
+  constrainChild?: (child: Entity) => void;
+  acceptsChild?: (child: Entity) => boolean;
+  validateNewChild?: (target: Section, child: Entity) => void;
+  containsContentPoint(location: Vector): boolean {
+    return this.rectangle.isPointIn(location);
+  }
   /**
    * 节点是否被选中
    */

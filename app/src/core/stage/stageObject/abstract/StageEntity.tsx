@@ -80,11 +80,31 @@ export abstract class Entity extends StageObject {
    * 每次父框 adjustLocationAndSize 后，调用碰撞求解器推开与其重叠的同级分支。
    */
   protected updateFatherSectionByMove() {
+    let boundary = this.parentSection;
+    let insideFixedBoundary = false;
+    while (boundary) {
+      if (boundary.constrainChild) insideFixedBoundary = true;
+      boundary = boundary.parentSection;
+    }
     let current = this.parentSection;
     while (current) {
+      current.constrainChild?.(this);
       current.adjustLocationAndSize();
       // 父框增大后，检测并推移与其重叠的同级 Section 分支
-      this.project.sectionCollisionSolver.solveOverlaps(current);
+      if (!insideFixedBoundary) this.project.sectionCollisionSolver.solveOverlaps(current);
+      current = current.parentSection;
+    }
+  }
+  protected constrainToFixedBoundary(): void {
+    const parents: Section[] = [];
+    let current = this.parentSection;
+    while (current) {
+      if (current.constrainChild) {
+        parents.forEach((parent) => parent.adjustLocationAndSize());
+        current.constrainChild(this);
+        return;
+      }
+      parents.push(current);
       current = current.parentSection;
     }
   }
@@ -95,6 +115,12 @@ export abstract class Entity extends StageObject {
   protected updateOtherEntityLocationByMove() {
     if (!Settings.isEnableEntityCollision) {
       return;
+    }
+    // Within fixed walls, recursive collision pushing can otherwise bounce nodes against the boundary forever.
+    let parent = this.parentSection;
+    while (parent) {
+      if (parent.constrainChild) return;
+      parent = parent.parentSection;
     }
     for (const entity of this.project.stageManager.getEntities()) {
       if (entity === this) {
@@ -112,6 +138,7 @@ export abstract class Entity extends StageObject {
     if (!Settings.isEnableEntityCollision) {
       return;
     }
+    if ("isDoodle" in other && other.isDoodle) return;
     const selfRectangle = this.collisionBox.getRectangle();
     const otherRectangle = other.collisionBox.getRectangle();
     if (!selfRectangle.isCollideWith(otherRectangle)) {

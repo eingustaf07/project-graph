@@ -17,6 +17,7 @@ import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { LatexNode } from "@/core/stage/stageObject/entity/LatexNode";
 import { PenStroke } from "@/core/stage/stageObject/entity/PenStroke";
 import { Section } from "@/core/stage/stageObject/entity/Section";
+import { captureNewDoodleEntity } from "@/core/stage/stageObject/entity/Doodle";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
@@ -194,7 +195,8 @@ export class StageManager {
     return this.project.stage.filter((node) => node instanceof ArcEdge);
   }
 
-  add(stageObject: StageObject, skipUpdateReferences = false) {
+  add(stageObject: StageObject, skipUpdateReferences = false, placement?: { doodleOnly?: boolean }) {
+    if (stageObject instanceof Entity) captureNewDoodleEntity(this.project, stageObject, placement?.doodleOnly);
     this.project.stage.push(stageObject);
     if (!skipUpdateReferences) {
       this.updateReferences();

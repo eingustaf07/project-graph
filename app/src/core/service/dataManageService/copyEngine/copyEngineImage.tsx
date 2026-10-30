@@ -7,6 +7,9 @@ import { toast } from "sonner";
 import { createImageNodeFromBlob } from "../imageNodeFactory";
 import { Vector } from "@graphif/data-structures";
 import { readClipboardImagePaths, readFile } from "./clipboardFiles";
+import { doodleAt } from "@/core/stage/stageObject/entity/Doodle";
+import { fitDoodleBounds } from "@/core/algorithm/doodleBounds";
+import { Rectangle } from "@graphif/shapes";
 
 export class ClipboardImageUnavailable extends Error {
   constructor(cause: unknown) {
@@ -111,18 +114,28 @@ export class CopyEngineImage {
 
   private async pastePreparedImages(images: PreparedImageBlob[], location: Vector) {
     const gap = 24;
-    const width = images.reduce((total, image) => total + image.width, 0) + gap * (images.length - 1);
+    const wrapperMargin = Settings.wrapImageInGroup ? 60 : 0;
+    const width = images.reduce((total, image) => total + image.width + wrapperMargin, 0) + gap * (images.length - 1);
+    const height = Math.max(...images.map((image) => image.height + wrapperMargin));
+    const boundary = doodleAt(this.project, location);
+    if (boundary) {
+      const bounds = new Rectangle(location.subtract(new Vector(width / 2, height / 2)), new Vector(width, height));
+      const delta = fitDoodleBounds(boundary.frame, boundary.shape, bounds);
+      if (!delta) throw new Error("全部图片放不进容器，请先扩大边界或在容器外粘贴");
+      location = location.add(delta);
+    }
     let x = location.x - width / 2;
     const nodes = [];
     for (const image of images) {
       const result = await createImageNodeFromBlob(this.project, image.blob, {
-        location: new Vector(x + image.width / 2, location.y),
+        location: new Vector(x + (image.width + wrapperMargin) / 2, location.y),
         centerAtLocation: true,
         waitForReady: true,
+        doodleOnly: true,
         intrinsicSize: { width: image.width, height: image.height },
       });
       nodes.push(result.node);
-      x += image.width + gap;
+      x += image.width + wrapperMargin + gap;
     }
     this.project.stageManager.clearSelectAll();
     nodes.forEach((node) => {

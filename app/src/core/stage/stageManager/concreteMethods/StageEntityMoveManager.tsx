@@ -194,7 +194,7 @@ export class EntityMoveManager {
    */
   moveSelectedEntities(delta: Vector, isAutoAdjustSection: boolean = true) {
     for (const node of this.project.stageManager.getEntities()) {
-      if (node.isSelected) {
+      if (node.isSelected && !this.hasSelectedDoodleAncestor(node)) {
         this.moveEntityUtils(node, delta, isAutoAdjustSection);
       }
     }
@@ -220,7 +220,7 @@ export class EntityMoveManager {
    */
   moveEntitiesWithChildren(delta: Vector, skipDashed = true) {
     for (const node of this.project.stageManager.getEntities()) {
-      if (node.isSelected) {
+      if (node.isSelected && !this.hasSelectedDoodleAncestor(node)) {
         if (node instanceof ConnectableEntity) {
           this.moveWithChildren(node, delta, skipDashed);
         } else {
@@ -238,8 +238,17 @@ export class EntityMoveManager {
   moveWithChildren(node: ConnectableEntity, delta: Vector, skipDashed = false) {
     const successorSet = this.project.graphMethods.getSuccessorSet(node, true, skipDashed);
     for (const successor of successorSet) {
-      this.moveEntityUtils(successor, delta);
+      if (!this.hasSelectedDoodleAncestor(successor)) this.moveEntityUtils(successor, delta);
     }
+  }
+
+  private hasSelectedDoodleAncestor(entity: Entity): boolean {
+    let parent = entity.parentSection;
+    while (parent) {
+      if (parent.isDoodle && parent.isSelected) return true;
+      parent = parent.parentSection;
+    }
+    return false;
   }
 
   // 按住shift键移动

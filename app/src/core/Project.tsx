@@ -1,4 +1,3 @@
-import RightToolbar from "@/components/right-toolbar";
 import ToolbarContent from "@/components/toolbar-content";
 import { Dialog } from "@/components/ui/dialog";
 import type { CurveRenderer } from "@/core/render/canvas2d/basicRenderer/curveRenderer";
@@ -94,6 +93,8 @@ import { compareProjectVersions, parseProjectFile } from "./ProjectFile";
 import { ProjectUpgrader } from "./stage/ProjectUpgrader";
 import { ReferenceManager } from "./stage/stageManager/concreteMethods/StageReferenceManager";
 import { Tab } from "./Tab";
+
+const DoodleToolbar = React.lazy(() => import("@/components/doodle-toolbar"));
 
 if (import.meta.hot) {
   import.meta.hot.accept();
@@ -506,7 +507,11 @@ export class Project extends Tab {
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute inset-0 overflow-hidden" ref={this.containerRef}></div>
             <ToolbarContent />
-            {this.state.showQuickSettingsToolbar && <RightToolbar />}
+            {this.state.showQuickSettingsToolbar && (
+              <React.Suspense fallback={null}>
+                <DoodleToolbar project={self} />
+              </React.Suspense>
+            )}
           </div>
         );
       }
@@ -519,7 +524,11 @@ export class Project extends Tab {
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden" ref={this.containerRef}></div>
         <ToolbarContent />
-        {Settings.showQuickSettingsToolbar && <RightToolbar />}
+        {Settings.showQuickSettingsToolbar && (
+          <React.Suspense fallback={null}>
+            <DoodleToolbar project={this} />
+          </React.Suspense>
+        )}
       </div>
     );
   }

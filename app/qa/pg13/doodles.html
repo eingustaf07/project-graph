@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PG1.3 doodle source verification</title>
+    <style>
+      :root {
+        --background: #181818;
+        --foreground: #eeeeee;
+        --popover: #242424;
+        --popover-foreground: #eeeeee;
+        --border: #454545;
+        --input: #454545;
+        --primary: #009b80;
+        --primary-foreground: #ffffff;
+        --muted-foreground: #bbbbbb;
+        --accent: #363636;
+        --radius: 8px;
+      }
+      body {
+        margin: 0;
+        color: var(--foreground);
+        background: var(--background);
+      }
+    </style>
+  </head>
+  <body>
+    <main style="position: relative; width: 1450px; height: 930px">
+      <canvas
+        id="canvas"
+        width="1450"
+        height="930"
+        style="position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none"
+      ></canvas>
+      <div id="root"></div>
+    </main>
+    <script type="module" src="./doodles.tsx"></script>
+  </body>
+</html>

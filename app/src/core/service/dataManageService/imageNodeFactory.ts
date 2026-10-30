@@ -4,6 +4,8 @@ import { RectanglePushInEffect } from "@/core/service/feedbackService/effectEngi
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
+import { boundedDoodleOf, doodleAt } from "@/core/stage/stageObject/entity/Doodle";
+import { fitDoodleBounds } from "@/core/algorithm/doodleBounds";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import type { Value } from "platejs";
@@ -12,6 +14,7 @@ export type CreateImageNodeFromBlobOptions = {
   location: Vector;
   centerAtLocation?: boolean;
   waitForReady?: boolean;
+  doodleOnly?: boolean;
   intrinsicSize?: { width: number; height: number };
   maxDisplaySize?: number;
   details?: Value;
@@ -43,10 +46,25 @@ export async function createImageNodeFromBlob(
   const maxDisplaySize = options.maxDisplaySize ?? Number.POSITIVE_INFINITY;
   const displaySize = calculateImageDisplaySize(width, height, maxDisplaySize);
   const scale = displaySize.scale;
-  const attachmentId = project.addAttachment(blob);
   const location = options.centerAtLocation
     ? options.location.subtract(new Vector(displaySize.width / 2, displaySize.height / 2))
     : options.location.clone();
+  const wrapInSection = options.wrapInSection ?? Settings.wrapImageInGroup;
+  const boundary =
+    doodleAt(
+      project,
+      options.centerAtLocation
+        ? options.location
+        : location.add(new Vector(displaySize.width / 2, displaySize.height / 2)),
+    ) ?? doodleAt(project, location);
+  const imageBounds = new Rectangle(location, new Vector(displaySize.width, displaySize.height));
+  const bounds = wrapInSection
+    ? new Rectangle(location.subtract(Vector.same(30)), imageBounds.size.add(Vector.same(60)))
+    : imageBounds;
+  if (boundary && !fitDoodleBounds(boundary.frame, boundary.shape, bounds))
+    throw new Error("图片及其分组放不进固定容器，请先扩大边界");
+  const attachmentId = project.addAttachment(blob);
+  let wrappingSection: Section | undefined;
   const imageNode = new ImageNode(
     project,
     {
@@ -56,27 +74,46 @@ export async function createImageNodeFromBlob(
       scale,
     },
     false,
-    (options.wrapInSection ?? Settings.wrapImageInGroup)
+    wrapInSection
       ? () => {
           const section = Section.fromEntities(project, [imageNode]);
+          wrappingSection = section;
           section.text = "";
-          project.stageManager.add(section);
+          section.adjustLocationAndSize();
+          project.stageManager.add(section, false, { doodleOnly: options.doodleOnly });
         }
       : undefined,
   );
 
-  project.stageManager.add(imageNode);
-  const containingSections = project.sectionMethods.getSectionsByInnerLocation(location);
-  if (containingSections.length > 0) {
-    project.stageManager.goInSection([imageNode], containingSections[0]);
-    project.effects.addEffect(
-      RectanglePushInEffect.sectionGoInGoOut(
-        imageNode.collisionBox.getRectangle(),
-        containingSections[0].collisionBox.getRectangle(),
-      ),
-    );
-  }
+  try {
+    project.stageManager.add(imageNode, false, { doodleOnly: options.doodleOnly });
+    const containingSections = project.sectionMethods.getSectionsByInnerLocation(location);
+    if (containingSections.length > 0) {
+      const target = options.doodleOnly
+        ? (boundedDoodleOf(containingSections[0]) ?? containingSections[0])
+        : containingSections[0];
+      project.stageManager.goInSection([imageNode], target);
+      project.effects.addEffect(
+        RectanglePushInEffect.sectionGoInGoOut(
+          imageNode.collisionBox.getRectangle(),
+          containingSections[0].collisionBox.getRectangle(),
+        ),
+      );
+    }
 
-  if (options.waitForReady) await imageNode.waitForClipboardBitmap();
-  return { node: imageNode, width, height };
+    if (options.waitForReady) await imageNode.waitForClipboardBitmap();
+    return { node: imageNode, width, height };
+  } catch (error) {
+    const disposed = await Promise.allSettled([imageNode.dispose()]);
+    const owned = new Set([imageNode, ...(wrappingSection ? [wrappingSection] : [])]);
+    project.stage = project.stage.filter((object) => !owned.has(object as ImageNode | Section));
+    for (const section of project.stageManager.getSections())
+      section.children = section.children.filter((child) => !owned.has(child as ImageNode | Section));
+    project.attachments.delete(attachmentId);
+    project.stageManager.updateReferences();
+    const failure = disposed.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected")
+      throw new AggregateError([error, failure.reason], "图片添加失败，资源清理时也遇到错误", { cause: error });
+    throw error;
+  }
 }

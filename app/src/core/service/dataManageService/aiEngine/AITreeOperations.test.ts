@@ -21,6 +21,7 @@ vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, N
 vi.mock("@/core/stage/stageObject/abstract/ConnectableEntity", () => ({
   ConnectableEntity: class {
     parentSection = null;
+    constrainToFixedBoundary() {}
     updateFatherSectionByMove() {}
     updateOtherEntityLocationByMove() {
       throw new Error("live collision side effect");

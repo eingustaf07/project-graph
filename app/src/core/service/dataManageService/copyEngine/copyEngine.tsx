@@ -26,6 +26,7 @@ import {
 } from "./ClipboardPayload";
 import { centerClipboardEntities } from "./clipboardPosition";
 import { waitForClipboardImages } from "./clipboardImages";
+import { containPastedEntities } from "@/core/stage/stageObject/entity/Doodle";
 
 @service("copyEngine")
 export class CopyEngine {
@@ -111,6 +112,7 @@ export class CopyEngine {
       // References point to the same deserialized instances; change each id only once.
       for (const object of objects) object.uuid = v4();
       const rect = centerClipboardEntities(entities, location);
+      const boundedRect = containPastedEntities(this.project, entities, location);
       previousSelection = this.project.stage.filter((object) => object.isSelected);
       this.project.stageManager.clearSelectAll();
       this.project.stage.push(...objects);
@@ -124,7 +126,9 @@ export class CopyEngine {
         });
       this.project.historyManager.recordStep();
       committed = true;
-      this.project.effects.addEffect(new RectangleNoteEffect(new ProgressNumber(0, 50), rect, Color.Green));
+      this.project.effects.addEffect(
+        new RectangleNoteEffect(new ProgressNumber(0, 50), boundedRect ?? rect, Color.Green),
+      );
       toast.success("已在鼠标位置居中粘贴节点");
     } catch (error) {
       if (!committed) {
