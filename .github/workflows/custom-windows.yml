@@ -85,36 +85,68 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+      actions: read
     env:
       NX_DAEMON: "false"
       NODE_OPTIONS: --max-old-space-size=8192
       CARGO_BUILD_JOBS: "2"
     steps:
+      - name: Reuse verified immutable Windows baseline
+        id: reuse
+        continue-on-error: true
+        shell: pwsh
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          $api = 'https://api.github.com/repos/eingustaf07/project-graph'
+          $run = Invoke-RestMethod "$api/actions/runs/38168600852" -Headers $headers
+          if ($run.head_sha -ne '4cb0505ac1513b8a11723294eb2116a733b656d1' -or $run.conclusion -ne 'success') { throw 'Baseline run provenance mismatch' }
+          $artifact = Invoke-RestMethod "$api/actions/artifacts/11713372916" -Headers $headers
+          if ($artifact.expired -or $artifact.workflow_run.id -ne 38168600852 -or $artifact.name -ne 'PG1.0-regression-results') { throw 'Baseline artifact mismatch' }
+          Invoke-WebRequest "$api/actions/artifacts/11713372916/zip" -Headers $headers -OutFile baseline.zip
+          if ((Get-FileHash baseline.zip).Hash -ne '7B9A481C804B43E8589FDF28AA2C9E72304C6FA89667002A59B0DDD7793B7837') { throw 'Baseline archive digest mismatch' }
+          Expand-Archive baseline.zip -DestinationPath baseline -Force
+          if ((Get-FileHash baseline/regression-results.json).Hash -ne '2B3C31D91ED28E1CFD4C353A7C4F84189156811D55AA2C3E642FF4F3F8FE4345') { throw 'Baseline report digest mismatch' }
+          Write-Output 'Reused the exact PG1.0 report from the successful Windows build19. Candidate tests and regression gate still run in full.'
       - uses: actions/checkout@v4
+        if: steps.reuse.outcome != 'success'
         with:
           ref: 39e3fd17da43e56575f7aa25e800dda1f3e3f62f
           path: baseline
       - uses: actions/checkout@v4
+        if: steps.reuse.outcome != 'success'
         with:
           path: validation-tools
           sparse-checkout: scripts
       - name: Add reporting only to the immutable baseline
+        if: steps.reuse.outcome != 'success'
         shell: pwsh
         run: Copy-Item ../validation-tools/scripts/pg11-regression-reporter.mjs ./pg11-regression-reporter.mjs
       - uses: actions/setup-node@v4
+        if: steps.reuse.outcome != 'success'
         with:
           node-version: 26
       - uses: pnpm/action-setup@v4
+        if: steps.reuse.outcome != 'success'
         with:
           version: 11.3.0
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.reuse.outcome != 'success'
       - uses: Swatinem/rust-cache@v2
+        if: steps.reuse.outcome != 'success'
         with:
           workspaces: baseline/app/src-tauri
       - run: pnpm install --frozen-lockfile
+        if: steps.reuse.outcome != 'success'
       - run: pnpm --filter @graphif/project-graph type-check
+        if: steps.reuse.outcome != 'success'
       - run: cargo build --manifest-path app/src-tauri/Cargo.toml --bin project-graph-ownership-helper
+        if: steps.reuse.outcome != 'success'
       - name: Run complete baseline frontend suite
+        if: steps.reuse.outcome != 'success'
         continue-on-error: true
         run: pnpm exec vitest run --maxWorkers=2 --reporter=default --reporter=./pg11-regression-reporter.mjs
       - uses: actions/upload-artifact@v4
