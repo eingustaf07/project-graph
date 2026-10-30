@@ -19,6 +19,7 @@ export class CurveRenderer {
    * @param width
    */
   renderSolidLine(start: Vector, end: Vector, color: Color, width: number): void {
+    this.project.canvas.ctx.setLineDash([]);
     this.project.canvas.ctx.beginPath();
     this.project.canvas.ctx.moveTo(start.x, start.y);
     this.project.canvas.ctx.lineTo(end.x, end.y);
@@ -44,6 +45,7 @@ export class CurveRenderer {
     this.project.canvas.ctx.stroke();
   }
   renderPenStroke(stroke: PenStrokeSegment[], color: Color): void {
+    this.project.canvas.ctx.setLineDash([]);
     this.project.canvas.ctx.strokeStyle = color.toString();
     this.project.canvas.ctx.lineJoin = "round";
     if (stroke.length < 2) return;

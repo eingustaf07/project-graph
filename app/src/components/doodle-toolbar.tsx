@@ -4,15 +4,42 @@ import { Settings } from "@/core/service/Settings";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
 import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
-import { useEffect, useRef, useState, lazy, Suspense, type PointerEvent } from "react";
+import { useEffect, useRef, useState, lazy, Suspense, type PointerEvent, type ComponentProps } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Switch } from "./ui/switch";
-import { Circle, MousePointer2, RectangleHorizontal, Settings2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import {
+  Circle,
+  MousePointer2,
+  RectangleHorizontal,
+  Settings2,
+  Eraser,
+  Slash,
+  Palette,
+  Frame,
+  Square,
+  LockKeyhole,
+  Check,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { DoodleShape } from "@/core/algorithm/doodleBounds";
 
 const LegacyToolbar = lazy(() => import("./right-toolbar"));
+function ToolButton({ label, children, ...props }: ComponentProps<typeof Button> & { label: string }) {
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="ghost"
+      className="size-8 shrink-0"
+      aria-label={label}
+      title={label}
+      {...props}
+    >
+      {children}
+    </Button>
+  );
+}
 type Gesture = { start: Vector; end: Vector; pointerId: number };
 type Resize = { original: Rectangle; anchor: Vector; end: Vector; pointerId: number; entity: Doodle };
 
@@ -36,6 +63,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
   const [legacy, setLegacy] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [viewer, setViewer] = useState(Settings.viewerMode);
   const [penLine, setPenLine] = useState(Settings.penStrokeStraightLine);
   const [penWidth, setPenWidth] = useState(Settings.penStrokeLineWidth);
@@ -223,6 +251,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       project.stageManager.updateReferences();
       project.historyManager.recordStep();
       setEditingId(undefined);
+      setOptionsOpen(false);
       refresh();
       toast.success(bounded ? "容器边界已固定，内部节点不能越界" : "涂鸦已保存，不限制节点");
     } catch (error) {
@@ -235,6 +264,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     setEditingId(undefined);
     setName(bounded ? "容器" : "");
     setTool(next);
+    setOptionsOpen(false);
     setLegacy(false);
     refresh();
   };
@@ -275,7 +305,6 @@ export default function DoodleToolbar({ project }: { project: Project }) {
               fill="none"
               stroke={color}
               strokeWidth={2}
-              strokeDasharray="6 4"
             />
           ) : (
             <rect
@@ -286,7 +315,6 @@ export default function DoodleToolbar({ project }: { project: Project }) {
               fill="none"
               stroke={color}
               strokeWidth={2}
-              strokeDasharray="6 4"
             />
           )}
         </svg>
@@ -344,258 +372,276 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       ) : (
         <aside
           aria-label="涂鸦面板"
-          className="bg-popover/95 border-border absolute top-1/2 right-2 z-50 flex max-h-[85%] w-52 -translate-y-1/2 flex-col gap-2 overflow-auto rounded-lg border p-3 text-sm shadow-xl backdrop-blur-md"
+          className="bg-popover/95 supports-backdrop-blur:bg-popover/80 border-border/50 absolute top-1/2 right-2 z-50 flex max-h-[calc(100%-16px)] w-11 -translate-y-1/2 flex-col items-center gap-0.5 overflow-y-auto rounded-lg border px-1 py-1.5 shadow-xl backdrop-blur-md"
         >
-          <strong>涂鸦与容器</strong>
-          <label className="flex items-center justify-between gap-2 text-xs">
-            橡皮模式
-            <Switch
-              aria-label="橡皮模式"
-              checked={eraser ?? false}
-              disabled={viewer}
-              onCheckedChange={(value) => {
-                Settings.penStrokeEraser = value;
-                setEraser(value);
-                refresh();
-              }}
-            />
-          </label>
-          <label className="flex items-center justify-between gap-2 text-xs">
-            橡皮大小
-            <Input
-              aria-label="橡皮大小"
-              type="number"
-              min={4}
-              max={300}
-              className="w-20"
-              value={eraserSize ?? 32}
-              disabled={viewer}
-              onChange={(event) => {
-                const size = Math.max(4, Math.min(300, Number(event.target.value) || 4));
-                Settings.penStrokeEraserSize = size;
-                setEraserSize(size);
-                refresh();
-              }}
-            />
-          </label>
-          <p className="text-muted-foreground text-xs">
-            图片和涂鸦局部擦除，节点与连线整块删除。松开提交，Esc取消；一笔可撤销。
-          </p>
-          {eraser && (
-            <p className="text-muted-foreground text-xs">擦除容器边线不改变其固定范围；解除限制请切换涂鸦模式。</p>
-          )}
-          <label className="flex items-center justify-between gap-2 text-xs">
-            直线涂鸦
-            <Switch
-              aria-label="直线涂鸦"
-              checked={penLine ?? false}
-              disabled={viewer}
-              onCheckedChange={(value) => {
-                Settings.penStrokeStraightLine = value;
-                setPenLine(value);
-                refresh();
-              }}
-            />
-          </label>
-          <p className="text-muted-foreground text-xs">
-            用于已有鼠标涂鸦模式；开启后拖动画直线，Shift 对齐水平、垂直或45°。
-          </p>
-          <label className="flex items-center justify-between gap-2 text-xs">
-            笔迹颜色
-            <input
-              aria-label="涂鸦笔迹颜色"
-              type="color"
-              value={resolvedInk.toHexStringWithoutAlpha()}
-              disabled={viewer}
-              onChange={(event) => setInk(event.target.value, penInkEnabled && penInk?.[3] > 0 ? penInk[3] : 1)}
-              className="h-6 w-10"
-            />
-          </label>
-          <label className="flex items-center justify-between gap-2 text-xs">
-            不透明度 %
-            <Input
-              aria-label="涂鸦不透明度"
-              type="number"
-              min={1}
-              max={100}
-              className="w-20"
-              value={Math.round((penInkEnabled && penInk?.[3] > 0 ? penInk[3] : 1) * 100)}
-              disabled={viewer}
-              onChange={(event) =>
-                setInk(
-                  resolvedInk.toHexStringWithoutAlpha(),
-                  Math.max(1, Math.min(100, Number(event.target.value) || 1)) / 100,
-                )
-              }
-            />
-          </label>
-          <label className="flex items-center justify-between gap-2 text-xs">
-            直线粗细
-            <Input
-              aria-label="直线涂鸦粗细"
-              type="number"
-              min={1}
-              max={50}
-              className="w-20"
-              value={penWidth ?? 5}
-              disabled={viewer || !penLine}
-              onChange={(event) => {
-                const next = Math.max(1, Math.min(50, Number(event.target.value) || 1));
-                Settings.penStrokeLineWidth = next;
-                setPenWidth(next);
-                refresh();
-              }}
-            />
-          </label>
-          <Button
-            size="sm"
-            variant="ghost"
+          <ToolButton
+            label="橡皮模式"
+            role="switch"
+            aria-checked={eraser ?? false}
+            variant={eraser ? "default" : "ghost"}
             disabled={viewer}
             onClick={() => {
-              Settings.autoFillPenStrokeColorEnable = true;
-              Settings.autoFillPenStrokeColor = [0, 0, 0, 0];
-              setPenInkEnabled(true);
-              setPenInk([0, 0, 0, 0]);
+              const value = !eraser;
+              Settings.penStrokeEraser = value;
+              setEraser(value);
               refresh();
             }}
           >
-            笔迹跟随主题颜色
-          </Button>
-          <div className="border-border border-t" />
-          <div className="grid grid-cols-2 gap-1">
-            <Button
-              size="sm"
-              variant={bounded ? "outline" : "default"}
-              aria-pressed={!bounded}
-              onClick={() => setBounded(false)}
-              disabled={viewer}
+            <Eraser className="size-4" />
+          </ToolButton>
+          <ToolButton
+            label="直线涂鸦"
+            role="switch"
+            aria-checked={penLine ?? false}
+            variant={penLine ? "default" : "ghost"}
+            disabled={viewer}
+            onClick={() => {
+              const value = !penLine;
+              Settings.penStrokeStraightLine = value;
+              setPenLine(value);
+              refresh();
+            }}
+          >
+            <Slash className="size-4" />
+          </ToolButton>
+          <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
+            <PopoverTrigger asChild>
+              <ToolButton label="涂鸦参数">
+                <Palette className="size-4" />
+              </ToolButton>
+            </PopoverTrigger>
+            <PopoverContent
+              side="left"
+              align="center"
+              sideOffset={8}
+              className="flex max-h-[85vh] w-48 max-w-[calc(100vw-64px)] flex-col gap-2 overflow-y-auto p-3 text-xs"
             >
-              涂鸦模式
-            </Button>
-            <Button
-              size="sm"
-              variant={bounded ? "default" : "outline"}
-              aria-pressed={bounded}
-              onClick={() => setBounded(true)}
-              disabled={viewer}
-            >
-              容器模式
-            </Button>
-          </div>
-          <p className="text-muted-foreground text-xs">
-            {bounded ? "圈住节点并固定边界，可编辑名称" : "只作图形标注，不限制节点"}
-          </p>
-          <div className="grid grid-cols-2 gap-1">
-            <Button
-              size="sm"
-              variant={tool === "rectangle" ? "default" : "outline"}
-              onClick={() => startTool("rectangle")}
-              disabled={viewer}
-            >
-              <RectangleHorizontal className="size-4" />
-              长方形
-            </Button>
-            <Button
-              size="sm"
-              variant={tool === "circle" ? "default" : "outline"}
-              onClick={() => startTool("circle")}
-              disabled={viewer}
-            >
-              <Circle className="size-4" />
-              圆形
-            </Button>
-          </div>
-          {tool && (
-            <>
-              <p className="text-xs">在画布拖动绘制，Esc 取消</p>
+              <strong>涂鸦参数</strong>
+              <label className="flex items-center justify-between gap-2 text-xs">
+                橡皮大小
+                <Input
+                  aria-label="橡皮大小"
+                  type="number"
+                  min={4}
+                  max={300}
+                  className="w-20"
+                  value={eraserSize ?? 32}
+                  disabled={viewer}
+                  onChange={(event) => {
+                    const size = Math.max(4, Math.min(300, Number(event.target.value) || 4));
+                    Settings.penStrokeEraserSize = size;
+                    setEraserSize(size);
+                    refresh();
+                  }}
+                />
+              </label>
+              <p className="text-muted-foreground text-xs">
+                图片和涂鸦局部擦除，节点与连线整块删除。松开提交，Esc取消；一笔可撤销。
+              </p>
+              {eraser && (
+                <p className="text-muted-foreground text-xs">擦除容器边线不改变其固定范围；解除限制请切换涂鸦模式。</p>
+              )}
+              <p className="text-muted-foreground text-xs">
+                用于已有鼠标涂鸦模式；开启后拖动画直线，Shift 对齐水平、垂直或45°。
+              </p>
+              <label className="flex items-center justify-between gap-2 text-xs">
+                笔迹颜色
+                <input
+                  aria-label="涂鸦笔迹颜色"
+                  type="color"
+                  value={resolvedInk.toHexStringWithoutAlpha()}
+                  disabled={viewer}
+                  onChange={(event) => setInk(event.target.value, penInkEnabled && penInk?.[3] > 0 ? penInk[3] : 1)}
+                  className="h-6 w-10"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-2 text-xs">
+                不透明度 %
+                <Input
+                  aria-label="涂鸦不透明度"
+                  type="number"
+                  min={1}
+                  max={100}
+                  className="w-20"
+                  value={Math.round((penInkEnabled && penInk?.[3] > 0 ? penInk[3] : 1) * 100)}
+                  disabled={viewer}
+                  onChange={(event) =>
+                    setInk(
+                      resolvedInk.toHexStringWithoutAlpha(),
+                      Math.max(1, Math.min(100, Number(event.target.value) || 1)) / 100,
+                    )
+                  }
+                />
+              </label>
+              <label className="flex items-center justify-between gap-2 text-xs">
+                直线粗细
+                <Input
+                  aria-label="直线涂鸦粗细"
+                  type="number"
+                  min={1}
+                  max={50}
+                  className="w-20"
+                  value={penWidth ?? 5}
+                  disabled={viewer || !penLine}
+                  onChange={(event) => {
+                    const next = Math.max(1, Math.min(50, Number(event.target.value) || 1));
+                    Settings.penStrokeLineWidth = next;
+                    setPenWidth(next);
+                    refresh();
+                  }}
+                />
+              </label>
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
+                disabled={viewer}
                 onClick={() => {
-                  setTool(null);
-                  setGesture(undefined);
+                  Settings.autoFillPenStrokeColorEnable = true;
+                  Settings.autoFillPenStrokeColor = [0, 0, 0, 0];
+                  setPenInkEnabled(true);
+                  setPenInk([0, 0, 0, 0]);
+                  refresh();
                 }}
               >
-                <MousePointer2 className="size-4" />
-                返回选择
+                笔迹跟随主题颜色
               </Button>
-            </>
-          )}
-          <label className="flex items-center gap-2 text-xs">
-            线条颜色
-            <input
-              aria-label="涂鸦线条颜色"
-              type="color"
-              value={color}
-              disabled={viewer || (!!selected && !editing)}
-              onChange={(event) => setColor(event.target.value)}
-              className="h-6 w-10"
-            />
-          </label>
-          {(bounded || selected) && (
-            <Input
-              aria-label="图形或容器名称"
-              placeholder="容器名称"
-              value={name}
-              disabled={viewer || (!!selected && !editing)}
-              onChange={(event) => setName(event.target.value)}
-            />
+              <div className="border-border border-t" />
+              <label className="flex items-center gap-2 text-xs">
+                线条颜色
+                <input
+                  aria-label="涂鸦线条颜色"
+                  type="color"
+                  value={color}
+                  disabled={viewer || (!!selected && !editing)}
+                  onChange={(event) => setColor(event.target.value)}
+                  className="h-6 w-10"
+                />
+              </label>
+              {(bounded || selected) && (
+                <Input
+                  aria-label="图形或容器名称"
+                  placeholder="容器名称"
+                  value={name}
+                  disabled={viewer || (!!selected && !editing)}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              )}
+              {selected && (
+                <>
+                  <span className="text-xs">
+                    {editing ? "边界编辑中：可拖动四角调整大小" : "已固定；点击图形边框重新编辑"}
+                  </span>
+                  {editing ? (
+                    <>
+                      <label className="text-xs">
+                        宽度
+                        <Input
+                          aria-label="图形宽度"
+                          type="number"
+                          min={40}
+                          value={width}
+                          onChange={(event) => {
+                            setWidth(event.target.value);
+                            if (selected.shape === "circle") setHeight(event.target.value);
+                          }}
+                        />
+                      </label>
+                      <label className="text-xs">
+                        高度
+                        <Input
+                          aria-label="图形高度"
+                          type="number"
+                          min={40}
+                          value={height}
+                          onChange={(event) => {
+                            setHeight(event.target.value);
+                            if (selected.shape === "circle") setWidth(event.target.value);
+                          }}
+                        />
+                      </label>
+                      <Button size="sm" onClick={fixBoundary}>
+                        保存图形参数
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled={viewer} onClick={() => setEditingId(selected.uuid)}>
+                      调整边界尺寸
+                    </Button>
+                  )}
+                </>
+              )}
+            </PopoverContent>
+          </Popover>
+          <div className="border-border w-6 border-t" />
+          <ToolButton
+            label="涂鸦模式"
+            variant={bounded ? "ghost" : "default"}
+            aria-pressed={!bounded}
+            onClick={() => setBounded(false)}
+            disabled={viewer}
+          >
+            <Square className="size-4" />
+          </ToolButton>
+          <ToolButton
+            label="容器模式"
+            variant={bounded ? "default" : "ghost"}
+            aria-pressed={bounded}
+            onClick={() => setBounded(true)}
+            disabled={viewer}
+          >
+            <Frame className="size-4" />
+          </ToolButton>
+          <ToolButton
+            label="长方形"
+            variant={tool === "rectangle" ? "default" : "ghost"}
+            onClick={() => startTool("rectangle")}
+            disabled={viewer}
+          >
+            <RectangleHorizontal className="size-4" />
+          </ToolButton>
+          <ToolButton
+            label="圆形"
+            variant={tool === "circle" ? "default" : "ghost"}
+            onClick={() => startTool("circle")}
+            disabled={viewer}
+          >
+            <Circle className="size-4" />
+          </ToolButton>
+          {tool && (
+            <ToolButton
+              label="返回选择"
+              onClick={() => {
+                setTool(null);
+                setGesture(undefined);
+              }}
+            >
+              <MousePointer2 className="size-4" />
+            </ToolButton>
           )}
           {selected && (
-            <>
-              <span className="text-xs">
-                {editing ? "边界编辑中：可拖动四角调整大小" : "已固定；点击图形边框重新编辑"}
-              </span>
-              {editing ? (
-                <>
-                  <label className="text-xs">
-                    宽度
-                    <Input
-                      aria-label="图形宽度"
-                      type="number"
-                      min={40}
-                      value={width}
-                      onChange={(event) => {
-                        setWidth(event.target.value);
-                        if (selected.shape === "circle") setHeight(event.target.value);
-                      }}
-                    />
-                  </label>
-                  <label className="text-xs">
-                    高度
-                    <Input
-                      aria-label="图形高度"
-                      type="number"
-                      min={40}
-                      value={height}
-                      onChange={(event) => {
-                        setHeight(event.target.value);
-                        if (selected.shape === "circle") setWidth(event.target.value);
-                      }}
-                    />
-                  </label>
-                  <Button size="sm" onClick={fixBoundary}>
-                    固定边界
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" variant="outline" disabled={viewer} onClick={() => setEditingId(selected.uuid)}>
-                  编辑边界
-                </Button>
-              )}
-            </>
+            <ToolButton
+              label={editing ? "固定边界" : "编辑边界"}
+              disabled={viewer}
+              onClick={() => {
+                if (editing) fixBoundary();
+                else {
+                  setEditingId(selected.uuid);
+                  setOptionsOpen(true);
+                }
+              }}
+            >
+              {editing ? <Check className="size-4" /> : <LockKeyhole className="size-4" />}
+            </ToolButton>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
+          <ToolButton
+            label="原快捷设置"
             onClick={() => {
               setTool(null);
               setLegacy(true);
             }}
           >
             <Settings2 className="size-4" />
-            原快捷设置
-          </Button>
+          </ToolButton>
         </aside>
       )}
     </>

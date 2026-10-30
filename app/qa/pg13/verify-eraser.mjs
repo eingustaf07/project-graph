@@ -28,8 +28,16 @@ try {
     await page.waitForTimeout(80);
   };
   await page.getByRole("switch", { name: "直线涂鸦", exact: true }).click();
+  const fillParameter = async (name, value) => {
+    if (!(await page.getByLabel(name, { exact: true }).isVisible()))
+      await page.getByRole("button", { name: "涂鸦参数", exact: true }).click();
+    await page.getByLabel(name, { exact: true }).fill(value);
+    await page.keyboard.press("Escape");
+  };
+  await page.getByRole("button", { name: "涂鸦参数", exact: true }).click();
   await page.getByLabel("涂鸦笔迹颜色", { exact: true }).fill("#e51b32");
   await page.getByLabel("直线涂鸦粗细", { exact: true }).fill("10");
+  await page.keyboard.press("Escape");
   await drag([100, 200], [550, 200]);
   await page.getByRole("switch", { name: "直线涂鸦", exact: true }).click();
   await page.mouse.move(100, 450);
@@ -62,8 +70,8 @@ try {
   assert.deepEqual(await pixel(850, 250), [20, 140, 220, 255]);
   await page.screenshot({ path: path.join(output, "eraser-before.png") });
   await page.getByRole("switch", { name: "橡皮模式", exact: true }).click();
-  await page.getByLabel("橡皮大小", { exact: true }).fill("40");
-  await page.getByLabel("橡皮大小", { exact: true }).fill("4");
+  await fillParameter("橡皮大小", "40");
+  await fillParameter("橡皮大小", "4");
   await page.mouse.click(200, 196);
   await page.waitForTimeout(80);
   assert.deepEqual(await pixel(200, 196), [20, 20, 20, 255]);
@@ -71,7 +79,7 @@ try {
   await page.keyboard.press("Control+z");
   await page.waitForTimeout(80);
   assert.deepEqual(await pixel(200, 196), [229, 27, 50, 255]);
-  await page.getByLabel("橡皮大小", { exact: true }).fill("40");
+  await fillParameter("橡皮大小", "40");
   await page.mouse.move(300, 170);
   await page.mouse.down();
   await page.mouse.move(300, 230, { steps: 8 });
@@ -119,7 +127,7 @@ try {
   await page.keyboard.press("Control+z");
   await page.waitForTimeout(100);
   assert.equal(await page.evaluate(() => window.doodleQA.nodes().length), 2);
-  await page.getByLabel("橡皮大小", { exact: true }).fill("80");
+  await fillParameter("橡皮大小", "80");
   await page.mouse.click(920, 250);
   await page.waitForTimeout(100);
   assert.deepEqual(await pixel(920, 250), [20, 20, 20, 255]);

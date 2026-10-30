@@ -20,9 +20,11 @@ try {
   const originalNodes = await page.evaluate(() => window.doodleQA.nodes());
   await page.getByRole("switch", { name: "直线涂鸦", exact: true }).click();
   assert.equal(await page.evaluate(() => window.doodleQA.settings.mouseLeftMode), "selectAndMove");
+  await page.getByRole("button", { name: "涂鸦参数", exact: true }).click();
   await page.getByLabel("涂鸦笔迹颜色", { exact: true }).fill("#e51b32");
   await page.getByLabel("涂鸦不透明度", { exact: true }).fill("65");
   await page.getByLabel("直线涂鸦粗细", { exact: true }).fill("10");
+  await page.keyboard.press("Escape");
   await page.evaluate(() => (window.doodleQA.settings.mouseLeftMode = "draw"));
   await page.mouse.move(100, 150);
   await page.mouse.down();

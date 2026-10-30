@@ -264,7 +264,7 @@ export class SectionRenderer {
           ctx.save();
           ctx.strokeStyle = section.color.toString();
           ctx.lineWidth = Math.max(1, 2 * this.project.camera.currentScale);
-          if (section.isSelected) ctx.setLineDash([6, 4]);
+          ctx.setLineDash([]);
           ctx.beginPath();
           if (section.shape === "circle")
             ctx.arc(rect.center.x, rect.center.y, Math.min(rect.width, rect.height) / 2, 0, Math.PI * 2);

@@ -15,6 +15,13 @@ try {
   await page.goto("http://127.0.0.1:1494/qa/pg13/doodles.html");
   await page.waitForFunction(() => !!window.doodleQA);
   const button = (name) => page.getByRole("button", { name, exact: true });
+  const openParameters = async () => {
+    if (!(await page.getByLabel("涂鸦线条颜色", { exact: true }).isVisible())) await button("涂鸦参数").click();
+  };
+  const rail = await page.getByRole("complementary", { name: "涂鸦面板" }).boundingBox();
+  assert.equal(rail.width, 44);
+  assert.ok(Math.abs(rail.x + rail.width - 1442) < 1);
+  assert.ok(Math.abs(rail.y + rail.height / 2 - 465) < 1);
   const shapes = () => page.evaluate(() => window.doodleQA.shapes());
   const nodes = () => page.evaluate(() => window.doodleQA.nodes());
   const drag = async (a, b) => {
@@ -46,12 +53,21 @@ try {
   };
   assert.equal(await page.getByRole("button", { name: /画笔|自由绘制/ }).count(), 0);
   await draw("涂鸦模式", "长方形", [60, 70], [430, 350]);
+  assert.ok(
+    await page.evaluate(() => {
+      const ctx = document.querySelector("canvas").getContext("2d");
+      for (let x = 90; x < 410; x++) if (ctx.getImageData(x, 70, 1, 1).data[1] < 100) return false;
+      return true;
+    }),
+    "selected doodle border must be continuously solid",
+  );
   await button("固定边界").click();
   await page.locator("canvas").dblclick({ position: { x: 180, y: 180 } });
   assert.equal((await nodes())[0].parent, undefined);
   await drag([200, 200], [470, 430]);
   assert.equal((await nodes())[0].parent, undefined);
   await draw("容器模式", "长方形", [480, 70], [1000, 600]);
+  await openParameters();
   await page.getByLabel("图形或容器名称").fill("固定知识区");
   await button("固定边界").click();
   await page.locator("canvas").dblclick({ position: { x: 700, y: 260 } });
@@ -66,6 +82,7 @@ try {
   assert.equal(cage.name, "固定知识区");
   await page.mouse.click(740, 70);
   await page.waitForTimeout(150);
+  await openParameters();
   await page.getByLabel("图形宽度").fill("580");
   await button("固定边界").click();
   assert.equal((await shapes())[1].rect.width, 580);
@@ -79,6 +96,7 @@ try {
   contains((await shapes())[1], (await nodes())[1]);
   await page.mouse.click(740, 70);
   await page.waitForTimeout(150);
+  await openParameters();
   await page.getByLabel("图形宽度").fill("40");
   await page.getByLabel("图形高度").fill("40");
   const beforeShrink = await shapes();
@@ -89,6 +107,7 @@ try {
   await button("固定边界").click();
   await page.screenshot({ path: path.join(output, "rectangle-container.png") });
   await draw("容器模式", "圆形", [40, 440], [430, 830]);
+  await openParameters();
   await page.getByLabel("图形或容器名称").fill("圆形知识区");
   await button("固定边界").click();
   await page.locator("canvas").dblclick({ position: { x: 220, y: 620 } });
