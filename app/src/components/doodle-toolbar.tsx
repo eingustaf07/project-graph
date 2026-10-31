@@ -22,6 +22,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { DoodleShape } from "@/core/algorithm/doodleBounds";
+import {
+  doodleCommandEvent,
+  type DoodleCommand,
+} from "@/core/service/controlService/shortcutKeysEngine/doodleCommands";
 
 const LegacyToolbar = lazy(() => import("./right-toolbar"));
 function ToolButton({ label, children, ...props }: ComponentProps<typeof Button> & { label: string }) {
@@ -437,6 +441,58 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     refresh();
   };
 
+  useEffect(() => {
+    const run = (command: DoodleCommand) => {
+      if (viewer) return;
+      if (command === "rectangle" || command === "circle") {
+        startTool(command);
+        return;
+      }
+      if (command === "parameters") {
+        setLegacy(false);
+        setOptionsOpen((open) => !open);
+        return;
+      }
+      if (command === "container") {
+        setLegacy(false);
+        setBounded(true);
+        return;
+      }
+      if (command === "decoration") {
+        setLegacy(false);
+        setBounded(false);
+        return;
+      }
+      if (command === "eraser") {
+        if (!eraser && editing && !fixBoundary()) return;
+        Settings.mouseLeftMode = "draw";
+        Settings.penStrokeEraser = true;
+        setEraser(true);
+        setLegacy(false);
+        refresh();
+        return;
+      }
+      if (command === "line") {
+        Settings.mouseLeftMode = "draw";
+        Settings.penStrokeEraser = false;
+        setEraser(false);
+        Settings.penStrokeStraightLine = true;
+        setPenLine(true);
+        setLegacy(false);
+        refresh();
+        return;
+      }
+      if (command === "legacy") {
+        if (editing && !fixBoundary()) return;
+        setTool(null);
+        setLegacy(true);
+      }
+    };
+    project.on(doodleCommandEvent, run);
+    return () => {
+      project.off(doodleCommandEvent, run);
+    };
+  });
   return (
     <>
       {editing && titleEditingId === selected?.uuid && viewFrame && (
@@ -586,21 +642,6 @@ export default function DoodleToolbar({ project }: { project: Project }) {
             }}
           >
             <Eraser className="size-4" />
-          </ToolButton>
-          <ToolButton
-            label="直线涂鸦"
-            role="switch"
-            aria-checked={penLine ?? false}
-            variant={penLine ? "default" : "ghost"}
-            disabled={viewer}
-            onClick={() => {
-              const value = !penLine;
-              Settings.penStrokeStraightLine = value;
-              setPenLine(value);
-              refresh();
-            }}
-          >
-            <Slash className="size-4" />
           </ToolButton>
           <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
             <PopoverTrigger asChild>
@@ -770,22 +811,37 @@ export default function DoodleToolbar({ project }: { project: Project }) {
           </Popover>
           <div className="border-border w-6 border-t" />
           <ToolButton
-            label="涂鸦模式"
-            variant={bounded ? "ghost" : "default"}
-            aria-pressed={!bounded}
-            onClick={() => setBounded(false)}
-            disabled={viewer}
-          >
-            <Square className="size-4" />
-          </ToolButton>
-          <ToolButton
             label="容器模式"
             variant={bounded ? "default" : "ghost"}
             aria-pressed={bounded}
             onClick={() => setBounded(true)}
             disabled={viewer}
           >
+            <Square className="size-4" />
+          </ToolButton>
+          <ToolButton
+            label="涂鸦模式"
+            variant={bounded ? "ghost" : "default"}
+            aria-pressed={!bounded}
+            onClick={() => setBounded(false)}
+            disabled={viewer}
+          >
             <Frame className="size-4" />
+          </ToolButton>
+          <ToolButton
+            label="直线涂鸦"
+            role="switch"
+            aria-checked={penLine ?? false}
+            variant={penLine ? "default" : "ghost"}
+            disabled={viewer}
+            onClick={() => {
+              const value = !penLine;
+              Settings.penStrokeStraightLine = value;
+              setPenLine(value);
+              refresh();
+            }}
+          >
+            <Slash className="size-4" />
           </ToolButton>
           <ToolButton
             label="长方形"

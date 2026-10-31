@@ -30,6 +30,7 @@ vi.mock("./shortcutKeysRegister", () => ({
 import { Project } from "@/core/Project";
 import { KeyBindsUI } from "./KeyBindsUI";
 import { URI } from "vscode-uri";
+import { doodleCommands } from "./doodleCommands";
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 async function down(key: string, extra: KeyboardEventInit = {}) {
@@ -54,6 +55,44 @@ beforeEach(async () => {
 });
 afterEach(() => KeyBindsUI.uiStopListen());
 describe("held letter shortcut", () => {
+  it("routes configured SQ, CY, ST and KK sequences", async () => {
+    const tool = vi.fn();
+    for (const command of doodleCommands.filter((item) => item.key && item.id !== "doodleEraser")) {
+      KeyBindsUI.registerOneUIKeyBind(command.id, command.key, true, () => tool(command.action));
+      for (const key of command.key.split(" ")) {
+        await down(key);
+        await up(key);
+      }
+      expect(tool).toHaveBeenLastCalledWith(command.action);
+      KeyBindsUI.unregisterOneUIKeyBind(command.id);
+    }
+    expect(tool).toHaveBeenCalledTimes(4);
+  });
+  it("delays ER to preserve the existing ERR shortcut", async () => {
+    const eraser = vi.fn(),
+      oldCommand = vi.fn();
+    KeyBindsUI.registerOneUIKeyBind("doodleEraser", "e r", true, eraser);
+    KeyBindsUI.registerOneUIKeyBind("oldERR", "e r r", true, oldCommand);
+    try {
+      for (const key of ["e", "r", "r"]) {
+        await down(key);
+        await up(key);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(oldCommand).toHaveBeenCalledOnce();
+      expect(eraser).not.toHaveBeenCalled();
+      for (const key of ["e", "r"]) {
+        await down(key);
+        await up(key);
+      }
+      expect(eraser).not.toHaveBeenCalled();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(eraser).toHaveBeenCalledOnce();
+    } finally {
+      KeyBindsUI.unregisterOneUIKeyBind("doodleEraser");
+      KeyBindsUI.unregisterOneUIKeyBind("oldERR");
+    }
+  });
   it("releases continuous letter actions before opening the panel", async () => {
     const start = vi.fn(),
       stop = vi.fn();

@@ -464,9 +464,17 @@ export namespace KeyBindsUI {
   // 跟踪当前按下的持续型快捷键（存放 id，防止重复触发）
   const pressedContinuousKeyBindIds = new Set<string>();
   const heldLetterKeys = new Set<string>();
-  const clearHeldLetters = () => heldLetterKeys.clear();
+  let pendingDoodleTimer: ReturnType<typeof setTimeout> | undefined;
+  function cancelPendingDoodle() {
+    if (pendingDoodleTimer !== undefined) clearTimeout(pendingDoodleTimer);
+    pendingDoodleTimer = undefined;
+  }
+  const clearHeldLetters = () => {
+    heldLetterKeys.clear();
+    cancelPendingDoodle();
+  };
   function clearLettersInInput() {
-    if (!shouldProcessKeyboardEvent()) heldLetterKeys.clear();
+    if (!shouldProcessKeyboardEvent()) clearHeldLetters();
   }
 
   export function uiStartListen() {
@@ -486,6 +494,7 @@ export namespace KeyBindsUI {
     window.removeEventListener("blur", clearHeldLetters);
     window.removeEventListener("focusin", clearLettersInInput);
     heldLetterKeys.clear();
+    cancelPendingDoodle();
     window.removeEventListener("keyup", onKeyUp);
     window.removeEventListener("wheel", onWheel);
     pressedSingleKeyBinds.clear();
@@ -531,6 +540,36 @@ export namespace KeyBindsUI {
     for (const { uiKeyBind, seqLength } of matched) {
       if (maxExecutedLength >= 0 && seqLength < maxExecutedLength) break;
       if (!(await uiKeyBind.when(activeProject))) continue;
+      if (uiKeyBind.id.startsWith("doodle") && uiKeyBind.key) {
+        let hasLonger = false;
+        for (const candidate of allUIKeyBinds) {
+          if (
+            candidate.isEnabled &&
+            candidate.key.startsWith(uiKeyBind.key + " ") &&
+            (await candidate.when(activeProject))
+          ) {
+            hasLonger = true;
+            break;
+          }
+        }
+        if (hasLonger) {
+          cancelPendingDoodle();
+          const key = uiKeyBind.key;
+          pendingDoodleTimer = setTimeout(async () => {
+            pendingDoodleTimer = undefined;
+            if (
+              !shouldProcessKeyboardEvent() ||
+              getFocusedProject() !== activeProject ||
+              getUIKeyBind(uiKeyBind.id)?.key !== key
+            )
+              return;
+            userEventQueue.clear();
+            await execute(uiKeyBind.id, activeProject);
+          }, 350);
+          return true;
+        }
+      }
+      cancelPendingDoodle();
       uiKeyBind.onPress(uiKeyBind.id.startsWith("ext:") && activeProject ? proxy(activeProject) : activeProject);
       if (uiKeyBind.onRelease && uiKeyBind.key.length === 1) {
         pressedSingleKeyBinds.add(uiKeyBind.key);

@@ -1823,6 +1823,30 @@ visualSettingsGroup:
     title: Pengaturan Latar Belakang
 
 keyBinds:
+  doodleEraser:
+    title: Mode penghapus
+    description: Aktifkan penghapus tetikus; jeda sebentar setelah ER jika ERR juga tersedia.
+  doodleParameters:
+    title: Parameter gambar
+    description: Buka atau tutup parameter gambar.
+  doodleContainerMode:
+    title: Mode wadah
+    description: Gunakan wadah dengan batas tetap.
+  doodleDecorationMode:
+    title: Mode dekoratif
+    description: Gunakan bentuk tanpa membatasi simpul.
+  doodleStraightLine:
+    title: Garis lurus
+    description: Aktifkan mode gambar garis lurus dengan tetikus.
+  doodleRectangle:
+    title: Gambar persegi panjang
+    description: Mulai persegi panjang; Esc membatalkan.
+  doodleCircle:
+    title: Gambar lingkaran
+    description: Mulai lingkaran; Esc membatalkan.
+  doodleLegacySettings:
+    title: Pengaturan cepat asli
+    description: Tampilkan panel pengaturan cepat asli.
   smartTreeArrange:
     title: Tata pohon cerdas (eksperimental)
     description: Tata akar terpilih dan keturunannya tanpa mengubah isi, hierarki, koneksi atau urutan. Aktifkan di Visual → Eksperimental.

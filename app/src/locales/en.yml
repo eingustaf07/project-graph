@@ -1513,6 +1513,30 @@ keys:
   wheeldown: Scroll Wheel Down
 
 keyBinds:
+  doodleEraser:
+    title: Eraser mode
+    description: Enter mouse eraser mode; pause briefly after ER when ERR is also available.
+  doodleParameters:
+    title: Drawing parameters
+    description: Open or close drawing parameters.
+  doodleContainerMode:
+    title: Container mode
+    description: Use a fixed-boundary container.
+  doodleDecorationMode:
+    title: Decorative mode
+    description: Use a decorative shape without constraining nodes.
+  doodleStraightLine:
+    title: Straight drawing
+    description: Enter straight mouse drawing mode.
+  doodleRectangle:
+    title: Draw rectangle
+    description: Start a rectangle; Esc cancels.
+  doodleCircle:
+    title: Draw circle
+    description: Start a circle; Esc cancels.
+  doodleLegacySettings:
+    title: Original quick settings
+    description: Show the original right quick settings.
   smartTreeArrange:
     title: Smart tree arrangement (experimental)
     description: Arrange selected roots and descendants without changing content, hierarchy, connections or sibling order. Enable and configure under Visual → Experimental.

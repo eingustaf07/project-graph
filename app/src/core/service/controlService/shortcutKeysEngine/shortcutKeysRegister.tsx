@@ -272,6 +272,7 @@ import {
   openCurrentProjectFolder,
 } from "../../GlobalMenu";
 import { KeyBindsUI } from "./KeyBindsUI";
+import { doodleCommands, doodleCommandEvent } from "./doodleCommands";
 
 export type KeyBindWhen = (project?: Project) => boolean | Promise<boolean>;
 
@@ -1735,6 +1736,15 @@ export const allKeyBinds: KeyBindItem[] = [
   },
 
   /*------- 鼠标模式切换 -------*/
+  ...doodleCommands.map(({ id, key, action }) => ({
+    id,
+    defaultKey: key,
+    icon: Brush,
+    when: (project?: Project) => !!project && !Settings.viewerMode && Settings.showQuickSettingsToolbar,
+    onPress: (project?: Project) => {
+      project?.emit(doodleCommandEvent, action);
+    },
+  })),
   {
     id: "checkoutLeftMouseToSelectAndMove",
     defaultKey: "v v v",

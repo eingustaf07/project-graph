@@ -1767,6 +1767,30 @@ visualSettingsGroup:
   background:
     title: 背景設定
 keyBinds:
+  doodleEraser:
+    title: 橡皮模式
+    description: 進入滑鼠橡皮模式；ER 與原 ERR 同時可用時，按完 ER 稍等片刻。
+  doodleParameters:
+    title: 塗鴉參數
+    description: 開啟或關閉塗鴉參數。
+  doodleContainerMode:
+    title: 容器模式
+    description: 切換固定邊界容器模式。
+  doodleDecorationMode:
+    title: 塗鴉模式
+    description: 切換不限制節點的塗鴉模式。
+  doodleStraightLine:
+    title: 直線塗鴉
+    description: 進入滑鼠直線繪製模式。
+  doodleRectangle:
+    title: 繪製長方形
+    description: 開始繪製長方形，Esc 取消。
+  doodleCircle:
+    title: 繪製圓形
+    description: 開始繪製圓形，Esc 取消。
+  doodleLegacySettings:
+    title: 原快捷設定
+    description: 顯示原右側快捷設定面板。
   smartTreeArrange:
     title: 智慧規整節點樹（實驗）
     description: 整理選中根及後代，保留內容、階層、連線及順序。請先在視覺 → 實驗性功能啟用。

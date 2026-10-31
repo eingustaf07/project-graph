@@ -32,6 +32,7 @@ import { DrawingControllerRenderer } from "@/core/render/canvas2d/controllerRend
 import { CurveRenderer } from "@/core/render/canvas2d/basicRenderer/curveRenderer";
 import { PenStroke } from "@/core/stage/stageObject/entity/PenStroke";
 import { paintWithErasures } from "@/core/render/canvas2d/eraserMask";
+import { doodleCommands, doodleCommandEvent } from "@/core/service/controlService/shortcutKeysEngine/doodleCommands";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
 const ctx = canvas.getContext("2d")!;
@@ -260,6 +261,8 @@ window.addEventListener("keydown", async (event) => {
 MouseLocation.init();
 Object.assign(window, {
   doodleQA: {
+    commands: doodleCommands,
+    runCommand: (action: string) => events.emit(doodleCommandEvent, action),
     project,
     settings: Settings,
     addImage: createImageNodeFromBlob,

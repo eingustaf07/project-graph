@@ -650,7 +650,19 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
   {
     title: "draw",
     icon: <LineSquiggle />,
-    keys: ["selectEntityByPenStroke", "penStrokeWidthIncrease", "penStrokeWidthDecrease"],
+    keys: [
+      "selectEntityByPenStroke",
+      "penStrokeWidthIncrease",
+      "penStrokeWidthDecrease",
+      "doodleEraser",
+      "doodleParameters",
+      "doodleContainerMode",
+      "doodleDecorationMode",
+      "doodleStraightLine",
+      "doodleRectangle",
+      "doodleCircle",
+      "doodleLegacySettings",
+    ],
   },
   {
     title: "select",
