@@ -62,6 +62,14 @@ jobs:
         run: pnpm build:ci
         env:
           TAURI_BUILD_ARGS: --bundles nsis
+      - name: Verify packaged Windows application starts
+        run: node scripts/pg13-windows-startup-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: PG1.3-startup-verification
+          path: app/src-tauri/target/startup-smoke-result.json
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: Project-Graph-PG1.3-Windows
