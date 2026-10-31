@@ -21,7 +21,6 @@ const child = spawn(executable, [], {
   env: {
     ...process.env,
     APPDATA: path.join(profile, "Roaming"),
-    LOCALAPPDATA: path.join(profile, "Local"),
     WEBVIEW2_USER_DATA_FOLDER: path.join(profile, "WebView"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`,
   },
@@ -50,7 +49,8 @@ try {
       const pages = await (
         await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(1500) })
       ).json();
-      target = pages.find((page) => page.type === "page" && page.url === "http://tauri.localhost/index.html");
+      report.targets = pages.map((page) => ({ type: page.type, url: page.url.split(/[?#]/)[0] }));
+      target = pages.find((page) => page.type === "page" && /^https?:\/\/tauri\.localhost(?:\/|$)/.test(page.url));
     } catch (error) {
       if (Date.now() >= deadline) throw error;
     }
