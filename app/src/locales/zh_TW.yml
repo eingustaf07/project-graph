@@ -278,6 +278,18 @@ settings:
   hideCursorInPenMode:
     title: 畫筆模式下隱藏鼠標
     description: "開啟後，在使用畫筆繪製時會隱藏鼠標指針"
+  penStrokeStraightLine:
+    title: 直線塗鴉
+    description: 在已有鼠標塗鴉模式中拖動繪製直線；按住 Shift 對齊水平、垂直或45度。關閉後保留原自由塗鴉行為。
+  penStrokeLineWidth:
+    title: 直線塗鴉粗細
+    description: 新繪製直線的寬度，以畫布世界座標為單位，不改變已有筆跡。
+  penStrokeEraser:
+    title: 橡皮模式
+    description: 在原鼠標塗鴉模式中擦除。圖片和筆跡局部擦除，節點與連線整塊刪除，每筆可撤銷。
+  penStrokeEraserSize:
+    title: 橡皮大小
+    description: 橡皮直徑，以屏幕像素計，縮放畫布後仍保持相同的操作大小。
   penPressureCurve:
     title: 壓感曲線
     description: 調整筆壓輸入的映射曲線，改變壓力與筆畫寬度的關係
@@ -1544,6 +1556,30 @@ visualSettingsGroup:
     title: 背景設置
 
 keyBinds:
+  doodleEraser:
+    title: 橡皮模式
+    description: 進入鼠標橡皮模式；ER 與原 ERR 同時可用時，按完 ER 稍等片刻。
+  doodleParameters:
+    title: 塗鴉參數
+    description: 打開或關閉右側塗鴉參數。
+  doodleContainerMode:
+    title: 容器模式
+    description: 切換到固定邊界容器模式。
+  doodleDecorationMode:
+    title: 塗鴉模式
+    description: 切換到不限制節點的塗鴉模式。
+  doodleStraightLine:
+    title: 直線塗鴉
+    description: 進入鼠標直線繪製模式。
+  doodleRectangle:
+    title: 繪製長方形
+    description: 開始繪製長方形，Esc 取消。
+  doodleCircle:
+    title: 繪製圓形
+    description: 開始繪製圓形，Esc 取消。
+  doodleLegacySettings:
+    title: 原快捷設置
+    description: 顯示原右側快捷設置面板。
   smartTreeArrange:
     title: 智能規整節點樹（實驗）
     description: 規整選中節點及其後代，保留內容、層級、連接和兄弟順序。請先在視覺 → 實驗性功能中啟用並選擇模式。
@@ -2008,8 +2044,11 @@ keyBinds:
     description: |
       按下此鍵可代替鼠標點擊菜單欄裡的啟動文件列表展開關閉按鈕
   copy:
-    title: 複製
-    description: 按下後，複製選中的內容
+    title: 複製節點
+    description: 立即複製選中的節點、連接、樣式和佈局，不彈出選擇框。
+  copyText:
+    title: 複製文本
+    description: 只複製選中節點的文字。默認按住 Ctrl，在350毫秒內連按兩次 C；文本編輯框內保留正常複製。
   paste:
     title: 粘貼
     description: 按下後，粘貼剪貼板內容

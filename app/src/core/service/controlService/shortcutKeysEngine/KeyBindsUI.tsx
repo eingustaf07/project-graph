@@ -45,6 +45,22 @@ export namespace KeyBindsUI {
   const userEventQueue = new Queue<KeyboardEvent | MouseEvent | WheelEvent>();
 
   function enqueue(event: MouseEvent | KeyboardEvent | WheelEvent) {
+    if (copySequence) {
+      const textBinding = getUIKeyBind("copyText");
+      const next = copySequence.key.split(/\s+/)[userEventQueue.length];
+      if (
+        copySequence.project !== getFocusedProject() ||
+        !textBinding?.isEnabled ||
+        textBinding.key !== copySequence.key ||
+        getUIKeyBind("copy")?.key !== copySequence.prefixKey ||
+        !next ||
+        !matchEmacsKeyPress(next, [event])
+      ) {
+        clearCopySequence();
+      } else {
+        restartCopySequenceTimer();
+      }
+    }
     // 队列里面最多20个（因为秘籍键长度最大20）
     while (userEventQueue.length >= 20) {
       userEventQueue.dequeue();
@@ -63,6 +79,7 @@ export namespace KeyBindsUI {
   async function interceptInput(event: KeyboardEvent | MouseEvent | WheelEvent): Promise<boolean> {
     for (const interceptor of inputInterceptors) {
       if (await interceptor.onInput(event, userEventQueue.arrayList)) {
+        clearCopySequence();
         userEventQueue.clear();
         return true;
       }
@@ -464,6 +481,25 @@ export namespace KeyBindsUI {
   // 跟踪当前按下的持续型快捷键（存放 id，防止重复触发）
   const pressedContinuousKeyBindIds = new Set<string>();
   const heldLetterKeys = new Set<string>();
+  let copySequence:
+    | { key: string; prefixKey: string; project: Project; timer?: ReturnType<typeof setTimeout> }
+    | undefined;
+  function clearCopySequence() {
+    if (!copySequence) return;
+    if (copySequence.timer !== undefined) clearTimeout(copySequence.timer);
+    copySequence = undefined;
+    userEventQueue.clear();
+  }
+  function restartCopySequenceTimer() {
+    if (!copySequence) return;
+    if (copySequence.timer !== undefined) clearTimeout(copySequence.timer);
+    copySequence.timer = setTimeout(clearCopySequence, 350);
+  }
+  function isCopyInputFocused() {
+    return !!document.activeElement?.closest(
+      'input, textarea, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]',
+    );
+  }
   let pendingDoodleTimer: ReturnType<typeof setTimeout> | undefined;
   function cancelPendingDoodle() {
     if (pendingDoodleTimer !== undefined) clearTimeout(pendingDoodleTimer);
@@ -472,9 +508,11 @@ export namespace KeyBindsUI {
   const clearHeldLetters = () => {
     heldLetterKeys.clear();
     cancelPendingDoodle();
+    clearCopySequence();
   };
   function clearLettersInInput() {
     if (!shouldProcessKeyboardEvent()) clearHeldLetters();
+    if (isCopyInputFocused()) clearCopySequence();
   }
 
   export function uiStartListen() {
@@ -495,6 +533,7 @@ export namespace KeyBindsUI {
     window.removeEventListener("focusin", clearLettersInInput);
     heldLetterKeys.clear();
     cancelPendingDoodle();
+    clearCopySequence();
     window.removeEventListener("keyup", onKeyUp);
     window.removeEventListener("wheel", onWheel);
     pressedSingleKeyBinds.clear();
@@ -523,6 +562,8 @@ export namespace KeyBindsUI {
     const tab = store.get(activeTabAtom);
     const activeProject = tab instanceof Project ? tab : undefined;
 
+    if (copySequence && userEventQueue.length < copySequence.key.split(/\s+/).length) return true;
+
     // 收集所有匹配的快捷键，按序列长度降序尝试执行，只执行最长匹配
     const matched: { uiKeyBind: (typeof allUIKeyBinds)[number]; seqLength: number }[] = [];
     for (const uiKeyBind of allUIKeyBinds) {
@@ -537,9 +578,15 @@ export namespace KeyBindsUI {
     matched.sort((a, b) => b.seqLength - a.seqLength);
 
     let maxExecutedLength = -1;
+    let executedCopy: UIKeyBind | undefined;
     for (const { uiKeyBind, seqLength } of matched) {
       if (maxExecutedLength >= 0 && seqLength < maxExecutedLength) break;
       if (!(await uiKeyBind.when(activeProject))) continue;
+      if (
+        (uiKeyBind.id === "copy" || uiKeyBind.id === "copyText") &&
+        (isCopyInputFocused() || userEventQueue.arrayList.at(-1)?.defaultPrevented)
+      )
+        continue;
       if (uiKeyBind.id.startsWith("doodle") && uiKeyBind.key) {
         let hasLonger = false;
         for (const candidate of allUIKeyBinds) {
@@ -575,8 +622,25 @@ export namespace KeyBindsUI {
         pressedSingleKeyBinds.add(uiKeyBind.key);
       }
       maxExecutedLength = seqLength;
+      if (uiKeyBind.id === "copy") executedCopy = uiKeyBind;
     }
     if (maxExecutedLength >= 0) {
+      const textBinding = getUIKeyBind("copyText");
+      if (
+        executedCopy &&
+        activeProject &&
+        textBinding?.isEnabled &&
+        textBinding.key.startsWith(executedCopy.key + " ") &&
+        (await textBinding.when(activeProject))
+      ) {
+        const events = userEventQueue.arrayList.slice(-maxExecutedLength);
+        userEventQueue.clear();
+        events.forEach((event) => userEventQueue.enqueue(event));
+        copySequence = { key: textBinding.key, prefixKey: executedCopy.key, project: activeProject };
+        restartCopySequenceTimer();
+        return true;
+      }
+      clearCopySequence();
       userEventQueue.clear();
       return true;
     }
@@ -598,9 +662,11 @@ export namespace KeyBindsUI {
   }
   async function onKeyDown(event: KeyboardEvent) {
     if (event.isComposing || event.keyCode === 229) {
+      clearCopySequence();
       heldLetterKeys.clear();
       return;
     }
+    if (isCopyInputFocused()) clearCopySequence();
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!shouldProcessKeyboardEvent()) {
       // 清空队列，防止事件积累
@@ -611,6 +677,19 @@ export namespace KeyBindsUI {
     if (["control", "alt", "shift", "meta"].includes(event.key.toLowerCase())) return;
 
     const activeProject = getFocusedProject();
+    if (event.repeat && !event.defaultPrevented && !isCopyInputFocused()) {
+      for (const binding of allUIKeyBinds) {
+        if (
+          (binding.id === "copy" || binding.id === "copyText") &&
+          binding.isEnabled &&
+          matchEmacsKeyPress(binding.key.split(/\s+/)[0], [event]) &&
+          (await binding.when(activeProject))
+        ) {
+          event.preventDefault();
+          return;
+        }
+      }
+    }
     const letter = event.key.toLowerCase();
     if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey)
       heldLetterKeys.clear();

@@ -2044,8 +2044,11 @@ keyBinds:
     description: |
       按下此键可代替鼠标点击菜单栏里的启动文件列表展开关闭按钮
   copy:
-    title: 复制
-    description: 按下后，复制选中的内容
+    title: 复制节点
+    description: 立即复制选中的节点、连接、样式和布局，不弹出选择框。
+  copyText:
+    title: 复制文本
+    description: 只复制选中节点的文字。默认按住 Ctrl，在350毫秒内连按两次 C；文本编辑框内保留正常复制。
   paste:
     title: 粘贴
     description: 按下后，粘贴剪贴板内容

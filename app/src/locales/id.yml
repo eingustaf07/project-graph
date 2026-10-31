@@ -2297,8 +2297,11 @@ keyBinds:
     description: |
       Tekan tombol ini dapat menggantikan klik tombol buka tutup daftar file mulai di menu bilah dengan mouse
   copy:
-    title: Salin
-    description: Setelah ditekan, salin konten yang dipilih
+    title: Salin Node
+    description: Langsung salin node, koneksi, gaya dan tata letak yang dipilih tanpa dialog.
+  copyText:
+    title: Salin Teks
+    description: Salin hanya teks node yang dipilih. Secara default, tahan Ctrl dan tekan C dua kali dalam 350 milidetik. Penyalinan biasa tetap berlaku di kolom teks.
   paste:
     title: Tempel
     description: Setelah ditekan, tempel konten clipboard

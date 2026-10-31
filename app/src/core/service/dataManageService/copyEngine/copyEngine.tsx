@@ -28,6 +28,10 @@ import { centerClipboardEntities } from "./clipboardPosition";
 import { waitForClipboardImages } from "./clipboardImages";
 import { containPastedEntities } from "@/core/stage/stageObject/entity/Doodle";
 
+let latestCopyRequest = 0;
+let clipboardWriteTail: Promise<boolean> | undefined;
+let pendingClipboardCopy: Promise<boolean> | undefined;
+
 @service("copyEngine")
 export class CopyEngine {
   private copyEngineImage: CopyEngineImage;
@@ -46,7 +50,7 @@ export class CopyEngine {
       toast.info("请先选择要复制的节点");
       return false;
     }
-    this.choosingCopyMode = true;
+    if (mode === undefined) this.choosingCopyMode = true;
     try {
       const objects = CopyEngineUtils.getAllStageObjectFromEntities(this.project, selected);
       // Snapshot before opening the chooser; a later selection must not change what is copied.
@@ -55,14 +59,41 @@ export class CopyEngine {
         .filter((object) => object instanceof TextNode)
         .map((node) => node.text)
         .join("\n\n");
-      const attachments = await CopyEngineUtils.collectAttachmentFromStageObjects(this.project, objects);
       const choice = mode ?? (await chooseCopyMode());
       if (!choice) return false;
       if (choice === "text" && !text) {
         toast.info("所选节点中没有可复制的文本");
         return false;
       }
-      await writeText(choice === "nodes" ? encodeClipboardPayload(serialized, attachments) : text);
+      const request = ++latestCopyRequest;
+      const prepared = Promise.allSettled([
+        choice === "nodes"
+          ? CopyEngineUtils.collectAttachmentFromStageObjects(this.project, objects).then((attachments) =>
+              encodeClipboardPayload(serialized, attachments),
+            )
+          : Promise.resolve(text),
+      ]);
+      const operation = (async () => {
+        const [payload] = await prepared;
+        if (request !== latestCopyRequest) return false;
+        if (payload.status === "rejected") throw payload.reason;
+        const previousWrite = clipboardWriteTail;
+        // A slow image copy must never overwrite the text requested by the second Ctrl+C.
+        const write = (async () => {
+          if (previousWrite) await Promise.allSettled([previousWrite]);
+          if (request !== latestCopyRequest) return false;
+          await writeText(payload.value);
+          return request === latestCopyRequest;
+        })();
+        clipboardWriteTail = write;
+        return write;
+      })();
+      pendingClipboardCopy = operation;
+      const clearPending = () => {
+        if (pendingClipboardCopy === operation) pendingClipboardCopy = undefined;
+      };
+      void operation.then(clearPending, clearPending);
+      if (!(await operation)) return false;
       const rect = Rectangle.getBoundingRectangle(selected.map((entity) => entity.collisionBox.getRectangle()));
       this.project.effects.addEffect(new RectangleNoteReversedEffect(new ProgressNumber(0, 100), rect, Color.Green));
       toast.success(choice === "nodes" ? "已复制节点，可在鼠标位置粘贴" : "已复制文本");
@@ -71,13 +102,14 @@ export class CopyEngine {
       toast.error(`复制失败：${String(error)}`);
       return false;
     } finally {
-      this.choosingCopyMode = false;
+      if (mode === undefined) this.choosingCopyMode = false;
     }
   }
 
   async paste() {
     const location = this.project.renderer.transformView2World(MouseLocation.vector()).clone();
     try {
+      while (pendingClipboardCopy) await pendingClipboardCopy;
       await this.readSystemClipboardAndPaste(location);
       this.project.controller.resetCountdownTimer();
       this.project.loop();

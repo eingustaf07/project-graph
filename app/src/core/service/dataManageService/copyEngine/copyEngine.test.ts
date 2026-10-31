@@ -60,6 +60,7 @@ import { decodeClipboardPayload, encodeClipboardPayload } from "./ClipboardPaylo
 import { toast } from "sonner";
 import { ClipboardImageUnavailable, CopyEngineImage } from "./copyEngineImage";
 import { Settings } from "@/core/service/Settings";
+import { CopyEngineUtils } from "./copyEngineUtils";
 
 function fixture() {
   const p: any = {
@@ -125,6 +126,96 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
+  it("copies each explicit mode without opening the chooser", async () => {
+    const p = fixture();
+    const { a, b } = addTree(p);
+    await p.copyEngine.copy("nodes");
+    expect(decodeClipboardPayload(clipboard.text)?.stageObjects).toHaveLength(3);
+    await p.copyEngine.copy("text");
+    expect(clipboard.text).toBe(a.text + "\n\n" + b.text);
+    expect(clipboard.choose).not.toHaveBeenCalled();
+  });
+
+  it("does not let a slow node preparation overwrite a later text copy", async () => {
+    const p = fixture();
+    const { a, b } = addTree(p);
+    let finish!: (value: Awaited<ReturnType<typeof CopyEngineUtils.collectAttachmentFromStageObjects>>) => void;
+    vi.spyOn(CopyEngineUtils, "collectAttachmentFromStageObjects").mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const nodes = p.copyEngine.copy("nodes");
+    const text = p.copyEngine.copy("text");
+    expect(await text).toBe(true);
+    const expected = a.text + "\n\n" + b.text;
+    expect(clipboard.text).toBe(expected);
+    finish(new Map());
+    expect(await nodes).toBe(false);
+    expect(clipboard.text).toBe(expected);
+  });
+
+  it("orders native writes when a second copy arrives during the first write", async () => {
+    const p = fixture();
+    const { a, b } = addTree(p);
+    let release!: () => void;
+    let started!: () => void;
+    const writing = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    clipboard.write.mockImplementationOnce(async (value: string) => {
+      started();
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      clipboard.text = value;
+    });
+    const nodes = p.copyEngine.copy("nodes");
+    await writing;
+    const text = p.copyEngine.copy("text");
+    await Promise.resolve();
+    expect(clipboard.write).toHaveBeenCalledTimes(1);
+    release();
+    await Promise.all([nodes, text]);
+    expect(clipboard.text).toBe(a.text + "\n\n" + b.text);
+  });
+
+  it("waits for an unfinished copy before pasting into another project", async () => {
+    const source = fixture();
+    addTree(source);
+    const target = fixture();
+    target.historyManager = new HistoryManager(target);
+    let finish!: (value: Awaited<ReturnType<typeof CopyEngineUtils.collectAttachmentFromStageObjects>>) => void;
+    vi.spyOn(CopyEngineUtils, "collectAttachmentFromStageObjects").mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    clipboard.text = "old clipboard text";
+    const copying = source.copyEngine.copy("nodes");
+    const pasting = target.copyEngine.paste();
+    await Promise.resolve();
+    expect(clipboard.read).not.toHaveBeenCalled();
+    finish(new Map());
+    await Promise.all([copying, pasting]);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(target.stage.filter((item) => item instanceof TextNode)).toHaveLength(2);
+    expect(target.stage.filter((item) => item instanceof LineEdge)).toHaveLength(1);
+  });
+
+  it("allows a subsequent copy and paste after a clipboard write fails", async () => {
+    const p = fixture();
+    addTree(p);
+    clipboard.write.mockRejectedValueOnce(new Error("clipboard is busy"));
+    expect(await p.copyEngine.copy("nodes")).toBe(false);
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("clipboard is busy"));
+    expect(await p.copyEngine.copy("nodes")).toBe(true);
+    await p.copyEngine.paste();
+    expect(p.stage).toHaveLength(6);
+  });
+
   it("routes Explorer image file lists ahead of metadata and bitmap readers", async () => {
     const p = fixture();
     addTree(p);

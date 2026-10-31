@@ -2235,8 +2235,11 @@ keyBinds:
     title: 開啟/關閉啟動檔案清單
     description: 按下此鍵可代替滑鼠點擊功能表列裡的啟動檔案列表展開關閉按鈕
   copy:
-    title: 复制
-    description: 按下後，複製選取的內容
+    title: 複製節點
+    description: 立即複製選取的節點、連線、樣式與排列，不跳出選擇視窗。
+  copyText:
+    title: 複製文字
+    description: 只複製選取節點的文字。預設按住 Ctrl，在350毫秒內連按兩次 C；文字輸入框保留一般複製操作。
   paste:
     title: 粘贴
     description: 按下后，粘贴剪贴板内容

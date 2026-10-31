@@ -5,6 +5,8 @@ const fixture = vi.hoisted(() => ({
   saved: new Map<string, unknown>(),
   open: vi.fn(),
   normal: vi.fn(),
+  nodes: vi.fn(),
+  text: vi.fn(),
   save: vi.fn(),
 }));
 vi.mock("@/core/Project", () => ({ Project: class Project {} }));
@@ -25,6 +27,8 @@ vi.mock("./shortcutKeysRegister", () => ({
   allKeyBinds: [
     { id: "openAIPanel", defaultKey: "a+i", when: (project: unknown) => !!project, onPress: () => fixture.open() },
     { id: "normalShortcut", defaultKey: "C-f", when: () => true, onPress: () => fixture.normal() },
+    { id: "copy", defaultKey: "C-c", when: (project: unknown) => !!project, onPress: () => fixture.nodes() },
+    { id: "copyText", defaultKey: "C-c C-c", when: (project: unknown) => !!project, onPress: () => fixture.text() },
   ],
 }));
 import { Project } from "@/core/Project";
@@ -47,11 +51,122 @@ beforeEach(async () => {
   fixture.saved.clear();
   fixture.open.mockClear();
   fixture.normal.mockClear();
+  fixture.nodes.mockClear();
+  fixture.text.mockClear();
   fixture.save.mockClear();
   fixture.active = new Project(URI.parse("draft://shortcut-test"));
   document.body.innerHTML = "";
   await KeyBindsUI.registerAllUIKeyBinds();
   KeyBindsUI.uiStartListen();
+});
+
+describe("PG1.4 copy shortcuts", () => {
+  it("copies nodes immediately, then text on a second physical C press", async () => {
+    await down("Control", { ctrlKey: true });
+    await down("c", { ctrlKey: true });
+    expect(fixture.nodes).toHaveBeenCalledOnce();
+    expect(fixture.text).not.toHaveBeenCalled();
+    await up("c");
+    await down("c", { ctrlKey: true });
+    expect(fixture.text).toHaveBeenCalledOnce();
+    expect(fixture.nodes).toHaveBeenCalledOnce();
+    expect(KeyBindsUI.getCurrentKeySequence()).toBe("");
+  });
+
+  it("does not turn keyboard auto-repeat into double-copy", async () => {
+    await down("c", { ctrlKey: true });
+    await down("c", { ctrlKey: true, repeat: true });
+    await down("c", { ctrlKey: true, repeat: true });
+    expect(fixture.nodes).toHaveBeenCalledOnce();
+    expect(fixture.text).not.toHaveBeenCalled();
+  });
+
+  it("expires the double-copy window without delaying ordinary copy", async () => {
+    await down("c", { ctrlKey: true });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await down("c", { ctrlKey: true });
+    expect(fixture.nodes).toHaveBeenCalledTimes(2);
+    expect(fixture.text).not.toHaveBeenCalled();
+  });
+
+  it("ends the sequence on another shortcut and preserves that shortcut", async () => {
+    await down("c", { ctrlKey: true });
+    await down("f", { ctrlKey: true });
+    expect(fixture.normal).toHaveBeenCalledOnce();
+    await down("c", { ctrlKey: true });
+    expect(fixture.nodes).toHaveBeenCalledTimes(2);
+    expect(fixture.text).not.toHaveBeenCalled();
+  });
+
+  it.each(["blur", "project", "mouse"])("ends the sequence after %s changes", async (change) => {
+    await down("c", { ctrlKey: true });
+    if (change === "blur") window.dispatchEvent(new Event("blur"));
+    if (change === "project") fixture.active = new Project(URI.parse("draft://another-project"));
+    if (change === "mouse") {
+      window.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true }));
+      await flush();
+    }
+    await down("c", { ctrlKey: true });
+    expect(fixture.nodes).toHaveBeenCalledTimes(2);
+    expect(fixture.text).not.toHaveBeenCalled();
+  });
+
+  it.each(["input", "textarea", "true", "", "plaintext-only"])(
+    "leaves native copying in editable context %s",
+    async (kind) => {
+      const input = document.createElement(kind === "input" || kind === "textarea" ? kind : "div");
+      if (input.tagName === "DIV") {
+        input.setAttribute("contenteditable", kind);
+        input.tabIndex = 0;
+      }
+      document.body.append(input);
+      input.focus();
+      for (let i = 0; i < 2; i++) {
+        const event = new KeyboardEvent("keydown", { key: "c", ctrlKey: true, bubbles: true, cancelable: true });
+        window.dispatchEvent(event);
+        await flush();
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(fixture.nodes).not.toHaveBeenCalled();
+      expect(fixture.text).not.toHaveBeenCalled();
+    },
+  );
+
+  it("supports customized copy bindings and longer copy-text sequences", async () => {
+    await KeyBindsUI.changeOneUIKeyBind("copy", "C-j");
+    await KeyBindsUI.changeOneUIKeyBind("copyText", "C-j C-k C-l");
+    await down("j", { ctrlKey: true });
+    await down("k", { ctrlKey: true });
+    await down("l", { ctrlKey: true });
+    expect(fixture.nodes).toHaveBeenCalledOnce();
+    expect(fixture.text).toHaveBeenCalledOnce();
+  });
+
+  it("respects disabled text copying without changing the ordinary binding", async () => {
+    await KeyBindsUI.toggleEnabled("copyText");
+    await down("c", { ctrlKey: true });
+    await down("c", { ctrlKey: true });
+    expect(fixture.nodes).toHaveBeenCalledTimes(2);
+    expect(fixture.text).not.toHaveBeenCalled();
+    expect(KeyBindsUI.getUIKeyBind("copy")?.key).toBe("C-c");
+  });
+
+  it("does not copy while a shortcut recorder consumes the event", async () => {
+    const recorder = (event: KeyboardEvent) => event.preventDefault();
+    document.addEventListener("keydown", recorder);
+    try {
+      for (let i = 0; i < 2; i++) {
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "c", ctrlKey: true, bubbles: true, cancelable: true }),
+        );
+        await flush();
+      }
+      expect(fixture.nodes).not.toHaveBeenCalled();
+      expect(fixture.text).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener("keydown", recorder);
+    }
+  });
 });
 afterEach(() => KeyBindsUI.uiStopListen());
 describe("held letter shortcut", () => {

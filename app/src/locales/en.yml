@@ -1924,8 +1924,11 @@ keyBinds:
     description: |
       Open the outline panel to view graph-theory types of connected structures on the stage
   copy:
-    title: Copy
-    description: Copy the selected content when pressed
+    title: Copy Nodes
+    description: Immediately copy selected nodes, connections, styles and layout without a dialog.
+  copyText:
+    title: Copy Text
+    description: Copy only selected node text. By default, hold Ctrl and press C twice within 350 milliseconds. Text fields retain normal copying.
   paste:
     title: Paste
     description: Paste the clipboard content when pressed

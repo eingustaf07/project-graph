@@ -1707,7 +1707,17 @@ export const allKeyBinds: KeyBindItem[] = [
     when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
-      project!.copyEngine.copy();
+      void project!.copyEngine.copy("nodes");
+    },
+  },
+  {
+    id: "copyText",
+    defaultKey: "C-c C-c",
+    icon: Copy,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
+    onPress: (project) => {
+      if (!project!.keyboardOnlyEngine.isOpenning()) return;
+      void project!.copyEngine.copy("text");
     },
   },
   {

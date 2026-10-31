@@ -83,7 +83,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: PG1.3-regression-results
+          name: PG1.4-regression-results
           path: regression-results.json
           if-no-files-found: error
       - uses: actions/download-artifact@v4
@@ -104,22 +104,24 @@ jobs:
           $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -WindowStyle Hidden -PassThru
           if (!$install.WaitForExit(180000)) { Stop-Process -Id $install.Id; throw 'CI installation timed out' }
           if ($install.ExitCode -ne 0) { throw "CI installation failed: $($install.ExitCode)" }
-          node scripts/pg13-windows-startup-smoke.mjs "$env:LOCALAPPDATA\Project Graph PG1.3\project-graph-pg11.exe"
+          $pgConfig = Get-Content app/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $pgInstalled = Join-Path $env:LOCALAPPDATA "$($pgConfig.productName)\$($pgConfig.mainBinaryName).exe"
+          node scripts/pg13-windows-startup-smoke.mjs $pgInstalled
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: PG1.3-startup-verification
+          name: PG1.4-startup-verification
           path: app/src-tauri/target/startup-smoke-result.json
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: PG1.3-quarantined-build-not-for-release
+          name: PG1.4-quarantined-build-not-for-release
           path: app/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
-          name: Project-Graph-PG1.3-Windows
+          name: Project-Graph-PG1.4-Windows
           path: app/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
       - name: Save installer as a draft release
@@ -129,10 +131,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $installers = @(Get-ChildItem app/src-tauri/target/release/bundle/nsis/*.exe | ForEach-Object FullName)
-          gh release create "pg1.3-build-${{ github.run_number }}" @installers --target "${{ github.sha }}" --draft --title "Project Graph PG1.3 ${{ github.run_number }}" --notes-file PG1.3-RELEASE.txt
+          gh release create "pg1.4-build-${{ github.run_number }}" @installers --target "${{ github.sha }}" --draft --title "Project Graph PG1.4 ${{ github.run_number }}" --notes-file PG1.4-RELEASE.txt
 
   pg10-baseline:
-    if: github.ref == 'refs/heads/pg1.1-chatgpt-signin' || github.ref == 'refs/heads/pg11-ui-fix-package-20261012' || github.ref == 'refs/heads/pg11-ai-tree-safety-20261029' || github.ref == 'refs/heads/pg13-clipboard-20261030'
+    if: github.ref == 'refs/heads/pg1.1-chatgpt-signin' || github.ref == 'refs/heads/pg11-ui-fix-package-20261012' || github.ref == 'refs/heads/pg11-ai-tree-safety-20261029' || github.ref == 'refs/heads/pg13-clipboard-20261030' || github.ref == 'refs/heads/pg14-copy-shortcuts-20261031'
     name: PG1.0 immutable baseline regression
     defaults:
       run:
