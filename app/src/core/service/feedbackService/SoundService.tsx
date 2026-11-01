@@ -108,6 +108,13 @@ export namespace SoundService {
   }
 
   const audioContext = new window.AudioContext();
+  const masterGain = audioContext.createGain();
+  masterGain.gain.value = Settings.soundVolume / 100;
+  masterGain.connect(audioContext.destination);
+  Settings.watch("soundVolume", (volume: number) => {
+    // 平滑调整共享增益，同时影响正在播放的音效，避免突然改变振幅产生杂音。
+    masterGain.gain.setTargetAtTime(volume / 100, audioContext.currentTime, 0.01);
+  });
 
   export function playSoundByFilePath(filePath: string) {
     loadAndPlaySound(filePath);
@@ -131,7 +138,7 @@ export namespace SoundService {
     const randomDetune = (Math.random() - 0.5) * getPitchVariationRange() * 2; // 范围内随机
     source.detune.value = randomDetune;
 
-    source.connect(audioContext.destination); // 小概率消耗0.01秒
+    source.connect(masterGain);
     source.start(0);
   }
 

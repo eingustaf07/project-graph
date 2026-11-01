@@ -1222,6 +1222,9 @@ settings:
       square: 正方形
       topLeft: 左上角象限
       smartContext: 智能上下文（框或實體）
+  soundVolume:
+    title: 音效音量（%）
+    description: 只調整 PG 自身音效。0 為靜音，100 為原始音量；拖曳滑桿立即生效並自動儲存，不影響系統總音量。
   soundPitchVariationRange:
     title: 音效音调随机变化范围
     description: 控制音效播放時音高隨機變化的程度。範圍：0-1200音分（1200音分=1個八度，100音分=1個半音）。值越大，音高變化越明顯，越像遊戲一樣有趣。

@@ -16,3 +16,9 @@ All PG1.3 features remain on this branch. Build and installation require a later
 Validation: the pre-change copy/shortcut baseline passed 29 tests. After the change, 87 related tests passed across copy/paste, keyboard sequences, drawing and geometry. Type checking and lint passed. Tests cover physical double presses versus auto-repeat, text inputs and shortcut recording, focus/project changes, configurable sequences, slow attachment preparation, overlapping clipboard writes, and immediate cross-project paste. Local checks used Node 24.19.0; the project requests Node 26. No PG1.4 native build or desktop acceptance test has been run yet.
 
 The generated zh_TW locale was refreshed from zh_CN using the existing sync-locales command; it also includes translations already present in PG1.3's source locale. The Windows packaging configuration now uses the configured product name to find the installed executable and labels future artifacts PG1.4. Automatic packaging remains disabled for this development branch.
+
+## Sound effects volume
+
+Settings > Customization > Sounds now includes Sound effects volume (%), a 0–100 slider with numeric input. It uses the existing settings store, defaults to 100 to preserve original loudness, and applies a shared Web Audio gain to every PG effect, including preview and custom-file effects. Changes smoothly affect playing sounds as well as subsequent effects. System volume is not accessed. The existing sound switch, effect paths and pitch settings remain unchanged.
+
+Validation: 8 sound/settings tests and 49 copy/keyboard regression tests passed. Tests cover all sound entry points, saved volume, live gain, mute/restore, the original disabled/empty-path behavior, settings reload and preservation of unrelated settings. Type checking and ESLint passed. Local Node is 24.22.1 (project requests >=26). No native playback/listening acceptance test, build or installation was performed for this addition.

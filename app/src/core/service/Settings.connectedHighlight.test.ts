@@ -26,6 +26,25 @@ describe("connected highlight setting compatibility and persistence", () => {
     storage.values.set("textNodeMaxCharWidth", 22);
     storage.values.set("aiConnectionMode", "chatgpt");
   });
+  it("defaults old profiles to original sound volume and saves only volume across reloads", async () => {
+    const { Settings, settingsSchema } = await import("./Settings");
+    expect(Settings.soundVolume).toBe(100);
+    for (const value of [-1, 101, 12.5, NaN]) {
+      expect(settingsSchema.shape.soundVolume.safeParse(value).success).toBe(false);
+    }
+    storage.writtenKeys = [];
+    Settings.soundVolume = 35;
+    expect(storage.writtenKeys).toEqual(["soundVolume"]);
+    vi.resetModules();
+    const restored = await import("./Settings");
+    expect(restored.Settings.soundVolume).toBe(35);
+    expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
+    expect(restored.Settings.textNodeMaxCharWidth).toBe(22);
+    expect(restored.Settings.aiConnectionMode).toBe("chatgpt");
+    restored.Settings.soundVolume = 0;
+    vi.resetModules();
+    expect((await import("./Settings")).Settings.soundVolume).toBe(0);
+  });
   it("keeps old values and defaults missing range settings to the existing all-connected behavior", async () => {
     const { Settings } = await import("./Settings");
     expect(Settings.connectedNodeHighlightScope).toBe("all");

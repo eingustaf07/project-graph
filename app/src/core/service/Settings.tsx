@@ -273,6 +273,7 @@ export const settingsSchema = z.object({
     .default("selectAndMove"),
   doubleClickEmptySpaceAction: z.union([z.literal("createTextNode"), z.literal("none")]).default("createTextNode"),
   soundEnabled: z.boolean().default(true),
+  soundVolume: z.number().int().min(0).max(100).default(100),
   cuttingLineStartSoundFile: z.string().default(""),
   connectLineStartSoundFile: z.string().default(""),
   connectFindTargetSoundFile: z.string().default(""),

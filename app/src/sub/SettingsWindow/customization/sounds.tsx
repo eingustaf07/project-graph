@@ -186,6 +186,7 @@ export default function SoundEffectsPage() {
           }}
         />
       </div>
+      <SettingField settingKey="soundVolume" />
       <SettingField settingKey={"soundPitchVariationRange"} />
 
       {soundEnabled && (

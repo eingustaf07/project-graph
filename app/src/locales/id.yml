@@ -1224,6 +1224,9 @@ settings:
       square: Persegi
       topLeft: Kuadran Kiri Atas
       smartContext: Konteks Cerdas (Kotak atau Entitas)
+  soundVolume:
+    title: Volume efek suara (%)
+    description: Hanya mengatur efek suara PG. 0 membisukan dan 100 mempertahankan volume asli. Perubahan langsung berlaku dan disimpan otomatis tanpa mengubah volume sistem.
   soundPitchVariationRange:
     title: Rentang Variasi Nada Suara
     description: "Mengontrol tingkat variasi nada suara saat diputar. Rentang: 0-1200 sen (1200 sen=1 oktaf, 100 sen=1 nada setengah). Semakin besar nilai, semakin jelas perubahan nada, semakin mirip permainan yang menyenangkan."
