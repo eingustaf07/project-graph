@@ -1,6 +1,7 @@
 import { Dialog } from "@/components/ui/dialog";
 import { Project, ProjectState } from "@/core/Project";
 import { AssetsRepository } from "@/core/service/AssetsRepository";
+import { cloudServiceUrl } from "@/core/service/CloudServiceConfig";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
 import { ViewFlashEffect } from "@/core/service/feedbackService/effectEngine/concrete/ViewFlashEffect";
 import { ViewOutlineFlashEffect } from "@/core/service/feedbackService/effectEngine/concrete/ViewOutlineFlashEffect";
@@ -3943,8 +3944,12 @@ export const allKeyBinds: KeyBindItem[] = [
     defaultKey: "",
     icon: Store,
     when: whenAlways,
-    onPress: () => {
-      shellOpen(`${import.meta.env.LR_API_BASE_URL}/ext/marketplace`);
+    onPress: async () => {
+      try {
+        await shellOpen(cloudServiceUrl("ext/marketplace"));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "无法打开扩展市场");
+      }
     },
   },
   {

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Extension } from "@/core/extension/Extension";
 import { ExtensionManager } from "@/core/extension/ExtensionManager";
+import { cloudServiceUrl } from "@/core/service/CloudServiceConfig";
 import { open } from "@tauri-apps/plugin-shell";
 import { Blocks, RefreshCcw, Store } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -93,7 +94,15 @@ export default function ExtensionsTab() {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => open(`${import.meta.env.LR_API_BASE_URL}/ext/marketplace`)}>
+              <SidebarMenuButton
+                onClick={async () => {
+                  try {
+                    await open(cloudServiceUrl("ext/marketplace"));
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "无法打开扩展市场");
+                  }
+                }}
+              >
                 <Store />
                 扩展市场
               </SidebarMenuButton>

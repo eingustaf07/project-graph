@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/core/service/AuthClient";
+import { cloudServiceUrl } from "@/core/service/CloudServiceConfig";
 import { FeatureFlags } from "@/core/service/FeatureFlags";
 import { UserState } from "@/core/service/UserState";
 import type { AuthUser } from "@/state";
@@ -18,7 +19,7 @@ export default function AccountTab() {
   if (!FeatureFlags.USER || !authClient) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-        云服务功能未启用（缺少 LR_API_BASE_URL 环境变量）
+        云服务地址配置无效，请联系维护者修正配置；项目编辑和 AI 功能仍可使用。
       </div>
     );
   }
@@ -90,7 +91,7 @@ function LoginForm({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   };
 
   const handleRegister = () => {
-    open(import.meta.env.LR_API_BASE_URL!);
+    open(cloudServiceUrl());
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

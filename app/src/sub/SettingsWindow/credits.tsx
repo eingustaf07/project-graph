@@ -1,4 +1,5 @@
 import { Switch } from "@/components/ui/switch";
+import { cloudServiceUrl } from "@/core/service/CloudServiceConfig";
 import { Telemetry } from "@/core/service/Telemetry";
 import { isDevAtom } from "@/state";
 import { cn } from "@/utils/cn";
@@ -18,14 +19,18 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import z from "zod";
 import "./assets/font.css";
 
-interface DonationData {
-  user: string;
-  note?: string;
-  amount: number;
-  currency?: string;
-}
+const donationDataSchema = z.array(
+  z.object({
+    user: z.string(),
+    note: z.string().optional(),
+    amount: z.number(),
+    currency: z.string().optional(),
+  }),
+);
+type DonationData = z.infer<typeof donationDataSchema>[number];
 
 // 此列表为2025年的捐赠记录，自2026年起将不再写入源代码，转为云控。
 const donations_: DonationData[] = [
@@ -238,24 +243,25 @@ export default function CreditsTab() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [isTableMode, setIsTableMode] = useState(true);
 
-  const loadDonations = () => {
+  const loadDonations = async () => {
     setIsLoading(true);
     setIsError(false);
-
-    fetch(import.meta.env.LR_API_BASE_URL + "/api/donations")
-      .then((res) => res.json())
-      .then((data) => {
-        setDonations(data);
-      })
-      .catch((e) => {
-        console.log(e);
-        setIsError(true);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    setLoadError("");
+    try {
+      const response = await fetch(cloudServiceUrl("api/donations"), { connectTimeout: 15_000 });
+      if (!response.ok) throw new Error(`服务器返回 HTTP ${response.status}`);
+      const result = donationDataSchema.safeParse(await response.json());
+      if (!result.success) throw new Error("服务器返回的支持者名单格式不正确");
+      setDonations(result.data);
+    } catch (error) {
+      setIsError(true);
+      setLoadError(error instanceof Error ? error.message : "网络连接失败");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -446,7 +452,7 @@ export default function CreditsTab() {
         <div className="flex h-64 w-full flex-col justify-center">
           <div className="flex items-center justify-center gap-2">
             <AlertCircle className="h-5 w-5" />
-            <span className="text-lg">支持者名单加载失败，请检查网络，或更新到最新版本，或联系开发者以获取帮助</span>
+            <span className="text-lg">支持者名单加载失败：{loadError}。请检查网络后点击“刷新”重试。</span>
           </div>
         </div>
       )}
