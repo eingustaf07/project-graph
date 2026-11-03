@@ -298,6 +298,14 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       new Vector(width, wrappedSize.y).add(Vector.same(this.getPadding()).multiply(2)),
     );
     this.constrainToFixedBoundary();
+    this.resolveOverlaps();
+  }
+
+  public resolveOverlaps() {
+    // 构造和剪贴板反序列化时尚未加入舞台，不能挤动现有节点。
+    if (!this.project.stage?.includes(this)) return;
+    this.updateFatherSectionByMove();
+    this.updateOtherEntityLocationByMove();
   }
 
   public getAutoMaxTextWidth(): number {
@@ -322,6 +330,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       new Vector(this.rectangle.size.x, newTextSize.y + this.getPadding() * 2),
     );
     this.updateFatherSectionByMove();
+    if (this.project.stage?.includes(this)) this.updateOtherEntityLocationByMove();
   }
   /**
    * 强制触发自动调整大小
@@ -378,6 +387,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
 
     this.collisionBox.shapes[0] = newRectangle;
     this.updateFatherSectionByMove();
+    if (this.project.stage?.includes(this)) this.updateOtherEntityLocationByMove();
   }
 
   resizeWidthTo(width: number) {
@@ -431,5 +441,6 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     newRectangle.location = location.clone();
     this.collisionBox.shapes[0] = newRectangle;
     this.updateFatherSectionByMove();
+    this.updateOtherEntityLocationByMove();
   }
 }

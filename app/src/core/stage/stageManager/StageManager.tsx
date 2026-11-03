@@ -200,6 +200,7 @@ export class StageManager {
     this.project.stage.push(stageObject);
     if (!skipUpdateReferences) {
       this.updateReferences();
+      if (stageObject instanceof TextNode) stageObject.resolveOverlaps();
     }
   }
 
