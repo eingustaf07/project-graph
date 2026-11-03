@@ -1612,8 +1612,8 @@ controlSettingsGroup:
     title: 在當前目錄新建文件
     description: 在當前項目目錄下新建一個工程文件並切換到該文件
   openAIPanel:
-    title: 打開AI面板
-    description: 打開AI助手面板
+    title: 打開或關閉AI面板
+    description: AI助手面板未打開時打開，已打開時關閉
   openAITools:
     title: 打開AI工具
     description: 打開AI工具窗口

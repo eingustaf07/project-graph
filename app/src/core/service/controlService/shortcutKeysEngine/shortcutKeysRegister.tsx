@@ -3955,9 +3955,9 @@ export const allKeyBinds: KeyBindItem[] = [
     id: "openAIPanel",
     defaultKey: "a+i",
     icon: ExternalLink,
-    when: whenHasProject,
+    when: (project) => !!project || AIWindow.isOpen(),
     onPress: () => {
-      AIWindow.open();
+      AIWindow.toggle();
     },
   },
   {

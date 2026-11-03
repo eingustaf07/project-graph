@@ -84,6 +84,16 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
 let pendingInitialText: string | null = null;
 let pendingInitialPrompt: string | null = null;
+const aiWindowTabIds = new Set<string>();
+const aiWindowCloseHandlers = new Map<string, () => void>();
+
+function getOpenAIWindowTabIds() {
+  for (const id of aiWindowTabIds) {
+    const tab = TabWorkspace.get(id);
+    if (!tab || tab.closing) aiWindowTabIds.delete(id);
+  }
+  return Array.from(aiWindowTabIds);
+}
 
 export function setAIWindowInitialText(text: string, prompt?: string) {
   pendingInitialText = text;
@@ -296,9 +306,16 @@ function AIChatWorkspace({ project, tabId }: { project: Project; tabId: string }
   function handleClose() {
     void runSessionOperation(async () => {
       await saveCurrentSession();
-      TabWorkspace.close(tabId);
+      await TabWorkspace.close(tabId);
     });
   }
+
+  useEffect(() => {
+    aiWindowCloseHandlers.set(tabId, handleClose);
+    return () => {
+      aiWindowCloseHandlers.delete(tabId);
+    };
+  }, [tabId, handleClose]);
 
   const actionsDisabled = requesting || operationInProgress || !sessionState;
 
@@ -1222,7 +1239,8 @@ function toolStateText(state: string | undefined) {
 }
 
 AIWindow.open = () => {
-  createSubWindow("AIWindow", {
+  getOpenAIWindowTabIds();
+  const tab = createSubWindow("AIWindow", {
     title: "",
     contextTarget: "activeResourceTab",
     closable: false,
@@ -1231,4 +1249,18 @@ AIWindow.open = () => {
     children: (tab) => <AIWindow tabId={tab.id} />,
     rect: new Rectangle(new Vector(8, 88), new Vector(380, window.innerHeight - 96)),
   });
+  aiWindowTabIds.add(tab.id);
+};
+
+AIWindow.isOpen = () => getOpenAIWindowTabIds().length > 0;
+
+AIWindow.toggle = () => {
+  const openTabId = getOpenAIWindowTabIds().at(-1);
+  if (openTabId) {
+    const close = aiWindowCloseHandlers.get(openTabId);
+    if (close) close();
+    else void TabWorkspace.close(openTabId);
+    return;
+  }
+  AIWindow.open();
 };
