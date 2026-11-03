@@ -587,6 +587,9 @@ settings:
     description: |
       Setelah tidak ada operasi panggung selama waktu tertentu, render panggung akan dihentikan untuk menghemat sumber daya CPU/GPU.
       Hanya berlaku setelah opsi "Jeda Render Saat Tidak Beroperasi" diaktifkan.
+  alwaysRenderNodeText:
+    title: Pertahankan teks node saat diperkecil
+    description: Aktif secara bawaan. Teks dan tautan mengikuti zoom kanvas tanpa disembunyikan saat ukuran huruf kecil. Nonaktifkan untuk memakai ambang penyembunyian teks kecil. Banyak teks dapat menambah beban render.
   ignoreTextNodeTextRenderLessThanFontSize:
     title: Tidak Render Teks dan Detail Node Teks Saat Ukuran Font Render Kurang dari Nilai Tertentu
     description: |

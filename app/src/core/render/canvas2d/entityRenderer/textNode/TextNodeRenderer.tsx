@@ -26,8 +26,12 @@ export class TextNodeRenderer {
 
     // 节点身体矩形
     let fillColor = node.color;
-    let renderedFontSize = node.getFontSize() * this.project.camera.currentScale;
-    if (renderedFontSize < Settings.ignoreTextNodeTextRenderLessThanFontSize && fillColor.a === 0) {
+    const renderedFontSize = node.getFontSize() * this.project.camera.currentScale;
+    if (
+      !Settings.alwaysRenderNodeText &&
+      renderedFontSize < Settings.ignoreTextNodeTextRenderLessThanFontSize &&
+      fillColor.a === 0
+    ) {
       const color = this.project.stageStyleManager.currentStyle.StageObjectBorder.clone();
       color.a = 0.2;
       fillColor = color;
@@ -83,9 +87,7 @@ export class TextNodeRenderer {
       this.renderLogicNodeWarningTrap(node);
     }
 
-    // 视野缩放过小就不渲染内部文字
-    renderedFontSize = node.getFontSize() * this.project.camera.currentScale;
-    if (renderedFontSize > Settings.ignoreTextNodeTextRenderLessThanFontSize) {
+    if (Settings.alwaysRenderNodeText || renderedFontSize > Settings.ignoreTextNodeTextRenderLessThanFontSize) {
       this.renderTextNodeTextLayer(node);
     }
 

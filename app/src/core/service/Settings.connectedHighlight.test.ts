@@ -45,6 +45,20 @@ describe("connected highlight setting compatibility and persistence", () => {
     vi.resetModules();
     expect((await import("./Settings")).Settings.soundVolume).toBe(0);
   });
+  it("keeps zoomed-out labels visible by default without overwriting the old text threshold", async () => {
+    storage.values.set("ignoreTextNodeTextRenderLessThanFontSize", 8);
+    const { Settings } = await import("./Settings");
+    expect(Settings.alwaysRenderNodeText).toBe(true);
+    expect(Settings.ignoreTextNodeTextRenderLessThanFontSize).toBe(8);
+    storage.writtenKeys = [];
+    Settings.alwaysRenderNodeText = false;
+    expect(storage.writtenKeys).toEqual(["alwaysRenderNodeText"]);
+    vi.resetModules();
+    const restored = await import("./Settings");
+    expect(restored.Settings.alwaysRenderNodeText).toBe(false);
+    expect(restored.Settings.ignoreTextNodeTextRenderLessThanFontSize).toBe(8);
+    expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
+  });
   it("keeps old values and defaults missing range settings to the existing all-connected behavior", async () => {
     const { Settings } = await import("./Settings");
     expect(Settings.connectedNodeHighlightScope).toBe("all");

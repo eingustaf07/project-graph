@@ -417,6 +417,9 @@ settings:
     description: |
       Rendering will stop after a certain number of seconds without stage manipulation to save CPU/GPU resources.
       This will only take effect if the "Pause Rendering When Idle" option is enabled.
+  alwaysRenderNodeText:
+    title: Keep node text when zoomed out
+    description: Enabled by default. Text and link node labels scale with the canvas without being hidden at small font sizes. Turn off to use the small-text hiding threshold. Showing many labels may increase rendering cost.
   ignoreTextNodeTextRenderLessThanFontSize:
     title: Hide Text and Details of Text Nodes When Rendered Font Size Is Less Than a 
       Certain Value

@@ -621,11 +621,13 @@ settings:
     description: |
       超過一定時間未做出舞臺操作，舞臺渲染會停止，以節省CPU/GPU資源。
       必須在上述“超時暫停渲染”選項開啟後才會生效。
+  alwaysRenderNodeText:
+    title: 縮小時保留節點文字
+    description: 默認開啟。文本節點和鏈接節點的文字隨畫布縮放，但不再因字號過小而自動隱藏。關閉後使用下方的小字號隱藏閾值；大量節點同時顯示時可能增加渲染開銷。
   ignoreTextNodeTextRenderLessThanFontSize:
-    title: 當渲染字體大小小於一定值時，不渲染文本節點內的文字及其詳細信息
+    title: 小字號文字隱藏閾值
     description: |
-      開啟後，當文本節點的渲染字體大小小於一定值時，(也就是觀察宏觀狀態時)
-      不渲染文本節點內的文字及其詳細信息，這樣可以提高渲染性能，但會導致文本節點的文字內容無法顯示
+      僅在關閉“縮小時保留節點文字”後生效。按屏幕上的字體像素大小判斷是否隱藏文本和鏈接節點的文字，以降低渲染開銷。
   isEnableEntityCollision:
     title: 實體碰撞檢測
     description: |

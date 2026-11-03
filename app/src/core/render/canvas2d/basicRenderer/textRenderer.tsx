@@ -21,6 +21,11 @@ const TEXT_RENDER_SIZE = 100;
 export class TextRenderer {
   constructor(private readonly project: Project) {}
 
+  private shouldRoundText(size: number): boolean {
+    // 小于一像素时保留比例，避免字号被取整为零、文字消失或换行宽度失真。
+    return Settings.textIntegerLocationAndSizeRender && !(Settings.alwaysRenderNodeText && size > 0 && size < 1);
+  }
+
   private prefixWidth(
     characters: string[],
     length: number,
@@ -155,7 +160,7 @@ export class TextRenderer {
   ): void {
     if (text.trim().length === 0) return;
     text = this.prepareText(text);
-    if (Settings.textIntegerLocationAndSizeRender) {
+    if (this.shouldRoundText(size)) {
       location = location.toInteger();
       size = Math.round(size);
       if (size === 0) return;
@@ -175,7 +180,7 @@ export class TextRenderer {
     fontWeight?: string,
   ): void {
     if (text.trim().length === 0) return;
-    if (Settings.textIntegerLocationAndSizeRender) {
+    if (this.shouldRoundText(size)) {
       centerLocation = centerLocation.toInteger();
       size = Math.round(size);
       if (size === 0) return;
@@ -192,7 +197,7 @@ export class TextRenderer {
     fontWeight?: string,
   ): void {
     if (text.trim().length === 0) return;
-    if (Settings.textIntegerLocationAndSizeRender) {
+    if (this.shouldRoundText(size)) {
       centerLocation = centerLocation.toInteger();
       size = Math.round(size);
       if (size === 0) return;
@@ -293,7 +298,7 @@ export class TextRenderer {
     fontWeight?: string,
   ): void {
     if (text.trim().length === 0) return;
-    if (Settings.textIntegerLocationAndSizeRender) {
+    if (this.shouldRoundText(fontSize)) {
       location = location.toInteger();
       fontSize = Math.round(fontSize);
       limitWidth = Math.round(limitWidth);
@@ -330,7 +335,7 @@ export class TextRenderer {
     fontWeight?: string,
   ): void {
     if (text.trim().length === 0) return;
-    if (Settings.textIntegerLocationAndSizeRender) {
+    if (this.shouldRoundText(size)) {
       centerLocation = centerLocation.toInteger();
       size = Math.round(size);
       if (size === 0) return;
@@ -373,7 +378,7 @@ export class TextRenderer {
     fontWeight?: string,
   ): void {
     if (text.trim().length === 0) return;
-    if (Settings.textIntegerLocationAndSizeRender) {
+    if (this.shouldRoundText(size)) {
       centerLocation = centerLocation.toInteger();
       size = Math.round(size);
       if (size === 0) return;
@@ -411,7 +416,7 @@ export class TextRenderer {
     fontWeight?: string,
   ): void {
     if (text.trim().length === 0) return;
-    if (Settings.textIntegerLocationAndSizeRender) {
+    if (this.shouldRoundText(size)) {
       centerLocation = centerLocation.toInteger();
       size = Math.round(size);
       if (size === 0) return;

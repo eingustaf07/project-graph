@@ -30,8 +30,7 @@ export class UrlNodeRenderer {
       Renderer.NODE_ROUNDED_RADIUS * this.project.camera.currentScale,
     );
     const titleFontSize = Renderer.FONT_SIZE * this.project.camera.currentScale;
-    // 视野缩放过小就不渲染内部文字和分界线
-    if (titleFontSize > Settings.ignoreTextNodeTextRenderLessThanFontSize) {
+    if (Settings.alwaysRenderNodeText || titleFontSize > Settings.ignoreTextNodeTextRenderLessThanFontSize) {
       // 绘制标题
       if (!urlNode.isEditingTitle) {
         this.project.textRenderer.renderText(

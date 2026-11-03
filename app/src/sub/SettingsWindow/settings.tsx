@@ -461,6 +461,7 @@ export const categories = {
       "renderOverTimeWhenNoManipulateTime",
       "scaleExponent",
       "ignoreTextNodeTextRenderLessThanFontSize",
+      "alwaysRenderNodeText",
       "textIntegerLocationAndSizeRender",
       "antialiasing",
     ],

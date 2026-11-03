@@ -198,6 +198,7 @@ export const settingsIcons = {
   pauseRenderWhenTabUnfocused: Pause,
   renderOverTimeWhenNoManipulateTime: Hourglass,
   ignoreTextNodeTextRenderLessThanFontSize: ScanText,
+  alwaysRenderNodeText: ScanText,
   textIntegerLocationAndSizeRender: WholeWord,
   antialiasing: Calculator,
   defaultFontFamily: CaseSensitive,
