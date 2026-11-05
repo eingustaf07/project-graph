@@ -17,7 +17,9 @@ const ownershipHelperFileName =
   process.platform === "win32" ? "project-graph-ownership-helper.exe" : "project-graph-ownership-helper";
 
 function run(args: readonly string[]): void {
-  const result = spawnSync("pnpm", args, {
+  const pnpmEntry = process.env.npm_execpath;
+  if (!pnpmEntry) throw new Error("Run materialize:cli through pnpm");
+  const result = spawnSync(process.execPath, [pnpmEntry, ...args], {
     cwd: repositoryRoot,
     encoding: "utf8",
     env: process.env,
