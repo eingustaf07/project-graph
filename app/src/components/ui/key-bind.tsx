@@ -39,11 +39,13 @@ export default function KeyBind({
         !event.altKey &&
         !event.shiftKey &&
         !event.metaKey &&
-        /^[a-z]$/i.test(event.key)
+        /^(?:[a-z]|tab)$/i.test(event.key)
       ) {
         const letter = event.key.toLowerCase();
         if (heldLetters.current.size === 1 && !heldLetters.current.has(letter)) {
-          setValue([...heldLetters.current, letter].join("+"));
+          const keys = [...heldLetters.current, letter];
+          if (keys.includes("tab")) keys.sort((a) => (a === "tab" ? -1 : 1));
+          setValue(keys.join("+"));
           heldLetters.current.add(letter);
           return;
         }

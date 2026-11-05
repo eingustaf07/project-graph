@@ -1,6 +1,8 @@
 import { Project, service } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
+import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { toast } from "sonner";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
@@ -20,6 +22,16 @@ import { Settings } from "../../Settings";
 @service("keyboardOnlyTreeEngine")
 export class KeyboardOnlyTreeEngine {
   constructor(private readonly project: Project) {}
+  private nextGrowthEdge?: { nodeId: string; mode: "reverse" | "undirected" };
+
+  armNextGrowthEdge(mode: "reverse" | "undirected") {
+    const nodes = this.project.stageManager.getConnectableEntity().filter((node) => node.isSelected);
+    if (nodes.length !== 1 || Settings.viewerMode) return;
+    this.nextGrowthEdge = { nodeId: nodes[0].uuid, mode };
+    toast.success(
+      mode === "reverse" ? "下一次从此节点生长：箭头指回此节点，仅一次" : "下一次从此节点生长：无向连线，仅一次",
+    );
+  }
 
   /**
    * 方向取反
@@ -296,6 +308,7 @@ export class KeyboardOnlyTreeEngine {
     }
     const rootNode = this.project.stageManager.getConnectableEntity().find((node) => node.isSelected);
     if (!rootNode) return;
+    const nextMode = this.nextGrowthEdge?.nodeId === rootNode.uuid ? this.nextGrowthEdge.mode : undefined;
     this.project.camera.clearMoveCommander();
     this.project.camera.speed = Vector.getZero();
     // 确定创建方向：默认向右
@@ -303,9 +316,10 @@ export class KeyboardOnlyTreeEngine {
 
     // 检测生长探测线上是否有可连接实体（线段相交检测，比点命中范围更大）
     {
-      const targetEntity = Settings.enableTreeGenerateConnectByProbe
-        ? this.findConnectTargetByGrowthLine(rootNode, direction)
-        : null;
+      const targetEntity =
+        Settings.enableTreeGenerateConnectByProbe && !nextMode
+          ? this.findConnectTargetByGrowthLine(rootNode, direction)
+          : null;
       if (targetEntity !== null) {
         // 有可连接实体且尚无连线：直接连线，不新建节点
         this.project.stageManager.connectEntity(rootNode, targetEntity);
@@ -449,7 +463,8 @@ export class KeyboardOnlyTreeEngine {
     }
 
     // 连接节点
-    this.project.stageManager.connectEntity(rootNode, newNode);
+    if (nextMode) this.project.nodeConnector.connectConnectableEntity(rootNode, newNode);
+    else this.project.stageManager.connectEntity(rootNode, newNode);
     const newEdges = this.project.graphMethods.getEdgesBetween(rootNode, newNode);
 
     // 根据方向设置边的连接位置
@@ -477,14 +492,27 @@ export class KeyboardOnlyTreeEngine {
       newNode.color = rootNode.color.clone();
     }
 
-    // 重新排列树形节点
-    const rootNodeParents = this.project.graphMethods.getRoots(rootNode, true);
-    if (rootNodeParents.length === 1) {
+    // 即使布局失败也应允许编辑已创建的节点；等当前键盘事件完成后再聚焦。
+    setTimeout(() => {
+      if (!this.project.stageManager.getTextNodeByUUID(newNode.uuid)) return;
+      if (editEdgeFirst && nextMode !== "undirected" && newEdges.length > 0) {
+        this.editEdgeTextAndThenNode(newEdges[0], newNode, selectAll);
+      } else {
+        this.project.controllerUtils.editTextNode(newNode, selectAll);
+      }
+    }, 0);
+    this.project.stageManager.clearSelectAll();
+    newNode.isSelected = true;
+    const rootNodeParents =
+      Settings.autoLayoutWhenTreeGenerate || Settings.treeGenerateCameraBehavior === "resetToTree"
+        ? this.project.graphMethods.getRoots(rootNode, true)
+        : [];
+    if (Settings.autoLayoutWhenTreeGenerate && rootNodeParents.length === 1) {
       const rootNodeParent = rootNodeParents[0];
       const validationResult = this.project.graphMethods.validateTreeStructure(rootNodeParent, true);
       if (validationResult.isValid) {
         if (Settings.autoLayoutWhenTreeGenerate) {
-          this.project.autoAlign.autoLayoutSelectedFastTreeMode(rootNodeParent);
+          this.project.autoLayoutFastTree.autoLayoutFastTreeMode(rootNodeParent);
         }
         // 更新选择状态
         rootNodeParent.isSelected = false;
@@ -504,17 +532,6 @@ export class KeyboardOnlyTreeEngine {
     // 特效
     this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(rootNode, newNode));
     SoundService.play.treeGenerateDeepSoundFile();
-    setTimeout(
-      () => {
-        // 防止把反引号给输入进去
-        if (editEdgeFirst && newEdges.length > 0) {
-          this.editEdgeTextAndThenNode(newEdges[0], newNode, selectAll);
-        } else {
-          this.project.controllerUtils.editTextNode(newNode, selectAll);
-        }
-      },
-      (1000 / 60) * 6,
-    );
     // 根据设置决定镜头行为
     switch (Settings.treeGenerateCameraBehavior) {
       case "none":
@@ -536,6 +553,22 @@ export class KeyboardOnlyTreeEngine {
           this.project.camera.resetByRectangle(treeBoundingRect);
         }
         break;
+    }
+    if (nextMode && newEdges.length > 0) {
+      const edges = newEdges.filter((edge): edge is LineEdge => edge instanceof LineEdge);
+      if (nextMode === "reverse") this.project.nodeConnector.reverseEdges(edges);
+      else {
+        for (const edge of edges) {
+          const undirected = MultiTargetUndirectedEdge.createFromSomeEntity(this.project, [rootNode, newNode]);
+          undirected.text = edge.text;
+          undirected.color = edge.color.clone();
+          undirected.arrow = "none";
+          this.project.stageManager.delete(edge);
+          this.project.stageManager.add(undirected);
+        }
+      }
+      this.nextGrowthEdge = undefined;
+      this.project.historyManager.recordStep();
     }
   }
 

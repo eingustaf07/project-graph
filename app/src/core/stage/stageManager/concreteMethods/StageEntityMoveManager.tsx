@@ -5,6 +5,7 @@ import { RectanglePushInEffect } from "@/core/service/feedbackService/effectEngi
 import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
+import { boundedDoodleOf, Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { Vector } from "@graphif/data-structures";
 
 /**
@@ -15,6 +16,7 @@ import { Vector } from "@graphif/data-structures";
  */
 @service("entityMoveManager")
 export class EntityMoveManager {
+  public isMovingWithinContainer = false;
   constructor(private readonly project: Project) {}
 
   // ─────── 持续移动物理引擎（复用 Camera 同款物理模型）───────
@@ -112,12 +114,41 @@ export class EntityMoveManager {
       return;
     }
     // 让自己移动
-    entity.move(delta);
+    const nTransfer = Settings.containerNBoundary && this.project.controller?.pressingKeySet.has("n");
+    const boundary = boundedDoodleOf(entity);
+    if (nTransfer && boundary && !boundary.containsContentPoint(entity.collisionBox.getRectangle().center.add(delta))) {
+      this.project.sectionInOutManager.entityDropParent(entity, false, null, true);
+    }
+    const wasMoving = this.isMovingWithinContainer;
+    this.isMovingWithinContainer = true;
+    try {
+      entity.move(delta);
+    } finally {
+      this.isMovingWithinContainer = wasMoving;
+    }
+    if (nTransfer) {
+      const target = this.project.sectionMethods.getInnermostSectionByLocation(
+        entity.collisionBox.getRectangle().center,
+      );
+      const targetBoundary = target instanceof Doodle ? target : target ? boundedDoodleOf(target) : null;
+      if (targetBoundary?.bounded && targetBoundary !== entity && !boundedDoodleOf(entity)) {
+        targetBoundary.adopt(entity);
+        this.project.stageManager.updateReferences();
+      } else if (boundary && !entity.parentSection) {
+        this.project.stageManager.updateReferences();
+      }
+    }
 
     if (isAutoAdjustSection) {
       let current = entity.parentSection;
       while (current) {
-        current.adjustLocationAndSize();
+        const wasMoving = this.isMovingWithinContainer;
+        this.isMovingWithinContainer = true;
+        try {
+          current.adjustLocationAndSize();
+        } finally {
+          this.isMovingWithinContainer = wasMoving;
+        }
         current = current.parentSection;
       }
     }
@@ -179,11 +210,17 @@ export class EntityMoveManager {
     if (!this.canMoveEntity(entity)) {
       return;
     }
-    entity.moveTo(location);
-    let current = entity.parentSection;
-    while (current) {
-      current.adjustLocationAndSize();
-      current = current.parentSection;
+    const wasMoving = this.isMovingWithinContainer;
+    this.isMovingWithinContainer = true;
+    try {
+      entity.moveTo(location);
+      let current = entity.parentSection;
+      while (current) {
+        current.adjustLocationAndSize();
+        current = current.parentSection;
+      }
+    } finally {
+      this.isMovingWithinContainer = wasMoving;
     }
   }
 

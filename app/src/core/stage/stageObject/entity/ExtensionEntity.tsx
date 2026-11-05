@@ -49,16 +49,18 @@ export class ExtensionEntity extends ConnectableEntity {
       extensionId = "",
       typeName = "",
       customData = {},
+      crossFileLinks,
       collisionBox = new CollisionBox([new Rectangle(Vector.getZero(), new Vector(100, 80))]),
     }: {
       uuid?: string;
       extensionId?: string;
       typeName?: string;
       customData?: any;
+      crossFileLinks?: ConnectableEntity["crossFileLinks"];
       collisionBox?: CollisionBox;
     } = {},
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
     this.extensionId = extensionId;
     this.typeName = typeName;

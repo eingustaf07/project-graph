@@ -1,4 +1,5 @@
 import type { Project } from "@/core/Project";
+import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { Settings } from "@/core/service/Settings";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
@@ -19,6 +20,7 @@ import {
   Frame,
   Square,
   LockKeyhole,
+  Grip,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { DoodleShape } from "@/core/algorithm/doodleBounds";
@@ -45,6 +47,27 @@ function ToolButton({ label, children, ...props }: ComponentProps<typeof Button>
 }
 type Gesture = { start: Vector; end: Vector; pointerId: number };
 type Resize = { original: Rectangle; anchor: Vector; end: Vector; pointerId: number; entity: Doodle };
+type Dock = "top" | "bottom" | "left" | "right";
+export function nearestToolbarEdge(
+  x: number,
+  y: number,
+  bounds: Pick<DOMRect, "top" | "bottom" | "left" | "right">,
+): Dock {
+  const edges: [Dock, number][] = [
+    ["top", Math.abs(y - bounds.top)],
+    ["bottom", Math.abs(y - bounds.bottom)],
+    ["left", Math.abs(x - bounds.left)],
+    ["right", Math.abs(x - bounds.right)],
+  ];
+  return edges.reduce((nearest, edge) => (edge[1] < nearest[1] ? edge : nearest))[0];
+}
+const dockClasses: Record<Dock, string> = {
+  top: "top-0 left-1/2 -translate-x-1/2 max-w-[calc(100%-16px)] overflow-x-auto",
+  bottom: "bottom-0 left-1/2 -translate-x-1/2 max-w-[calc(100%-16px)] overflow-x-auto",
+  left: "left-0 top-1/2 -translate-y-1/2 flex-col max-h-[calc(100%-16px)] overflow-y-auto",
+  right: "right-0 top-1/2 -translate-y-1/2 flex-col max-h-[calc(100%-16px)] overflow-y-auto",
+};
+const popoverSides = { top: "bottom", bottom: "top", left: "right", right: "left" } as const;
 
 function frameFromPoints(start: Vector, end: Vector, shape: DoodleShape): Rectangle {
   let width = Math.abs(end.x - start.x),
@@ -57,9 +80,22 @@ function frameFromPoints(start: Vector, end: Vector, shape: DoodleShape): Rectan
 }
 
 export default function DoodleToolbar({ project }: { project: Project }) {
+  const [mode, setMode] = useState(Settings.mouseLeftMode);
+  useEffect(() => Settings.watch("mouseLeftMode", setMode), []);
+  return mode === "draw" ? <DrawingTools project={project} /> : null;
+}
+
+function DrawingTools({ project }: { project: Project }) {
+  const [dock, setDock] = useState<Dock>(Settings.drawingToolbarPosition ?? "bottom");
+  const dragDock = useRef<{ pointerId: number; bounds: DOMRect; x: number; y: number; original: Dock } | undefined>(
+    undefined,
+  );
+  useEffect(() => Settings.watch("drawingToolbarPosition", setDock), []);
+  const vertical = dock === "left" || dock === "right";
   const [tool, setTool] = useState<DoodleShape | null>(null);
   const [bounded, setBounded] = useState(false);
   const [name, setName] = useState("");
+  const titleDraftChanged = useRef(false);
   const [color, setColor] = useState("#16a085");
   const [selected, setSelected] = useState<Doodle>();
   const [editingId, setEditingId] = useState<string>();
@@ -241,6 +277,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       entity.isSelected = true;
       setSelected(entity);
       setName(entity.text);
+      titleDraftChanged.current = false;
       setEditingId(entity.uuid);
       setTitleEditingId(entity.uuid);
       setOptionsOpen(false);
@@ -287,6 +324,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     }
     setBounded(selected.bounded);
     setName(selected.text);
+    titleDraftChanged.current = false;
     setColor(selected.color.toHexStringWithoutAlpha());
     setWidth(String(Math.round(selected.frame.width)));
     setHeight(String(Math.round(selected.frame.height)));
@@ -340,6 +378,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     const frame = frameFromPoints(gesture.start, world(event), tool);
     setGesture(undefined);
     if (frame.width < 40 || frame.height < 40) {
+      if (frame.width * project.camera.currentScale < 2 && frame.height * project.camera.currentScale < 2) return;
       toast.info("请画大一些，图形宽高至少为40个画布单位");
       return;
     }
@@ -356,6 +395,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       project.stageManager.clearSelectAll();
       doodle.isSelected = true;
       project.historyManager.recordStep();
+      void SoundService.playDoodleCreated();
       setSelected(doodle);
       setEditingId(doodle.uuid);
       setTool(null);
@@ -381,26 +421,28 @@ export default function DoodleToolbar({ project }: { project: Project }) {
     }
     setResize(undefined);
   };
-  const fixBoundary = () => {
+  const fixBoundary = (keepEditing = false) => {
     if (!selected || viewer) return false;
     try {
       const dimensionsChanged =
         width !== String(Math.round(selected.frame.width)) || height !== String(Math.round(selected.frame.height));
       const changed =
         dimensionsChanged ||
-        selected.text !== name ||
+        (titleDraftChanged.current && selected.text !== name) ||
         selected.color.toHexStringWithoutAlpha() !== color ||
         selected.bounded !== bounded;
       if (dimensionsChanged)
         selected.resizeFrame(new Rectangle(selected.frame.location.clone(), new Vector(Number(width), Number(height))));
-      if (selected.text !== name) selected.rename(name);
+      if (titleDraftChanged.current && selected.text !== name) selected.rename(name);
+      titleDraftChanged.current = false;
+      setName(selected.text);
       if (selected.color.toHexStringWithoutAlpha() !== color) selected.color = Color.fromHex(color);
       if (selected.bounded !== bounded) selected.setBounded(bounded);
       if (changed) {
         project.stageManager.updateReferences();
         project.historyManager.recordStep();
       }
-      setEditingId(undefined);
+      if (!keepEditing) setEditingId(undefined);
       setTitleEditingId(undefined);
       setOptionsOpen(false);
       refresh();
@@ -443,7 +485,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
 
   useEffect(() => {
     const run = (command: DoodleCommand) => {
-      if (viewer) return;
+      if (viewer || Settings.mouseLeftMode !== "draw") return;
       if (command === "rectangle" || command === "circle") {
         startTool(command);
         return;
@@ -465,7 +507,6 @@ export default function DoodleToolbar({ project }: { project: Project }) {
       }
       if (command === "eraser") {
         if (!eraser && editing && !fixBoundary()) return;
-        Settings.mouseLeftMode = "draw";
         Settings.penStrokeEraser = true;
         setEraser(true);
         setLegacy(false);
@@ -473,7 +514,6 @@ export default function DoodleToolbar({ project }: { project: Project }) {
         return;
       }
       if (command === "line") {
-        Settings.mouseLeftMode = "draw";
         Settings.penStrokeEraser = false;
         setEraser(false);
         Settings.penStrokeStraightLine = true;
@@ -508,15 +548,19 @@ export default function DoodleToolbar({ project }: { project: Project }) {
             width: Math.max(160, Math.min(360, viewFrame.width)),
           }}
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => {
+            titleDraftChanged.current = true;
+            setName(event.target.value);
+          }}
           onKeyDown={(event) => {
             event.stopPropagation();
             if (event.key === "Enter" && !event.nativeEvent.isComposing) {
               event.preventDefault();
-              fixBoundary();
+              fixBoundary(true);
             } else if (event.key === "Escape") {
               event.preventDefault();
               setName(selected.text);
+              titleDraftChanged.current = false;
               setTitleEditingId(undefined);
             }
           }}
@@ -526,6 +570,16 @@ export default function DoodleToolbar({ project }: { project: Project }) {
         <div
           ref={layer}
           data-pg-doodle-layer
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const point = project.canvas.clientToView(event.clientX, event.clientY);
+            project.controller.entityCreate.mouseDoubleClick({
+              button: event.button,
+              clientX: point.x,
+              clientY: point.y,
+            } as MouseEvent);
+          }}
           className="absolute inset-0 z-30 cursor-crosshair touch-none"
           onPointerDown={(event) => {
             if (event.button !== 0) return;
@@ -625,8 +679,57 @@ export default function DoodleToolbar({ project }: { project: Project }) {
         <aside
           aria-label="涂鸦面板"
           data-pg-doodle-toolbar
-          className="bg-popover/95 supports-backdrop-blur:bg-popover/80 border-border/50 absolute top-1/2 right-2 z-50 flex max-h-[calc(100%-16px)] w-11 -translate-y-1/2 flex-col items-center gap-0.5 overflow-y-auto rounded-lg border px-1 py-1.5 shadow-xl backdrop-blur-md"
+          className={`bg-popover/95 supports-backdrop-blur:bg-popover/80 border-border/50 absolute z-50 flex items-center gap-0.5 rounded-lg border px-1.5 py-1 shadow-xl backdrop-blur-md ${dockClasses[dock]}`}
         >
+          <ToolButton
+            label="拖动工具栏到上、下、左、右边缘"
+            className="size-8 shrink-0 cursor-grab touch-none active:cursor-grabbing"
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              const bounds = event.currentTarget.closest("aside")?.parentElement?.getBoundingClientRect();
+              if (!bounds) return;
+              event.preventDefault();
+              event.stopPropagation();
+              dragDock.current = {
+                pointerId: event.pointerId,
+                bounds,
+                x: event.clientX,
+                y: event.clientY,
+                original: dock,
+              };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              const drag = dragDock.current;
+              if (!drag || drag.pointerId !== event.pointerId) return;
+              event.stopPropagation();
+              if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5) return;
+              setDock(nearestToolbarEdge(event.clientX, event.clientY, drag.bounds));
+            }}
+            onPointerUp={(event) => {
+              const drag = dragDock.current;
+              if (!drag || drag.pointerId !== event.pointerId) return;
+              event.preventDefault();
+              event.stopPropagation();
+              dragDock.current = undefined;
+              if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) >= 5) {
+                const next = nearestToolbarEdge(event.clientX, event.clientY, drag.bounds);
+                setDock(next);
+                Settings.drawingToolbarPosition = next;
+              } else setDock(drag.original);
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }}
+            onPointerCancel={() => {
+              if (dragDock.current) setDock(dragDock.current.original);
+              dragDock.current = undefined;
+            }}
+            onLostPointerCapture={() => {
+              if (dragDock.current) setDock(dragDock.current.original);
+              dragDock.current = undefined;
+            }}
+          >
+            <Grip className="size-4" />
+          </ToolButton>
           <ToolButton
             label="橡皮模式"
             role="switch"
@@ -651,7 +754,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
             </PopoverTrigger>
             <PopoverContent
               data-pg-doodle-parameters
-              side="left"
+              side={popoverSides[dock]}
               align="center"
               sideOffset={8}
               className="flex max-h-[85vh] w-48 max-w-[calc(100vw-64px)] flex-col gap-2 overflow-y-auto p-3 text-xs"
@@ -763,7 +866,10 @@ export default function DoodleToolbar({ project }: { project: Project }) {
                   placeholder="标题（可留空）"
                   value={name}
                   disabled={viewer || (!!selected && !editing)}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) => {
+                    titleDraftChanged.current = true;
+                    setName(event.target.value);
+                  }}
                 />
               )}
               {selected && (
@@ -809,7 +915,7 @@ export default function DoodleToolbar({ project }: { project: Project }) {
               )}
             </PopoverContent>
           </Popover>
-          <div className="border-border w-6 border-t" />
+          <div className={vertical ? "border-border w-6 border-t" : "border-border h-6 border-l"} />
           <ToolButton
             label="容器模式"
             variant={bounded ? "default" : "ghost"}

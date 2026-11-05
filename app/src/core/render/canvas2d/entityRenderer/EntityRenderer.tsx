@@ -136,7 +136,10 @@ export class EntityRenderer {
     }
     // 3 遍历所有section实体，画顶部大文字
     for (const section of this.project.stageManager.getSections()) {
-      if (this.project.renderer.isOverView(viewRectangle, section)) {
+      if (
+        this.project.renderer.isOverView(viewRectangle, section) &&
+        !this.project.sectionRenderer.isDoodleTitleInView(section, viewRectangle)
+      ) {
         continue;
       }
       if (this.project.sectionMethods.isEntityHiddenByBigTitleSection(section)) {

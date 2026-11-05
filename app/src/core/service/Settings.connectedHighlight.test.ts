@@ -45,6 +45,43 @@ describe("connected highlight setting compatibility and persistence", () => {
     vi.resetModules();
     expect((await import("./Settings")).Settings.soundVolume).toBe(0);
   });
+  it("persists individual sound switches without rewriting other preferences", async () => {
+    const { Settings } = await import("./Settings");
+    expect(Settings.soundEffectEnabled).toEqual({});
+    storage.writtenKeys = [];
+    Settings.soundEffectEnabled = { nodeCreated: false, uiButtonClickSoundFile: false };
+    expect(storage.writtenKeys).toEqual(["soundEffectEnabled"]);
+    vi.resetModules();
+    const restored = (await import("./Settings")).Settings;
+    expect(restored.soundEffectEnabled).toEqual({ nodeCreated: false, uiButtonClickSoundFile: false });
+    expect(restored.mouseRightDragBackground).toBe("moveCamera");
+    expect(restored.textNodeMaxCharWidth).toBe(22);
+  });
+  it("persists N-key container mode without changing other settings", async () => {
+    const { Settings } = await import("./Settings");
+    expect(Settings.containerNBoundary).toBe(false);
+    storage.writtenKeys = [];
+    Settings.containerNBoundary = true;
+    expect(storage.writtenKeys).toEqual(["containerNBoundary"]);
+    vi.resetModules();
+    const restored = (await import("./Settings")).Settings;
+    expect(restored.containerNBoundary).toBe(true);
+    expect(restored.mouseRightDragBackground).toBe("moveCamera");
+    expect(restored.textNodeMaxCharWidth).toBe(22);
+  });
+  it("persists toolbar docking without changing existing preferences", async () => {
+    const { Settings } = await import("./Settings");
+    expect(Settings.drawingToolbarPosition).toBe("bottom");
+    expect(Settings.enableCrossFileConnections).toBe(false);
+    storage.writtenKeys = [];
+    Settings.drawingToolbarPosition = "left";
+    expect(storage.writtenKeys).toEqual(["drawingToolbarPosition"]);
+    vi.resetModules();
+    const restored = await import("./Settings");
+    expect(restored.Settings.drawingToolbarPosition).toBe("left");
+    expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
+    expect(restored.Settings.aiConnectionMode).toBe("chatgpt");
+  });
   it("keeps zoomed-out labels visible by default without overwriting the old text threshold", async () => {
     storage.values.set("ignoreTextNodeTextRenderLessThanFontSize", 8);
     const { Settings } = await import("./Settings");
@@ -90,6 +127,18 @@ describe("connected highlight setting compatibility and persistence", () => {
     expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
     expect(restored.Settings.textNodeMaxCharWidth).toBe(22);
     expect(restored.Settings.aiConnectionMode).toBe("chatgpt");
+  });
+  it("persists container expansion without changing existing preferences", async () => {
+    const { Settings } = await import("./Settings");
+    expect(Settings.containerAutoExpand).toBe(false);
+    storage.writtenKeys = [];
+    Settings.containerAutoExpand = true;
+    expect(storage.writtenKeys).toEqual(["containerAutoExpand"]);
+    vi.resetModules();
+    const restored = await import("./Settings");
+    expect(restored.Settings.containerAutoExpand).toBe(true);
+    expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
+    expect(restored.Settings.textNodeMaxCharWidth).toBe(22);
   });
   it("persists only the changed setting through the normal settings proxy and restores it after reload", async () => {
     const { Settings } = await import("./Settings");

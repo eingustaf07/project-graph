@@ -332,6 +332,23 @@ settings:
   pin:
     tooltipPin: 釘到右邊快捷欄
     tooltipUnpin: 從右邊快捷欄拔掉
+  enableCrossFileConnections:
+    title: 跨檔案節點連線（實驗）
+    description: 在分割或浮動的本機檔案間連線，請儲存起點檔案。關閉只隱藏連線，不刪除紀錄。移動或重新命名目標檔案後需重新連線。
+  containerNBoundary:
+    title: 容器 N 鍵進出
+    description: 新增內容會自動擴大容器；拖動節點時邊界固定。按住 N 拖入或拖出以改變歸屬，否則內部節點不能拖出。
+  containerAutoExpand:
+    title: 容器自動擴大
+    description: 開啟後，內部節點生成、調整大小或移動超出邊界時，容器及外層容器自動擴大，節點保持位置；關閉時使用固定邊界。
+  drawingToolbarPosition:
+    title: 繪圖工具列位置
+    description: 按住工具列的拖曳把手，拖到畫布四邊即可停靠。
+    options:
+      top: 上方橫向
+      bottom: 下方橫向
+      left: 左側直向
+      right: 右側直向
   showQuickSettingsToolbar:
     title: 顯示快捷設置欄
     description: '控制是否在介面右側顯示快捷操作欄（快捷設置欄）。
@@ -1955,6 +1972,12 @@ keyBinds:
       開啟後，螢幕左上角將會顯示偵錯資訊。
 
       若您遇到bug截圖回報時，建議開啟此選項。'
+  nextGrowthEdgeReverse:
+    title: 下一次生長的箭頭指回目前節點
+    description: 按住 Tab 再按 R。只影響此節點下一次生長的新節點，不修改既有連線。
+  nextGrowthEdgeUndirected:
+    title: 下一次生長使用無向連線
+    description: 按住 Tab 再按 G。只生效一次，之後自動恢復一般生長。
   generateNodeTreeWithDeepMode:
     title: 生長子層節點
     description: '按下後，瞬間生長一個節點並放置在當前選取節點的右側
@@ -2243,6 +2266,9 @@ keyBinds:
   copy:
     title: 複製節點
     description: 立即複製選取的節點、連線、樣式與排列，不跳出選擇視窗。
+  cut:
+    title: 剪下節點
+    description: 剪下選取節點及容器內部內容，按 Ctrl+V 在滑鼠位置置中貼上，支援跨文件。
   copyText:
     title: 複製文字
     description: 只複製選取節點的文字。預設按住 Ctrl，在350毫秒內連按兩次 C；文字輸入框保留一般複製操作。

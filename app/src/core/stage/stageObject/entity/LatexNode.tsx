@@ -80,6 +80,7 @@ export class LatexNode extends ConnectableEntity {
     {
       uuid = crypto.randomUUID(),
       details = [],
+      crossFileLinks,
       latexSource = "",
       collisionBox = new CollisionBox([new Rectangle(Vector.getZero(), Vector.getZero())]),
       color = Color.Transparent.clone(),
@@ -87,13 +88,14 @@ export class LatexNode extends ConnectableEntity {
     }: {
       uuid?: string;
       details?: any;
+      crossFileLinks?: ConnectableEntity["crossFileLinks"];
       latexSource?: string;
       collisionBox?: CollisionBox;
       color?: Color;
       fontScaleLevel?: number;
     },
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
     this.latexSource = latexSource;
     this.details = details;

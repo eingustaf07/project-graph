@@ -275,6 +275,23 @@ settings:
   pin:
     tooltipPin: Sematkan ke bilah pengaturan cepat
     tooltipUnpin: Lepas dari bilah pengaturan cepat
+  enableCrossFileConnections:
+    title: Koneksi simpul antar berkas (eksperimental)
+    description: Hubungkan simpul di berkas lokal terpisah atau mengambang. Simpan berkas sumber. Menonaktifkan hanya menyembunyikan koneksi. Hubungkan ulang setelah memindahkan atau mengganti nama berkas tujuan.
+  containerNBoundary:
+    title: Transfer kontainer dengan N
+    description: Konten baru memperbesar kontainer. Tahan N saat menyeret masuk atau keluar untuk mengubah keanggotaan; gerakan biasa dibatasi bingkai.
+  containerAutoExpand:
+    title: Perluas wadah otomatis
+    description: Perluas wadah dan wadah induknya saat isi dibuat, diubah ukurannya atau dipindahkan melewati batas, tanpa memindahkan posisi simpul. Nonaktifkan untuk batas tetap.
+  drawingToolbarPosition:
+    title: Posisi bilah alat gambar
+    description: Seret pegangan bilah alat ke tepi kanvas.
+    options:
+      top: Atas, horizontal
+      bottom: Bawah, horizontal
+      left: Kiri, vertikal
+      right: Kanan, vertikal
   showQuickSettingsToolbar:
     title: Tampilkan Bilah Pengaturan Cepat
     description: |
@@ -2014,6 +2031,12 @@ keyBinds:
       Informasi debug ditampilkan di sudut kiri atas layar, biasanya digunakan oleh pengembang
       Saat diaktifkan, informasi debug akan ditampilkan di sudut kiri atas layar.
       Disarankan mengaktifkan ini saat melaporkan bug dengan screenshot.
+  nextGrowthEdgeReverse:
+    title: Arahkan panah berikutnya ke simpul ini
+    description: Tahan Tab dan tekan R. Berlaku hanya untuk anak berikutnya dari simpul terpilih.
+  nextGrowthEdgeUndirected:
+    title: Gunakan garis tanpa arah untuk anak berikutnya
+    description: Tahan Tab dan tekan G. Berlaku sekali, lalu kembali ke perilaku normal.
   generateNodeTreeWithDeepMode:
     title: Tumbuhkan Node Anak
     description: |
@@ -2305,6 +2328,9 @@ keyBinds:
   copy:
     title: Salin Node
     description: Langsung salin node, koneksi, gaya dan tata letak yang dipilih tanpa dialog.
+  cut:
+    title: Potong simpul
+    description: Potong simpul terpilih beserta isi wadah. Tempel di tengah posisi kursor dengan Ctrl+V, termasuk antar dokumen.
   copyText:
     title: Salin Teks
     description: Salin hanya teks node yang dipilih. Secara default, tahan Ctrl dan tekan C dua kali dalam 350 milidetik. Penyalinan biasa tetap berlaku di kolom teks.

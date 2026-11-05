@@ -13,6 +13,7 @@ import type { EraserMark } from "@/core/algorithm/eraserGeometry";
 import { applyEraserMarks } from "@/core/render/canvas2d/eraserMask";
 
 type ImageNodeOptions = {
+  crossFileLinks?: ConnectableEntity["crossFileLinks"];
   erasures?: EraserMark[];
   uuid?: string;
   collisionBox?: CollisionBox;
@@ -82,6 +83,7 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
       uuid = crypto.randomUUID() as string,
       collisionBox = new CollisionBox([new Rectangle(Vector.getZero(), Vector.getZero())]),
       details = [] as Value,
+      crossFileLinks,
       attachmentId = "",
       scale = 1,
       isBackground = false,
@@ -90,7 +92,7 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
     public unknown = false,
     public onReady?: () => void,
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
     this.collisionBox = collisionBox;
     this.details = details;

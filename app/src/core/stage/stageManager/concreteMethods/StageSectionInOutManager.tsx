@@ -95,9 +95,14 @@ export class SectionInOutManager {
     entity: Entity,
     convertEmptySectionToTextNode: boolean = false,
     excludeSection: Section | null = null,
+    allowBoundaryExit = false,
   ): boolean {
     const boundary = boundedDoodleOf(entity);
-    if (boundary && (!excludeSection || (excludeSection !== boundary && boundedDoodleOf(excludeSection) !== boundary)))
+    if (
+      !allowBoundaryExit &&
+      boundary &&
+      (!excludeSection || (excludeSection !== boundary && boundedDoodleOf(excludeSection) !== boundary))
+    )
       return false;
     const currentParent = entity.parentSection;
     if (currentParent && currentParent !== excludeSection) {

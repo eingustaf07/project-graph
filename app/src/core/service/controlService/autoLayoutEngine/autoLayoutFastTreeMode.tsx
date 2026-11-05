@@ -1,6 +1,7 @@
 import { Project, service } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
+import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle, Line } from "@graphif/shapes";
@@ -615,11 +616,16 @@ export class AutoLayoutFastTree {
     // 树形结构的根节点 矩形左上角位置固定不动
     const rootLeftTopLocation = rootNode.collisionBox.getRectangle().leftTop.clone();
 
+    // 与树形校验、子树边界和移动使用同一组边。额外的曲线可能指回祖先。
+    const childrenByParent = new Map<ConnectableEntity, LineEdge[]>();
+    for (const edge of this.project.stageManager.getLineEdges()) {
+      if (edge.lineType === "dashed") continue;
+      const children = childrenByParent.get(edge.source);
+      if (children) children.push(edge);
+      else childrenByParent.set(edge.source, [edge]);
+    }
     const dfs = (node: ConnectableEntity) => {
-      // 获取出边时跳过虚线边，虚线边不参与树形格式化布局
-      const outEdges = this.project.graphMethods
-        .getOutgoingEdges(node)
-        .filter((edge) => !("lineType" in edge && (edge as { lineType: string }).lineType === "dashed"));
+      const outEdges = childrenByParent.get(node) ?? [];
       const outRightEdges = outEdges.filter((edge) => edge.isLeftToRight());
       const outLeftEdges = outEdges.filter((edge) => edge.isRightToLeft());
       const outTopEdges = outEdges.filter((edge) => edge.isBottomToTop());

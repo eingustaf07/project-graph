@@ -27,6 +27,9 @@ vi.mock("@/core/service/Settings", () => ({
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
 vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: {} }));
 vi.mock("@/utils/platform", () => ({ isMac: false }));
+vi.mock("@/core/service/GlobalMenu", () => ({ onOpenFile: vi.fn() }));
+vi.mock("@/core/service/dataGenerateService/generateScreenshot", () => ({ GenerateScreenshot: {} }));
+vi.mock("@/core/service/dataFileService/RecentFileManager", () => ({ RecentFileManager: {} }));
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({
   DetailsManager: class {
     static markdownToDetails(text: string) {
@@ -61,6 +64,8 @@ import { toast } from "sonner";
 import { ClipboardImageUnavailable, CopyEngineImage } from "./copyEngineImage";
 import { Settings } from "@/core/service/Settings";
 import { CopyEngineUtils } from "./copyEngineUtils";
+import { DeleteManager } from "@/core/stage/stageManager/concreteMethods/StageDeleteManager";
+import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/StageSectionInOutManager";
 
 function fixture() {
   const p: any = {
@@ -68,6 +73,7 @@ function fixture() {
     attachments: new Map(),
     emit: vi.fn(),
     effects: { addEffect: vi.fn() },
+    syncAssociationManager: { onStageObjectDeleted: vi.fn() },
     renderer: { transformView2World: (v: Vector) => v.multiply(2).add(new Vector(-5000, 3000)) },
     textRenderer: {
       measureMultiLineTextSize: (text: string, size: number, width: number, height: number) =>
@@ -83,6 +89,8 @@ function fixture() {
   };
   p.stageManager = new StageManager(p);
   p.sectionMethods = new SectionMethods(p);
+  p.sectionInOutManager = new SectionInOutManager(p);
+  p.deleteManager = new DeleteManager(p);
   p.copyEngine = new CopyEngine(p);
   return p as Project;
 }
@@ -126,6 +134,94 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
+  it.each([false, true])("cuts and pastes at the cursor with undo, cross-document=%s", async (crossDocument) => {
+    const source = fixture();
+    addTree(source);
+    const original = serialize(source.stage);
+    await source.copyEngine.cut();
+    expect(source.stage).toHaveLength(0);
+    const target = crossDocument ? fixture() : source;
+    if (crossDocument) target.historyManager = new HistoryManager(target);
+    await target.copyEngine.paste();
+    expect(target.stageManager.getTextNodes()).toHaveLength(2);
+    expect(target.stageManager.getAssociations()).toHaveLength(1);
+    expectPoint(
+      bounds(target.stageManager.getEntities()).center,
+      target.renderer.transformView2World(MouseLocation.vector()),
+    );
+    target.historyManager.undo();
+    expect(target.stage).toHaveLength(0);
+    source.historyManager.undo();
+    expect(serialize(source.stage)).toEqual(original);
+  });
+
+  it("keeps original nodes when writing the clipboard fails", async () => {
+    const p = fixture();
+    addTree(p);
+    const before = serialize(p.stage);
+    clipboard.write.mockRejectedValueOnce(new Error("clipboard unavailable"));
+    await p.copyEngine.cut();
+    expect(serialize(p.stage)).toEqual(before);
+  });
+
+  it("cuts an expanded container together with its children and restores it in one undo", async () => {
+    const p = fixture();
+    const { a, b } = addTree(p);
+    const group = Section.fromEntities(p, [a, b]);
+    p.stage.push(group);
+    p.stageManager.updateReferences();
+    p.stageManager.clearSelectAll();
+    group.isSelected = true;
+    p.historyManager = new HistoryManager(p);
+    const before = serialize(p.stage);
+    await p.copyEngine.cut();
+    expect(p.stage).toHaveLength(0);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+  });
+
+  it("preserves edits made while the clipboard write is pending", async () => {
+    const p = fixture();
+    const { a } = addTree(p);
+    let finish!: () => void;
+    clipboard.write.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const cutting = p.copyEngine.cut();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    a.text = "等待期间的新内容";
+    finish();
+    await cutting;
+    expect(p.stage).toContain(a);
+    expect(a.text).toBe("等待期间的新内容");
+  });
+
+  it("does not delete a later selection while clipboard writing is pending", async () => {
+    const p = fixture();
+    const { a, b } = addTree(p);
+    let finish!: () => void;
+    clipboard.write.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const cutting = p.copyEngine.cut();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    a.isSelected = b.isSelected = false;
+    const extra = new TextNode(p, { text: "保留" });
+    p.stage.push(extra);
+    extra.isSelected = true;
+    finish();
+    await cutting;
+    expect(p.stage).toContain(extra);
+    expect(p.stage).not.toContain(a);
+    expect(p.stage).not.toContain(b);
+  });
+
   it("copies each explicit mode without opening the chooser", async () => {
     const p = fixture();
     const { a, b } = addTree(p);

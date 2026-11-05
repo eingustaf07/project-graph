@@ -1221,8 +1221,31 @@ function toolStateText(state: string | undefined) {
   }
 }
 
+const aiWindowTabIds = new Set<string>();
+
+function getOpenAIWindowTabs() {
+  return [...aiWindowTabIds].flatMap((id) => {
+    const tab = TabWorkspace.get(id);
+    if (!tab || tab.closing) {
+      aiWindowTabIds.delete(id);
+      return [];
+    }
+    return [tab];
+  });
+}
+
+AIWindow.toggle = () => {
+  const tabs = getOpenAIWindowTabs();
+  if (tabs.length > 0) {
+    for (const tab of tabs) void TabWorkspace.close(tab.id);
+  } else {
+    AIWindow.open();
+  }
+};
+
 AIWindow.open = () => {
-  createSubWindow("AIWindow", {
+  getOpenAIWindowTabs();
+  const tab = createSubWindow("AIWindow", {
     title: "",
     contextTarget: "activeResourceTab",
     closable: false,
@@ -1231,4 +1254,5 @@ AIWindow.open = () => {
     children: (tab) => <AIWindow tabId={tab.id} />,
     rect: new Rectangle(new Vector(8, 88), new Vector(380, window.innerHeight - 96)),
   });
+  aiWindowTabIds.add(tab.id);
 };

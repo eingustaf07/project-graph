@@ -12,6 +12,28 @@ import { paintWithErasures } from "../../eraserMask";
 export class SectionRenderer {
   constructor(private readonly project: Project) {}
 
+  private doodleTitleMetrics(section: Doodle) {
+    const scale = this.project.camera.currentScale;
+    const fontSize = Math.max(12, 24 * scale);
+    const size = getTextSize(section.text, fontSize);
+    return {
+      fontSize,
+      bounds: new Rectangle(
+        section.frame.location.add(new Vector(8 / scale, -(8 + fontSize * 1.3) / scale)),
+        new Vector(size.x / scale, (fontSize * 1.6) / scale),
+      ),
+      padding: Math.max(40, (size.x + 16) / scale, (fontSize * 1.6 + 16) / scale),
+    };
+  }
+
+  isDoodleTitleInView(section: Section, viewRectangle: Rectangle): boolean {
+    return (
+      section instanceof Doodle &&
+      !!section.text &&
+      viewRectangle.isCollideWith(this.doodleTitleMetrics(section).bounds)
+    );
+  }
+
   /** 画折叠状态 */
   private renderCollapsed(section: Section) {
     // 折叠状态
@@ -253,6 +275,7 @@ export class SectionRenderer {
       return;
     }
     if (section instanceof Doodle) {
+      const title = this.doodleTitleMetrics(section);
       paintWithErasures(
         this.project,
         section,
@@ -271,17 +294,15 @@ export class SectionRenderer {
           else ctx.rect(rect.left, rect.top, rect.width, rect.height);
           ctx.stroke();
           if (section.text) {
-            ctx.font = `${Math.max(12, 24 * this.project.camera.currentScale)}px ${Settings.defaultFontFamily}`;
+            ctx.font = `${title.fontSize}px ${Settings.defaultFontFamily}`;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "alphabetic";
             ctx.fillStyle = section.color.toString();
             ctx.fillText(section.text, rect.left + 8, rect.top - 8);
           }
           ctx.restore();
         },
-        Math.max(
-          40,
-          (section.text.length * Math.max(12, 24 * this.project.camera.currentScale) + 24) /
-            this.project.camera.currentScale,
-        ),
+        title.padding,
       );
       return;
     }

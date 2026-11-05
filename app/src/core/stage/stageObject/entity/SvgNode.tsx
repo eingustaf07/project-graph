@@ -35,6 +35,7 @@ export class SvgNode extends ConnectableEntity implements ResizeAble {
     {
       uuid = crypto.randomUUID(),
       details = [],
+      crossFileLinks = undefined as ConnectableEntity["crossFileLinks"],
       attachmentId = "",
       collisionBox = new CollisionBox([new Rectangle(Vector.getZero(), Vector.getZero())]),
       scale = 1,
@@ -42,7 +43,7 @@ export class SvgNode extends ConnectableEntity implements ResizeAble {
       erasures = [] as EraserMark[],
     },
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
     this.details = details;
     this.scale = scale;

@@ -77,10 +77,11 @@ export class ConnectPoint extends ConnectableEntity {
         new Rectangle(Vector.getZero(), Vector.same(ConnectPoint.CONNECT_POINT_SHRINK_RADIUS * 2)),
       ]),
       details = [],
+      crossFileLinks = undefined as ConnectableEntity["crossFileLinks"],
     },
     public unknown = false,
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
     this.collisionBox = collisionBox;
     this.details = details;

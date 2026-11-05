@@ -154,6 +154,14 @@ const downloadAndSetAllSounds = async () => {
 export default function SoundEffectsPage() {
   const { t } = useTranslation("sounds");
   const [soundEnabled] = Settings.use("soundEnabled");
+  const [effectEnabled, setEffectEnabled] = Settings.use("soundEffectEnabled");
+  const effectSwitch = (key: string, name: string) => (
+    <Switch
+      aria-label={name + "音效开关"}
+      checked={effectEnabled[key] !== false}
+      onCheckedChange={(enabled: boolean) => setEffectEnabled({ ...Settings.soundEffectEnabled, [key]: enabled })}
+    />
+  );
 
   // 在组件顶层预先调用所有需要的Settings.use，避免在循环中调用Hooks
   const soundFilePaths = SOUND_CONFIGS.reduce(
@@ -188,6 +196,30 @@ export default function SoundEffectsPage() {
       </div>
       <SettingField settingKey="soundVolume" />
       <SettingField settingKey={"soundPitchVariationRange"} />
+      <p className="text-muted-foreground text-sm">独立开关会自动保存；音效总开关关闭时，所有音效均静音。</p>
+      {[
+        { key: "nodeCreated", name: "双击创建节点", play: SoundService.playNodeCreated },
+        { key: "doodleCreated", name: "创建涂鸦或容器", play: SoundService.playDoodleCreated },
+        { key: "objectsDeleted", name: "快捷键删除对象", play: SoundService.playObjectsDeleted },
+        { key: "custom", name: "扩展或自定义路径音效" },
+      ].map(({ key, name, play }) => (
+        <div key={key} className="bg-muted flex items-center justify-between rounded-lg p-4">
+          <span>{name}</span>
+          <div className="flex items-center gap-2">
+            {effectSwitch(key, name)}
+            {play && (
+              <button
+                title={t("testSound")}
+                disabled={!soundEnabled || effectEnabled[key] === false}
+                onClick={() => void play()}
+                className="hover:bg-accent rounded-full p-2"
+              >
+                <Volume2 size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
 
       {soundEnabled && (
         <div className="space-y-2">
@@ -232,10 +264,11 @@ export default function SoundEffectsPage() {
               />
             </div>
             <div className="flex items-center gap-2">
+              {effectSwitch(settingKey, name)}
               <button
                 className="hover:bg-accent rounded-full p-2"
                 onClick={() => handleTestSound(testFunction)}
-                disabled={!filePath}
+                disabled={!filePath || !soundEnabled || effectEnabled[settingKey] === false}
                 title={t("testSound")}
               >
                 {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}

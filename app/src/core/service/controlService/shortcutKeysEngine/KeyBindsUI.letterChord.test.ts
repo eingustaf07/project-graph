@@ -170,6 +170,58 @@ describe("PG1.4 copy shortcuts", () => {
 });
 afterEach(() => KeyBindsUI.uiStopListen());
 describe("held letter shortcut", () => {
+  it("runs Tab+R and Tab+G without firing the plain Tab growth command", async () => {
+    const grow = vi.fn(),
+      reverse = vi.fn(),
+      undirected = vi.fn();
+    KeyBindsUI.registerOneUIKeyBind("testTab", "tab", true, grow);
+    KeyBindsUI.registerOneUIKeyBind("testReverse", "tab+r", true, reverse);
+    KeyBindsUI.registerOneUIKeyBind("testUndirected", "tab+g", true, undirected);
+    await down("Tab");
+    expect(grow).not.toHaveBeenCalled();
+    await down("r");
+    await up("r");
+    await up("Tab");
+    expect(reverse).toHaveBeenCalledOnce();
+    expect(grow).not.toHaveBeenCalled();
+    await down("Tab");
+    await down("g");
+    await up("g");
+    await up("Tab");
+    expect(undirected).toHaveBeenCalledOnce();
+    expect(grow).not.toHaveBeenCalled();
+    await down("Tab");
+    await up("Tab");
+    expect(grow).toHaveBeenCalledOnce();
+  });
+  it("does not replay a pending Tab after focus loss or inside a text input", async () => {
+    const grow = vi.fn(),
+      reverse = vi.fn();
+    KeyBindsUI.registerOneUIKeyBind("testTab", "tab", true, grow);
+    KeyBindsUI.registerOneUIKeyBind("testReverse", "tab+r", true, reverse);
+    await down("Tab");
+    window.dispatchEvent(new Event("blur"));
+    await up("Tab");
+    expect(grow).not.toHaveBeenCalled();
+    const input = document.createElement("input");
+    document.body.append(input);
+    input.focus();
+    await down("Tab");
+    await down("r");
+    await up("Tab");
+    expect(reverse).not.toHaveBeenCalled();
+    expect(grow).not.toHaveBeenCalled();
+  });
+  it("preserves existing sequences ending in Tab", async () => {
+    const existing = vi.fn();
+    KeyBindsUI.registerOneUIKeyBind("existingETab", "e tab", true, existing);
+    KeyBindsUI.registerOneUIKeyBind("testReverse", "tab+r", true, vi.fn());
+    await down("e");
+    await up("e");
+    await down("Tab");
+    await up("Tab");
+    expect(existing).toHaveBeenCalledOnce();
+  });
   it("routes configured SQ, CY, ST and KK sequences", async () => {
     const tool = vi.fn();
     for (const command of doodleCommands.filter((item) => item.key && item.id !== "doodleEraser")) {

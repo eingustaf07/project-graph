@@ -3,6 +3,7 @@ import { Project } from "@/core/Project";
 
 import { ControllerClass } from "@/core/service/controlService/controller/ControllerClass";
 import { Section } from "@/core/stage/stageObject/entity/Section";
+import { Settings } from "@/core/service/Settings";
 import { Vector } from "@graphif/data-structures";
 import { toast } from "sonner";
 
@@ -69,6 +70,8 @@ export class ControllerSectionEditClass extends ControllerClass {
   };
 
   private editSectionTitle(section: Section) {
+    // Drawing toolbar owns doodle double-click editing; avoid a second editor on pointerup.
+    if (section.isDoodle && Settings.mouseLeftMode === "draw" && Settings.showQuickSettingsToolbar) return;
     this.project.controllerUtils.editSectionTitle(section);
   }
 }

@@ -1,6 +1,7 @@
 import { Project } from "@/core/Project";
 import { ControllerClass } from "@/core/service/controlService/controller/ControllerClass";
 import { Settings } from "@/core/service/Settings";
+import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { LatexNode } from "@/core/stage/stageObject/entity/LatexNode";
 import { PenStroke, PenStrokeSegment } from "@/core/stage/stageObject/entity/PenStroke";
@@ -70,6 +71,8 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
     this.eraser = new CanvasEraser(project);
   }
 
+  private emptyPressLocation?: Vector;
+
   public mousedown = (event: PointerEvent) => {
     if (event.button === 2 && (this.straightLineStart || this.eraser.active)) {
       this.releaseMouseAndClear();
@@ -89,6 +92,9 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
       this.project.controller.setCursorName(CursorNameEnum.None);
     }
     const pressWorldLocation = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
+    this.emptyPressLocation = this.project.stageManager.isEntityOnLocation(pressWorldLocation)
+      ? undefined
+      : pressWorldLocation.clone();
     if (Settings.penStrokeEraser) {
       this.eraser.begin(pressWorldLocation, Settings.penStrokeEraserSize / 2 / this.project.camera.currentScale);
       return;
@@ -201,6 +207,7 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
         this.project.stageManager.add(stroke);
         this.tryAttachStrokeToSection(stroke, from, to);
         this.project.historyManager.recordStep();
+        void SoundService.playDoodleCreated();
       } catch (error) {
         toast.error(`无法绘制直线：${String(error)}`);
       } finally {
@@ -219,6 +226,15 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
     // const last = this.currentSegments[this.currentSegments.length - 1].location;
     // const diagonal = first.distance(last);
     // toast(`涂鸦对角线长度: ${diagonal}`);
+    if (
+      this.emptyPressLocation &&
+      this.currentSegments.every(
+        (segment) => segment.location.distance(this.emptyPressLocation!) * this.project.camera.currentScale < 2,
+      )
+    ) {
+      this.releaseMouseAndClear();
+      return;
+    }
     if (this.currentSegments.length <= 2) {
       toast.warning("涂鸦太短了，触发点点儿上色功能");
       // 涂鸦太短，认为是点上色节点
@@ -285,6 +301,7 @@ export class ControllerPenStrokeDrawingClass extends ControllerClass {
     }
     this.project.historyManager.recordStep();
 
+    void SoundService.playDoodleCreated();
     this.releaseMouseAndClear();
   };
 

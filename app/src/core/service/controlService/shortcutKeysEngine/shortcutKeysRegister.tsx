@@ -1,4 +1,5 @@
 import { Dialog } from "@/components/ui/dialog";
+import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { Project, ProjectState } from "@/core/Project";
 import { AssetsRepository } from "@/core/service/AssetsRepository";
 import { cloudServiceUrl } from "@/core/service/CloudServiceConfig";
@@ -912,7 +913,9 @@ export const allKeyBinds: KeyBindItem[] = [
     when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
+      const objectCount = project!.stage.length;
       project!.stageManager.deleteSelectedStageObjects();
+      if (project!.stage.length < objectCount) void SoundService.playObjectsDeleted();
     },
   },
 
@@ -1702,6 +1705,16 @@ export const allKeyBinds: KeyBindItem[] = [
 
   /*------- 复制粘贴 -------*/
   {
+    id: "cut",
+    defaultKey: "C-x",
+    icon: Scissors,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
+    onPress: (project) => {
+      if (!project!.keyboardOnlyEngine.isOpenning()) return;
+      void project!.copyEngine.cut();
+    },
+  },
+  {
     id: "copy",
     defaultKey: "C-c",
     icon: Copy,
@@ -1751,7 +1764,8 @@ export const allKeyBinds: KeyBindItem[] = [
     id,
     defaultKey: key,
     icon: Brush,
-    when: (project?: Project) => !!project && !Settings.viewerMode && Settings.showQuickSettingsToolbar,
+    when: (project?: Project) =>
+      !!project && !Settings.viewerMode && Settings.showQuickSettingsToolbar && Settings.mouseLeftMode === "draw",
     onPress: (project?: Project) => {
       project?.emit(doodleCommandEvent, action);
     },
@@ -1884,6 +1898,22 @@ export const allKeyBinds: KeyBindItem[] = [
   },
 
   /*------- 树/图 生成 -------*/
+  ...(
+    [
+      ["nextGrowthEdgeReverse", "tab+r", "reverse"],
+      ["nextGrowthEdgeUndirected", "tab+g", "undirected"],
+    ] as const
+  ).map(([id, defaultKey, mode]) => ({
+    id,
+    defaultKey,
+    icon: GitBranch,
+    when: (project?: Project) =>
+      !!project &&
+      !Settings.viewerMode &&
+      project.keyboardOnlyEngine.isOpenning() &&
+      project.stageManager.getConnectableEntity().filter((node) => node.isSelected).length === 1,
+    onPress: (project?: Project) => project?.keyboardOnlyTreeEngine.armNextGrowthEdge(mode),
+  })),
   {
     id: "generateNodeTreeWithDeepMode",
     defaultKey: "tab",
@@ -3972,7 +4002,7 @@ export const allKeyBinds: KeyBindItem[] = [
     icon: ExternalLink,
     when: whenHasProject,
     onPress: () => {
-      AIWindow.open();
+      AIWindow.toggle();
     },
   },
   {

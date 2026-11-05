@@ -481,6 +481,7 @@ export namespace KeyBindsUI {
   // 跟踪当前按下的持续型快捷键（存放 id，防止重复触发）
   const pressedContinuousKeyBindIds = new Set<string>();
   const heldLetterKeys = new Set<string>();
+  let pendingTab: { project: Project | undefined; prefix: (KeyboardEvent | MouseEvent | WheelEvent)[] } | undefined;
   let copySequence:
     | { key: string; prefixKey: string; project: Project; timer?: ReturnType<typeof setTimeout> }
     | undefined;
@@ -506,6 +507,7 @@ export namespace KeyBindsUI {
     pendingDoodleTimer = undefined;
   }
   const clearHeldLetters = () => {
+    pendingTab = undefined;
     heldLetterKeys.clear();
     cancelPendingDoodle();
     clearCopySequence();
@@ -526,6 +528,7 @@ export namespace KeyBindsUI {
   }
 
   export function uiStopListen() {
+    pendingTab = undefined;
     window.removeEventListener("mousedown", onMouseDown);
     window.removeEventListener("mouseup", onMouseUp);
     window.removeEventListener("keydown", onKeyDown);
@@ -660,10 +663,11 @@ export namespace KeyBindsUI {
       await interceptor.onMouseUp?.(event);
     }
   }
-  async function onKeyDown(event: KeyboardEvent) {
+  async function onKeyDown(event: KeyboardEvent, releasedTab = false) {
     if (event.isComposing || event.keyCode === 229) {
       clearCopySequence();
       heldLetterKeys.clear();
+      pendingTab = undefined;
       return;
     }
     if (isCopyInputFocused()) clearCopySequence();
@@ -672,9 +676,13 @@ export namespace KeyBindsUI {
       // 清空队列，防止事件积累
       userEventQueue.clear();
       heldLetterKeys.clear();
+      pendingTab = undefined;
       return;
     }
-    if (["control", "alt", "shift", "meta"].includes(event.key.toLowerCase())) return;
+    if (["control", "alt", "shift", "meta"].includes(event.key.toLowerCase())) {
+      pendingTab = undefined;
+      return;
+    }
 
     const activeProject = getFocusedProject();
     if (event.repeat && !event.defaultPrevented && !isCopyInputFocused()) {
@@ -693,13 +701,13 @@ export namespace KeyBindsUI {
     const letter = event.key.toLowerCase();
     if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey)
       heldLetterKeys.clear();
-    else if (/^[a-z]$/.test(letter)) heldLetterKeys.add(letter);
+    else if (/^[a-z]$/.test(letter) || letter === "tab") heldLetterKeys.add(letter);
     const letterChords =
       !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey
         ? allUIKeyBinds.filter(
             (bind) =>
               bind.isEnabled &&
-              /^[a-z]\+[a-z]$/.test(bind.key) &&
+              /^(?:[a-z]|tab)\+[a-z]$/.test(bind.key) &&
               heldLetterKeys.size === 2 &&
               bind.key.split("+").every((key) => heldLetterKeys.has(key)),
           )
@@ -708,10 +716,30 @@ export namespace KeyBindsUI {
     enqueue(event);
     if (await interceptInput(event)) {
       event.preventDefault();
+      pendingTab = undefined;
       return;
+    }
+    if (
+      letter === "tab" &&
+      !releasedTab &&
+      letterChords.length === 0 &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !event.shiftKey &&
+      !event.metaKey
+    ) {
+      for (const binding of allUIKeyBinds) {
+        if (binding.isEnabled && /^tab\+[a-z]$/.test(binding.key) && (await binding.when(activeProject))) {
+          if (!event.repeat) pendingTab = { project: activeProject, prefix: userEventQueue.arrayList.slice(0, -1) };
+          event.preventDefault();
+          userEventQueue.clear();
+          return;
+        }
+      }
     }
     for (const chord of letterChords) {
       if (!(await chord.when(activeProject))) continue;
+      pendingTab = undefined;
       event.preventDefault();
       userEventQueue.clear();
       for (const binding of allUIKeyBinds) {
@@ -726,6 +754,7 @@ export namespace KeyBindsUI {
       if (!event.repeat) await chord.onPress(activeProject);
       return;
     }
+    if (letter !== "tab") pendingTab = undefined;
 
     // ——持续型快捷键独立路径——
     let continuousExecuted = false;
@@ -763,6 +792,8 @@ export namespace KeyBindsUI {
   }
   async function onKeyUp(event: KeyboardEvent) {
     heldLetterKeys.delete(event.key.toLowerCase());
+    const tab = event.key.toLowerCase() === "tab" ? pendingTab : undefined;
+    if (event.key.toLowerCase() === "tab") pendingTab = undefined;
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!isMac && !shouldProcessKeyboardEvent()) {
       return;
@@ -771,6 +802,12 @@ export namespace KeyBindsUI {
       await interceptor.onKeyUp?.(event);
     }
     const activeProject = getFocusedProject();
+    if (tab && tab.project === activeProject) {
+      userEventQueue.clear();
+      tab.prefix.forEach((entry) => userEventQueue.enqueue(entry));
+      await onKeyDown(new KeyboardEvent("keydown", { key: "Tab" }), true);
+      heldLetterKeys.delete("tab");
+    }
     const key = event.key;
 
     // ——持续型快捷键松开——

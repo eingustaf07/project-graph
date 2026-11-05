@@ -102,12 +102,13 @@ export class UrlNode extends ConnectableEntity {
       uuid = crypto.randomUUID() as string,
       title = "",
       details = [],
+      crossFileLinks = undefined as ConnectableEntity["crossFileLinks"],
       url = "",
       collisionBox = new CollisionBox([new Rectangle(Vector.getZero(), new Vector(UrlNode.width, UrlNode.height))]),
       color = Color.Transparent,
     },
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
     this.details = details;
     this.title = title;

@@ -1,4 +1,3 @@
-import ToolbarContent from "@/components/toolbar-content";
 import { Dialog } from "@/components/ui/dialog";
 import type { CurveRenderer } from "@/core/render/canvas2d/basicRenderer/curveRenderer";
 import type { ImageRenderer } from "@/core/render/canvas2d/basicRenderer/ImageRenderer";
@@ -506,7 +505,6 @@ export class Project extends Tab {
         return (
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute inset-0 overflow-hidden" ref={this.containerRef}></div>
-            <ToolbarContent />
             {this.state.showQuickSettingsToolbar && (
               <React.Suspense fallback={null}>
                 <DoodleToolbar project={self} />
@@ -523,7 +521,6 @@ export class Project extends Tab {
     return (
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden" ref={this.containerRef}></div>
-        <ToolbarContent />
         {Settings.showQuickSettingsToolbar && (
           <React.Suspense fallback={null}>
             <DoodleToolbar project={this} />

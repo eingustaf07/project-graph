@@ -276,6 +276,7 @@ export const categories = {
       "isClassroomMode",
       "viewerMode",
       "showQuickSettingsToolbar",
+      "drawingToolbarPosition",
       "showRecentFilesThumbnails",
       "showKeyBindHint",
       "windowBackgroundAlpha",
@@ -327,6 +328,7 @@ export const categories = {
     ],
     debug: ["showDebug", "protectingPrivacy", "protectingPrivacyMode"],
     experimental: [
+      "enableCrossFileConnections",
       "windowCollapsingWidth",
       "windowCollapsingHeight",
       "enableSmartTreeArrange",
@@ -418,7 +420,7 @@ export const categories = {
       "newNodeScaleByCamera",
       "newNodeScaleByCameraOffset",
     ],
-    section: ["isEnableSectionCollision", "autoEnterSectionEditMode"],
+    section: ["isEnableSectionCollision", "autoEnterSectionEditMode", "containerAutoExpand", "containerNBoundary"],
     edge: [
       "allowAddCycleEdge",
       "enableDragNodeShakeDetachFromEdge",

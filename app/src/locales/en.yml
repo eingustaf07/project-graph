@@ -240,6 +240,23 @@ settings:
   pin:
     tooltipPin: Pin to quick settings toolbar
     tooltipUnpin: Unpin from quick settings toolbar
+  enableCrossFileConnections:
+    title: Cross-file node connections (experimental)
+    description: Connect nodes in split or floating local files using the upper-right control. Save the source file. Disabling hides connections without deleting them. Reconnect after moving or renaming a target file.
+  containerNBoundary:
+    title: Container N-key transfer
+    description: New content grows containers; moving nodes keeps the boundary fixed. Hold N while dragging into or out of a container to change membership.
+  containerAutoExpand:
+    title: Automatically expand containers
+    description: Expand containers and their enclosing containers when content is created, resized or moved beyond the boundary, preserving node positions. Disable for fixed boundaries.
+  drawingToolbarPosition:
+    title: Drawing toolbar position
+    description: Drag the toolbar handle to any edge of the canvas to dock it.
+    options:
+      top: Top, horizontal
+      bottom: Bottom, horizontal
+      left: Left, vertical
+      right: Right, vertical
   showQuickSettingsToolbar:
     title: Show Quick Settings Toolbar
     description: |
@@ -1748,6 +1765,12 @@ keyBinds:
     description: |
       When pressed, grow a node using only the keyboard.
       Release to complete the growth.
+  nextGrowthEdgeReverse:
+    title: Point the next grown edge back to this node
+    description: Hold Tab and press R. Applies only to the next child grown from the selected node.
+  nextGrowthEdgeUndirected:
+    title: Use an undirected edge for the next grown node
+    description: Hold Tab and press G. Applies once to the selected node, then restores normal growth.
   generateNodeTreeWithDeepMode:
     title: Grow Node in Child Mode
     description: |
@@ -1932,6 +1955,9 @@ keyBinds:
   copy:
     title: Copy Nodes
     description: Immediately copy selected nodes, connections, styles and layout without a dialog.
+  cut:
+    title: Cut nodes
+    description: Cut selected nodes and container contents. Paste centered at the cursor with Ctrl+V, including across documents.
   copyText:
     title: Copy Text
     description: Copy only selected node text. By default, hold Ctrl and press C twice within 350 milliseconds. Text fields retain normal copying.

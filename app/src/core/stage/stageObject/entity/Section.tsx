@@ -109,11 +109,12 @@ export class Section extends ConnectableEntity {
       isCollapsed = false,
       children = [] as Entity[],
       details = [] as Value,
+      crossFileLinks = undefined as ConnectableEntity["crossFileLinks"],
       borderStyle = "solid" as "solid" | "dashed" | "none",
     } = {},
     public unknown = false,
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
 
     if (collisionBoxNormal) {
@@ -405,8 +406,33 @@ export class Doodle extends Section {
   override acceptsChild = (child: Entity): boolean =>
     this.bounded &&
     child !== this &&
-    !tree(child).some((member) => member instanceof Doodle && member.bounded) &&
-    fitDoodleBounds(this.frame, this.shape, child.collisionBox.getRectangle()) !== null;
+    !tree(child).includes(this) &&
+    (Settings.containerAutoExpand ||
+      Settings.containerNBoundary ||
+      fitDoodleBounds(this.frame, this.shape, child.collisionBox.getRectangle()) !== null);
+
+  expandForContent(box: Rectangle): void {
+    if (!this.bounded || !(Settings.containerAutoExpand || Settings.containerNBoundary)) return;
+    // Movement must hit the wall even when creation/content changes can grow it.
+    if (Settings.containerNBoundary && this.project.entityMoveManager?.isMovingWithinContainer) return;
+    const delta = fitDoodleBounds(this.frame, this.shape, box);
+    if (delta && Math.abs(delta.x) < 0.001 && Math.abs(delta.y) < 0.001) return;
+    if (this.shape === "rectangle") {
+      this.frame = Rectangle.getBoundingRectangle([
+        this.frame,
+        new Rectangle(box.location.subtract(Vector.same(8)), box.size.add(Vector.same(16))),
+      ]);
+    } else {
+      const center = this.frame.center;
+      const radius =
+        Math.hypot(
+          Math.max(Math.abs(box.left - center.x), Math.abs(box.right - center.x)),
+          Math.max(Math.abs(box.top - center.y), Math.abs(box.bottom - center.y)),
+        ) + 8.001;
+      this.frame = new Rectangle(center.subtract(Vector.same(radius)), Vector.same(radius * 2));
+    }
+    this.parentSection?.constrainChild?.(this);
+  }
 
   override validateNewChild = (target: Section, child: Entity): void => {
     let box = child.collisionBox.getRectangle();
@@ -424,6 +450,7 @@ export class Doodle extends Section {
       replaced = current;
       current = current.parentSection;
     }
+    this.expandForContent(box);
     if (!fitDoodleBounds(this.frame, this.shape, box)) throw new Error("新节点会使内部组超出容器，请先扩大容器边界");
   };
 
@@ -438,6 +465,12 @@ export class Doodle extends Section {
 
   override constrainChild = (child: Entity): void => {
     if (!this.bounded) return;
+    if (
+      Settings.containerNBoundary &&
+      this.project.entityMoveManager?.isMovingWithinContainer &&
+      this.project.controller?.pressingKeySet.has("n")
+    )
+      return;
     let root = child;
     const visited = new Set<Entity>();
     while (root.parentSection && root.parentSection !== this && !visited.has(root)) {
@@ -445,6 +478,7 @@ export class Doodle extends Section {
       root = root.parentSection;
     }
     const members = tree(root);
+    this.expandForContent(root.collisionBox.getRectangle());
     const delta = fitDoodleBounds(this.frame, this.shape, root.collisionBox.getRectangle());
     if (delta) {
       if (delta.x || delta.y) translateClipboardEntities(members, delta);
@@ -474,8 +508,12 @@ export class Doodle extends Section {
 
   adopt(child: Entity): void {
     if (!this.acceptsChild(child)) throw new Error("节点放不进固定容器，请先扩大边界");
+    this.expandForContent(child.collisionBox.getRectangle());
     const delta = fitDoodleBounds(this.frame, this.shape, child.collisionBox.getRectangle())!;
     translateClipboardEntities(tree(child), delta);
+    if (child.parentSection && child.parentSection !== this) {
+      child.parentSection.children = child.parentSection.children.filter((member) => member !== child);
+    }
     if (!this.children.includes(child)) this.children.push(child);
     child.parentSection = this;
     this.remember(child);
@@ -497,12 +535,33 @@ export class Doodle extends Section {
 
   captureEnclosed(): void {
     if (!this.bounded) return;
-    const candidates = this.project.stageManager
-      .getEntities()
-      .filter((entity) => entity !== this && !entity.parentSection && this.acceptsChild(entity));
+    const entities = this.project.stageManager.getEntities();
+    const encloses = (container: Doodle, entity: Entity) => {
+      const delta = fitDoodleBounds(container.frame, container.shape, entity.collisionBox.getRectangle());
+      return delta !== null && Math.abs(delta.x) < 0.001 && Math.abs(delta.y) < 0.001;
+    };
+    // Newly drawn inner frames capture siblings from their enclosing container,
+    // preserving deeper groups instead of stealing their descendants.
+    if (!this.parentSection) {
+      const parent = entities
+        .filter(
+          (entity): entity is Doodle =>
+            entity instanceof Doodle &&
+            entity !== this &&
+            entity.bounded &&
+            entity.frame.width * entity.frame.height > this.frame.width * this.frame.height &&
+            entity.acceptsChild(this) &&
+            encloses(entity, this),
+        )
+        .sort((a, b) => a.frame.width * a.frame.height - b.frame.width * b.frame.height)[0];
+      parent?.adopt(this);
+    }
+    const candidates = entities.filter(
+      (entity) => entity !== this && entity.parentSection === this.parentSection && this.acceptsChild(entity),
+    );
     for (const entity of candidates) {
-      const delta = fitDoodleBounds(this.frame, this.shape, entity.collisionBox.getRectangle())!;
-      if (Math.abs(delta.x) < 0.001 && Math.abs(delta.y) < 0.001) this.adopt(entity);
+      const delta = fitDoodleBounds(this.frame, this.shape, entity.collisionBox.getRectangle());
+      if (delta && Math.abs(delta.x) < 0.001 && Math.abs(delta.y) < 0.001) this.adopt(entity);
     }
   }
 
@@ -595,6 +654,7 @@ export function containPastedEntities(project: Project, entities: Entity[], loca
   if (roots.some((entity) => !boundary.acceptsChild(entity)))
     throw new Error("内容放不进固定容器，或包含另一个固定容器；请在容器外粘贴或扩大边界");
   const bounds = Rectangle.getBoundingRectangle(roots.map((entity) => entity.collisionBox.getRectangle()));
+  boundary.expandForContent(bounds);
   const delta = fitDoodleBounds(boundary.frame, boundary.shape, bounds);
   if (!delta) throw new Error("全部粘贴内容放不进容器，请先扩大边界");
   translateClipboardEntities(entities, delta);

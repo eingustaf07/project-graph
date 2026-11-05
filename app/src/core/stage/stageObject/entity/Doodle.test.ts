@@ -14,6 +14,8 @@ vi.mock("@/core/Project", () => ({
 vi.mock("@/core/service/Settings", () => ({
   Settings: {
     textNodeMaxCharWidth: 15,
+    containerAutoExpand: false,
+    containerNBoundary: false,
     defaultFontFamily: "sans-serif",
     isEnableEntityCollision: true,
     historyManagerMode: "memoryEfficient",
@@ -28,6 +30,7 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), info: vi.fn(), success: vi.fn(), warning: vi.fn() }),
 }));
 import type { Project } from "@/core/Project";
+import { Settings } from "@/core/service/Settings";
 import { StageManager } from "@/core/stage/stageManager/StageManager";
 import { SectionMethods } from "@/core/stage/stageManager/basicMethods/SectionMethods";
 import { GraphMethods } from "@/core/stage/stageManager/basicMethods/GraphMethods";
@@ -49,6 +52,7 @@ import { getMultiLineTextSize } from "@/utils/font";
 function fixture() {
   const p: any = {
     stage: [],
+    controller: { pressingKeySet: new Set<string>() },
     attachments: new Map(),
     emit: vi.fn(),
     effects: { addEffect: vi.fn() },
@@ -63,6 +67,7 @@ function fixture() {
   p.graphMethods = new GraphMethods(p);
   p.sectionMethods = new SectionMethods(p);
   p.sectionInOutManager = new SectionInOutManager(p);
+  p.entityMoveManager = new EntityMoveManager(p);
   p.historyManager = new HistoryManager(p);
   return p as Project;
 }
@@ -89,8 +94,186 @@ function inside(d: Doodle, rect: Rectangle) {
   expect(delta).not.toBeNull();
   expect(delta!.magnitude()).toBeLessThan(0.001);
 }
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  Settings.containerAutoExpand = false;
+  Settings.containerNBoundary = false;
+});
 describe("real PG doodles and fixed containers", () => {
+  it("grows for new content but keeps dragged members inside until N is held, then supports reentry", () => {
+    Settings.containerNBoundary = true;
+    const p = fixture();
+    const d = cage(p);
+    const n = node(p);
+    p.stageManager.add(n);
+    d.adopt(n);
+    const original = serialize(d.frame);
+    p.entityMoveManager.moveEntityUtils(n, new Vector(800, 0));
+    inside(d, n.rectangle);
+    expect(serialize(d.frame)).toEqual(original);
+    expect(n.parentSection).toBe(d);
+    p.entityMoveManager.moveEntityToUtils(n, new Vector(800, 800));
+    inside(d, n.rectangle);
+    expect(serialize(d.frame)).toEqual(original);
+    p.controller.pressingKeySet.add("n");
+    p.entityMoveManager.moveEntityUtils(n, new Vector(800, 0));
+    expect(n.parentSection).toBeNull();
+    expect(d.children).not.toContain(n);
+    const destination = new Vector(200, 200).subtract(n.rectangle.center);
+    p.entityMoveManager.moveEntityUtils(n, destination);
+    expect(n.parentSection).toBe(d);
+    expect(d.children).toContain(n);
+    expect(serialize(d.frame)).toEqual(original);
+    p.controller.pressingKeySet.clear();
+    const outside = node(p, "新增的内容", new Vector(d.frame.right - 5, 300));
+    p.stageManager.add(outside);
+    expect(outside.parentSection).toBe(d);
+    expect(d.frame.right).toBeGreaterThan(600);
+    inside(d, outside.rectangle);
+  });
+  it("does not enroll an outside dragged node without N and supports incremental N-key exit", () => {
+    Settings.containerNBoundary = true;
+    const p = fixture();
+    const d = cage(p, "circle");
+    const n = node(p, "外部节点", new Vector(900, 300));
+    p.stageManager.add(n);
+    p.entityMoveManager.moveEntityUtils(n, new Vector(-700, 0));
+    expect(n.parentSection).toBeNull();
+    p.controller.pressingKeySet.add("n");
+    p.entityMoveManager.moveEntityUtils(n, new Vector(1, 0));
+    expect(n.parentSection).toBe(d);
+    const original = serialize(d.frame);
+    for (let i = 0; i < 100; i++) p.entityMoveManager.moveEntityUtils(n, new Vector(8, 0));
+    expect(n.parentSection).toBeNull();
+    expect(serialize(d.frame)).toEqual(original);
+  });
+  it("restores N-key transfer membership through undo, redo and file serialization", () => {
+    Settings.containerNBoundary = true;
+    const p = fixture();
+    const d = cage(p);
+    const n = node(p);
+    p.stageManager.add(n);
+    d.adopt(n);
+    p.historyManager = new HistoryManager(p);
+    p.controller.pressingKeySet.add("n");
+    p.entityMoveManager.moveEntityUtils(n, new Vector(900, 0));
+    p.historyManager.recordStep();
+    p.historyManager.undo();
+    expect((p.stage.find((e) => e.uuid === n.uuid) as TextNode).parentSection?.uuid).toBe(d.uuid);
+    p.historyManager.redo();
+    p.stage = deserialize(decode(new Encoder().encode(serialize(p.stage))), p);
+    p.stageManager.updateReferences();
+    expect((p.stage.find((e) => e.uuid === n.uuid) as TextNode).parentSection).toBeNull();
+    expect((p.stage.find((e) => e.uuid === d.uuid) as Doodle).children).toHaveLength(0);
+  });
+  it("persists the latest decorative rectangle title after repeated renames and undo/redo", () => {
+    const p = fixture();
+    const d = cage(p, "rectangle", false);
+    d.rename("第一次标题");
+    p.historyManager = new HistoryManager(p);
+    d.rename("第二次标题");
+    p.historyManager.recordStep();
+    p.historyManager.undo();
+    expect((p.stage[0] as Doodle).text).toBe("第一次标题");
+    p.historyManager.redo();
+    p.stage = deserialize(decode(new Encoder().encode(serialize(p.stage))), p);
+    expect((p.stage[0] as Doodle).text).toBe("第二次标题");
+  });
+  it.each(["rectangle", "circle"] as const)(
+    "expands %s containers for new edge nodes without pushing them back",
+    (shape) => {
+      const p = fixture();
+      const d = cage(p, shape);
+      Settings.containerAutoExpand = true;
+      p.historyManager = new HistoryManager(p);
+      const before = serialize(p.stage);
+      const n = node(p, "边缘节点", new Vector(590, 290));
+      const at = n.rectangle.location.clone();
+      p.stageManager.add(n);
+      expect(n.parentSection).toBe(d);
+      expect(n.rectangle.location).toEqual(at);
+      expect(d.frame.width).toBeGreaterThan(600);
+      inside(d, n.rectangle);
+      p.historyManager.recordStep();
+      const after = serialize(p.stage);
+      p.historyManager.undo();
+      expect(serialize(p.stage)).toEqual(before);
+      p.historyManager.redo();
+      expect(serialize(p.stage)).toEqual(after);
+    },
+  );
+
+  it("propagates expansion through three containers and preserves all node positions", () => {
+    const p = fixture();
+    const outer = cage(p);
+    const middle = new Doodle(p, { bounded: true, frame: new Rectangle(new Vector(50, 50), new Vector(450, 450)) });
+    middle.captureEnclosed();
+    p.stageManager.add(middle);
+    const inner = new Doodle(p, { bounded: true, frame: new Rectangle(new Vector(100, 100), new Vector(300, 300)) });
+    inner.captureEnclosed();
+    p.stageManager.add(inner);
+    const n = node(p);
+    p.stageManager.add(n);
+    Settings.containerAutoExpand = true;
+    n.moveTo(new Vector(900, 900));
+    expect(n.rectangle.location).toEqual(new Vector(900, 900));
+    inside(inner, n.rectangle);
+    inside(middle, inner.frame);
+    inside(outer, middle.frame);
+    const at = n.rectangle.location.clone();
+    outer.move(new Vector(20, 30));
+    expect(n.rectangle.location.subtract(at)).toEqual(new Vector(20, 30));
+    Settings.containerAutoExpand = false;
+    n.moveTo(new Vector(5000, 5000));
+    inside(inner, n.rectangle);
+    expect(n.rectangle.left).toBeLessThan(5000);
+  });
+
+  it("moves nested containers with their captured nodes, preserves siblings and round-trips history", () => {
+    const p = fixture();
+    const outer = cage(p);
+    const n = node(p);
+    const sibling = node(p, "外层节点", new Vector(450, 450));
+    p.stageManager.add(n);
+    p.stageManager.add(sibling);
+    const inner = new Doodle(p, {
+      bounded: true,
+      frame: new Rectangle(new Vector(100, 100), new Vector(300, 300)),
+    });
+    inner.captureEnclosed();
+    p.stageManager.add(inner);
+    expect(inner.parentSection).toBe(outer);
+    expect(n.parentSection).toBe(inner);
+    expect(outer.children).not.toContain(n);
+    expect(sibling.parentSection).toBe(outer);
+    p.historyManager = new HistoryManager(p);
+    const before = serialize(p.stage);
+    const at = n.rectangle.location.clone();
+    const siblingAt = sibling.rectangle.location.clone();
+    inner.move(new Vector(30, 20));
+    expect(n.rectangle.location.subtract(at)).toEqual(new Vector(30, 20));
+    expect(sibling.rectangle.location).toEqual(siblingAt);
+    outer.move(new Vector(70, 60));
+    expect(n.rectangle.location.subtract(at)).toEqual(new Vector(100, 80));
+    p.historyManager.recordStep();
+    const after = serialize(p.stage);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(after);
+    p.stage = deserialize(decode(new Encoder().encode(after)), p);
+    p.stageManager.updateReferences();
+    const loaded = p.stage.find((entity) => entity.uuid === inner.uuid) as Doodle;
+    const child = loaded.children[0];
+    const loadedAt = child.collisionBox.getRectangle().location.clone();
+    loaded.move(new Vector(10, 10));
+    expect(child.collisionBox.getRectangle().location.subtract(loadedAt)).toEqual(new Vector(10, 10));
+    loaded.move(new Vector(10000, 10000));
+    inside(loaded.parentSection as Doodle, loaded.frame);
+    inside(loaded, child.collisionBox.getRectangle());
+    expect(loaded.acceptsChild(loaded.parentSection!)).toBe(false);
+  });
+
   it("keeps decorative shapes fixed without capturing or restricting nodes", () => {
     const p = fixture();
     const d = cage(p, "rectangle", false);

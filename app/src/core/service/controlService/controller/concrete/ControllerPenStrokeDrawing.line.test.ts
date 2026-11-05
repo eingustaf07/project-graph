@@ -14,14 +14,18 @@ vi.mock("@/core/Project", () => ({
 vi.mock("@/core/service/Settings", () => ({ Settings: { watch: () => () => {} } }));
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
-vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: {} }));
+vi.mock("@/core/service/feedbackService/SoundService", () => ({
+  SoundService: { playNodeCreated: vi.fn(), playDoodleCreated: vi.fn() },
+}));
 vi.mock("@/utils/platform", () => ({ isMac: false, isWeb: false }));
 vi.mock("@/core/stage/stageObject/entity/LatexNode", () => ({ LatexNode: class {} }));
 vi.mock("@/core/stage/stageObject/entity/ReferenceBlockNode", () => ({ ReferenceBlockNode: class {} }));
 vi.mock("sonner", () => ({ toast: { warning: vi.fn(), error: vi.fn(), success: vi.fn(), promise: vi.fn() } }));
 import { Settings } from "@/core/service/Settings";
+import { SoundService } from "@/core/service/feedbackService/SoundService";
 import type { Project } from "@/core/Project";
 import { ControllerPenStrokeDrawingClass } from "./ControllerPenStrokeDrawing";
+import { ControllerEntityCreateClass } from "./ControllerEntityCreate";
 import { DrawingControllerRenderer } from "@/core/render/canvas2d/controllerRenderer/drawingRenderer";
 import { StageManager } from "@/core/stage/stageManager/StageManager";
 import { SectionMethods } from "@/core/stage/stageManager/basicMethods/SectionMethods";
@@ -119,6 +123,46 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("straight and colored drawing with real PG strokes", () => {
+  it.each(["selectAndMove", "draw", "connectAndCut"] as const)(
+    "allows empty-space node creation in %s mode",
+    async (mode) => {
+      const { p } = fixture();
+      Settings.mouseLeftMode = mode;
+      Settings.doubleClickEmptySpaceAction = "createTextNode";
+      const add = vi.fn().mockResolvedValue("created-node");
+      Object.assign(p, { rectangleSelect: { shutDown: vi.fn() }, controllerUtils: { addTextNodeByLocation: add } });
+      const create = new ControllerEntityCreateClass(p);
+      try {
+        await create.mouseDoubleClick(event(100, 100));
+        expect(SoundService.playNodeCreated).toHaveBeenCalledTimes(1);
+        expect(add).toHaveBeenCalledWith(new Vector(150, 100), true);
+        expect(Settings.mouseLeftMode).toBe(mode);
+        add.mockClear();
+        await create.mouseDoubleClick(event(100, 100, { button: 2 }));
+        expect(add).not.toHaveBeenCalled();
+        add.mockRejectedValueOnce(new Error("cannot create"));
+        await expect(create.mouseDoubleClick(event(100, 100))).rejects.toThrow("cannot create");
+        expect(SoundService.playNodeCreated).toHaveBeenCalledTimes(1);
+      } finally {
+        create.dispose();
+      }
+    },
+  );
+
+  it("does not leave freehand dots or warnings from clicks with slight mouse jitter on empty canvas", () => {
+    const { p, drawing, record } = fixture();
+    Settings.penStrokeStraightLine = false;
+    for (let click = 0; click < 2; click++) {
+      drawing.mousedown(event(100, 100));
+      drawing.mousemove(event(100.1, 100));
+      drawing.mousemove(event(100.2, 100));
+      drawing.mousemove(event(100.3, 100));
+      drawing.mouseup(event(100.3, 100));
+    }
+    expect(p.stageManager.getPenStrokes()).toHaveLength(0);
+    expect(record).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
   it("commits exact press/release endpoints despite curved mouse movement, with one history step", () => {
     const { p, drawing, record } = fixture();
     drawing.mousedown(event(100, 100));
@@ -131,6 +175,7 @@ describe("straight and colored drawing with real PG strokes", () => {
     expect(stroke(p).color.toArray()).toEqual([220, 30, 80, 0.6]);
     expect(record).toHaveBeenCalledTimes(1);
     expect(drawing.currentSegments).toEqual([]);
+    expect(SoundService.playDoodleCreated).toHaveBeenCalledTimes(1);
   });
   it("creates a fast drag even without intermediate move events", () => {
     const { p, drawing } = fixture();
@@ -177,6 +222,7 @@ describe("straight and colored drawing with real PG strokes", () => {
     drawing.mouseup(event(100, 100));
     expect(n.color.toArray()).toEqual([10, 20, 30, 1]);
     expect(p.stageManager.getPenStrokes()).toEqual([]);
+    expect(SoundService.playDoodleCreated).not.toHaveBeenCalled();
     expect(record).not.toHaveBeenCalled();
   });
   it("preserves old freehand samples, chosen color and legacy Shift/Control straight drawing", () => {
@@ -207,6 +253,7 @@ describe("straight and colored drawing with real PG strokes", () => {
     const oldLine = p.stageManager.getPenStrokes()[1];
     expect(oldLine.segments).toHaveLength(2);
     expect(oldLine.segments[0].location.y).toBe(oldLine.segments[1].location.y);
+    expect(SoundService.playDoodleCreated).toHaveBeenCalledTimes(2);
   });
   it.each(["escape", "right", "mode"])("cancels safely via %s without committing or changing nodes", (kind) => {
     const { p, drawing, record } = fixture();
@@ -219,6 +266,7 @@ describe("straight and colored drawing with real PG strokes", () => {
     expect(p.stage).toEqual([]);
     expect(drawing.isUsingStraightLine).toBe(false);
     expect(record).not.toHaveBeenCalled();
+    expect(SoundService.playDoodleCreated).not.toHaveBeenCalled();
   });
   it("supports undo, redo and binary serialization with identical geometry and color", () => {
     const { p, drawing } = fixture();

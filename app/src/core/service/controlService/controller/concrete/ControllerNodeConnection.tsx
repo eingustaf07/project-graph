@@ -95,6 +95,7 @@ export class ControllerNodeConnectionClass extends ControllerClass {
    * 用于多重连接
    */
   public connectFromEntities: ConnectableEntity[] = [];
+  private hasSelectedRightClickSources = false;
   public connectToEntity: ConnectableEntity | null = null;
 
   private mouseLocations: Vector[] = [];
@@ -232,7 +233,9 @@ export class ControllerNodeConnectionClass extends ControllerClass {
      *       └─┘              └─┘
      * 右边的方法还是有用的，减少了一步提前框选的操作。
      */
-    if (this.connectFromEntities.includes(clickedConnectableEntity)) {
+    this.hasSelectedRightClickSources =
+      event.button === 2 && Settings.enableRightClickConnect && this.connectFromEntities.length > 0;
+    if (this.hasSelectedRightClickSources || this.connectFromEntities.includes(clickedConnectableEntity)) {
       // 多重连接
       for (const node of this.project.stageManager.getConnectableEntity()) {
         if (node.isSelected) {
@@ -391,7 +394,8 @@ export class ControllerNodeConnectionClass extends ControllerClass {
         // 如果鼠标释放的节点上是已经选中的节点
         // 区分是拖拽松开连线还是点击松开连线
         if (releaseWorldLocation.distance(this._lastRightMousePressLocation) < 5) {
-          // 距离过近，说明是点击事件，不触发连接，让右键菜单触发
+          // 点击选中目标时，只连接其他选中起点，不请求目标自身的自环。
+          if (event.button === 2) this.clickMultiConnect(releaseWorldLocation);
         } else {
           // 距离足够远，说明是拖拽事件，完成连线
           if (this.connectToEntity) {
@@ -589,7 +593,10 @@ export class ControllerNodeConnectionClass extends ControllerClass {
     if (releaseTargetEntity instanceof ImageNode && (releaseTargetEntity as ImageNode).isBackground) {
       return;
     }
-    const selectedEntities = this.project.stageManager.getConnectableEntity().filter((entity) => entity.isSelected);
+    const selectedEntities = this.connectFromEntities.filter(
+      (entity) => !this.hasSelectedRightClickSources || entity !== releaseTargetEntity,
+    );
+    if (!selectedEntities.length) return;
     // 还要保证当前舞台有节点被选中
     // 连线
     const isArcEdge = Settings.rightClickConnectEdgeType === "arc";
@@ -610,6 +617,7 @@ export class ControllerNodeConnectionClass extends ControllerClass {
   private clear() {
     // 重置状态
     this.connectFromEntities = [];
+    this.hasSelectedRightClickSources = false;
     this.connectToEntity = null;
     this._isUsing = false;
     this._startImageLocation.clear();
@@ -742,9 +750,13 @@ export class ControllerNodeConnectionClass extends ControllerClass {
       }
     }
 
-    // 连线
+    // 有选中起点时，鼠标微动不能把目标自身加入连接。
+    const sources = this.connectFromEntities.filter(
+      (entity) => !this.hasSelectedRightClickSources || entity !== connectToEntity,
+    );
+    if (!sources.length) return;
     this.project.stageManager.connectMultipleEntities(
-      this.connectFromEntities,
+      sources,
       connectToEntity,
       isPressC,
       sourceRectRate,
@@ -754,7 +766,7 @@ export class ControllerNodeConnectionClass extends ControllerClass {
     // 添加连接特效
     const sourceRectRateVector = new Vector(sourceRectRate[0], sourceRectRate[1]);
     const targetRectRateVector = new Vector(targetRectRate[0], targetRectRate[1]);
-    for (const entity of this.connectFromEntities) {
+    for (const entity of sources) {
       this.addConnectEffect(entity, connectToEntity, sourceRectRateVector, targetRectRateVector);
     }
 

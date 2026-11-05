@@ -42,6 +42,8 @@ import { checkAndFixShortcutStorage } from "./core/service/controlService/shortc
 import { cn } from "./utils/cn";
 import { isLinux, isMac, isWindows } from "./utils/platform";
 
+const CrossFileConnections = React.lazy(() => import("@/components/cross-file-connections"));
+
 export default function App() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_, _setMaximized] = useAtom(isWindowMaxsizedAtom);
@@ -393,6 +395,9 @@ export default function App() {
 
         {/* NOT zoomed - 使用固定/全屏定位的组件，缩放会破坏它们的坐标计算 */}
         <FloatingTabs zoomStyle={zoomStyle} onTabClose={closeTab} />
+        <React.Suspense fallback={null}>
+          <CrossFileConnections />
+        </React.Suspense>
         <PieMenu />
 
         {/* 右上角关闭的触发角 */}

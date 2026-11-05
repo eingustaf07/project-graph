@@ -1,0 +1,65 @@
+import { expect, it, vi } from "vitest";
+vi.mock("@/core/Project", () => ({ Project: class {}, service: () => (target: unknown) => target }));
+vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: {} }));
+vi.mock("@/core/service/Settings", () => ({ Settings: { defaultFontFamily: "sans-serif" } }));
+vi.mock("@/core/stage/stageObject/entity/Section", () => ({ Section: class {} }));
+vi.mock("@/core/stage/stageObject/entity/Doodle", () => ({ Doodle: class {} }));
+vi.mock("@/utils/font", () => ({
+  getTextSize: (text: string, size: number) => ({ x: text.length * size, y: size }),
+}));
+vi.mock("../../eraserMask", () => ({
+  paintWithErasures: (p: any, _entity: unknown, paint: (ctx: unknown) => void, padding: number) => {
+    p.padding = padding;
+    paint(p.canvas.ctx);
+  },
+}));
+import { SectionRenderer } from "./SectionRenderer";
+import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
+import { Color, Vector } from "@graphif/data-structures";
+import { Rectangle } from "@graphif/shapes";
+
+it.each([0.01, 0.1, 0.5, 1, 4, 16])("keeps a visible off-border title eligible at zoom %s", (scale) => {
+  const ctx = {
+    save: vi.fn(),
+    restore: vi.fn(),
+    setLineDash: vi.fn(),
+    beginPath: vi.fn(),
+    rect: vi.fn(),
+    stroke: vi.fn(),
+    fillText: vi.fn(),
+    textAlign: "right",
+    textBaseline: "top",
+    font: "",
+  };
+  const p: any = {
+    canvas: { ctx },
+    camera: { currentScale: scale },
+    renderer: { transformWorld2View: (v: Vector) => v.multiply(scale) },
+  };
+  const renderer = new SectionRenderer(p);
+  const d = Object.assign(new Doodle({} as any), {
+    text: "容器标题 WWW",
+    shape: "rectangle",
+    color: Color.Black,
+    frame: new Rectangle(new Vector(100, 100), new Vector(600, 400)),
+  });
+  const fontSize = Math.max(12, 24 * scale);
+  // The viewport is above the border, while the title's baseline is inside it.
+  const view = new Rectangle(
+    new Vector(100, 100 - (fontSize * 2 + 20) / scale),
+    new Vector(2000 / scale, (fontSize * 2 + 19) / scale),
+  );
+  expect(view.isCollideWith(d.frame)).toBe(false);
+  expect(renderer.isDoodleTitleInView(d, view)).toBe(true);
+  renderer.render(d);
+  expect(ctx.fillText).toHaveBeenCalledWith(d.text, 100 * scale + 8, 100 * scale - 8);
+  expect(ctx.font).toBe(fontSize + "px sans-serif");
+  expect(ctx.textAlign).toBe("left");
+  expect(ctx.textBaseline).toBe("alphabetic");
+  expect(p.padding * scale).toBeGreaterThanOrEqual(fontSize * 1.6 + 16);
+  d.text = "";
+  expect(renderer.isDoodleTitleInView(d, view)).toBe(false);
+  ctx.fillText.mockClear();
+  renderer.render(d);
+  expect(ctx.fillText).not.toHaveBeenCalled();
+});

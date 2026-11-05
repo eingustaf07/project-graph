@@ -303,6 +303,25 @@ settings:
   pin:
     tooltipPin: 固定到右側快捷欄
     tooltipUnpin: 從右側快捷欄取消固定
+  containerNBoundary:
+    title: 容器 N 鍵進出
+    description: 開啟後內部新增內容會自動擴大容器；拖動節點時邊界固定。按住 N 拖入以加入容器，按住 N 拖出以解除歸屬。不按 N 時內部節點不能拖出。
+  containerAutoExpand:
+    title: 容器自動擴大
+    description: 開啟後，內部節點生成、調整大小或移動超出邊界時，容器及外層容器自動擴大，節點保持位置；關閉時使用固定邊界。
+  drawingToolbarPosition:
+    title: 繪圖工具欄位置
+    description: 也可以按住工具欄上的拖動手柄，將其拖到畫布四邊。
+    options:
+      top: 上方橫向
+      bottom: 下方橫向
+      left: 左側豎向
+      right: 右側豎向
+  enableCrossFileConnections:
+    title: 跨文件節點連接（實驗）
+    description: |
+      在分欄或浮動顯示的本地文件之間連接節點。開啟後使用右上角“跨文件連線”。
+      連接保存在起點文件，關閉開關只隱藏連接。移動或重命名目標文件後需重新連接。
   showQuickSettingsToolbar:
     title: 顯示快捷設置欄
     description: |
@@ -1749,6 +1768,12 @@ keyBinds:
       調試信息顯示在屏幕左上角，通常為開發者使用
       開啟後，屏幕左上角將會顯示調試信息。
       若您遇到bug截圖反饋時，建議開啟此選項。
+  nextGrowthEdgeReverse:
+    title: 下一次生長的箭頭指回當前節點
+    description: 按住 Tab 再按 R。僅影響此節點下一次向下一級生長的新節點，不修改已有連線。
+  nextGrowthEdgeUndirected:
+    title: 下一次生長使用無向連線
+    description: 按住 Tab 再按 G。僅影響此節點下一次向下一級生長的新節點，生效後自動恢復。
   generateNodeTreeWithDeepMode:
     title: 生長子級節點
     description: |
@@ -2051,6 +2076,9 @@ keyBinds:
   copy:
     title: 複製節點
     description: 立即複製選中的節點、連接、樣式和佈局，不彈出選擇框。
+  cut:
+    title: 剪切節點
+    description: 剪切選中節點及容器內部內容，按 Ctrl+V 在鼠標位置居中粘貼，支持跨文檔。
   copyText:
     title: 複製文本
     description: 只複製選中節點的文字。默認按住 Ctrl，在350毫秒內連按兩次 C；文本編輯框內保留正常複製。

@@ -281,7 +281,7 @@ export default function KeyBindsPage() {
               </TooltipContent>
             </Tooltip>
             <KeyBind
-              allowLetterChord={id === "openAIPanel"}
+              allowLetterChord={["openAIPanel", "nextGrowthEdgeReverse", "nextGrowthEdgeUndirected"].includes(id)}
               key={keyBindData?.key}
               defaultValue={keyBindData?.key}
               isContinuous={keyBind?.isContinuous}
@@ -595,6 +595,7 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
       "selectAll",
       "searchText",
       "copy",
+      "cut",
       "copyText",
       "paste",
       "pasteWithOriginLocation",
@@ -721,6 +722,8 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
     icon: <Network className="-rotate-90" />,
     keys: [
       "generateNodeTreeWithDeepMode",
+      "nextGrowthEdgeReverse",
+      "nextGrowthEdgeUndirected",
       "generateNodeTreeWithDeepModeEditEdge",
       "generateNodeTreeWithBroadMode",
       "generateNodeGraph",

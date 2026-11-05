@@ -61,10 +61,11 @@ export class ReferenceBlockNode extends ConnectableEntity implements ResizeAble 
       scale = 1,
       attachmentId = "",
       details = [],
+      crossFileLinks = undefined as ConnectableEntity["crossFileLinks"],
     },
     public unknown = false,
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
     this.collisionBox = collisionBox;
     this.fileName = fileName;

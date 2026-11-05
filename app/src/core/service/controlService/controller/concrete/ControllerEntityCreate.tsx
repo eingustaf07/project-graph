@@ -3,6 +3,7 @@ import { Settings } from "@/core/service/Settings";
 import { ControllerClass } from "@/core/service/controlService/controller/ControllerClass";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { Vector } from "@graphif/data-structures";
+import { SoundService } from "@/core/service/feedbackService/SoundService";
 
 /**
  * 创建节点的控制器
@@ -12,13 +13,9 @@ export class ControllerEntityCreateClass extends ControllerClass {
     super(project);
   }
 
-  mouseDoubleClick = (event: MouseEvent) => {
+  mouseDoubleClick = async (event: MouseEvent) => {
     // 双击只能在左键
     if (!(event.button === 0)) {
-      return;
-    }
-    if (Settings.mouseLeftMode === "draw") {
-      // 绘制模式不能使用创建节点
       return;
     }
     if (this.project.controller.camera.isPreGrabbingWhenSpace) {
@@ -48,7 +45,8 @@ export class ControllerEntityCreateClass extends ControllerClass {
       this.createConnectPoint(pressLocation, sections);
     } else if (Settings.doubleClickEmptySpaceAction === "createTextNode") {
       // 双击创建节点
-      this.project.controllerUtils.addTextNodeByLocation(pressLocation, true);
+      const uuid = await this.project.controllerUtils.addTextNodeByLocation(pressLocation, true);
+      if (uuid) void SoundService.playNodeCreated();
     }
   };
 

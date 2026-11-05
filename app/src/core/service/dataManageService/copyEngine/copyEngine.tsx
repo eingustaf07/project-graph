@@ -5,6 +5,7 @@ import { isMac } from "@/utils/platform";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { Serialized } from "@/types/node";
 import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { deserialize, serialize } from "@graphif/serializer";
@@ -37,6 +38,7 @@ export class CopyEngine {
   private copyEngineImage: CopyEngineImage;
   private copyEngineText: CopyEngineText;
   private choosingCopyMode = false;
+  private cutting = false;
 
   constructor(private readonly project: Project) {
     this.copyEngineImage = new CopyEngineImage(project);
@@ -188,7 +190,43 @@ export class CopyEngine {
   }
 
   async cut() {
-    if (await this.copy("nodes")) this.project.stageManager.deleteSelectedStageObjects();
+    if (this.cutting || Settings.viewerMode || this.project.closing) return;
+    const selected = this.project.stageManager.getSelectedEntities();
+    if (!selected.length) return;
+    const objects = CopyEngineUtils.getAllStageObjectFromEntities(this.project, selected);
+    const entities = objects.filter((object): object is Entity => object instanceof Entity);
+    const protectedContent = () =>
+      objects.some(
+        (object) =>
+          this.project.sectionMethods.isObjectBeLockedBySection(object) ||
+          (object instanceof ImageNode && object.isBackground),
+      );
+    if (protectedContent()) {
+      toast.info("所选内容包含锁定对象或背景图片，无法剪切");
+      return;
+    }
+    const snapshot = JSON.stringify(serialize(objects));
+    this.cutting = true;
+    try {
+      if (!(await this.copy("nodes"))) return;
+      if (
+        Settings.viewerMode ||
+        this.project.closing ||
+        protectedContent() ||
+        objects.some((object) => !this.project.stage.includes(object)) ||
+        JSON.stringify(serialize(objects)) !== snapshot
+      ) {
+        toast.info("内容在复制期间发生变化，已保留原内容，请重新剪切");
+        return;
+      }
+      // Delete descendants first so cutting an expanded container also cuts its contents.
+      this.project.stageManager.deleteEntities([...entities].reverse());
+      this.project.controller.resetCountdownTimer();
+      this.project.loop();
+      toast.success("已剪切，可在当前或其他文档的鼠标位置粘贴");
+    } finally {
+      this.cutting = false;
+    }
   }
 
   async readSystemClipboardAndPaste(

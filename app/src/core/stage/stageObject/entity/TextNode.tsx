@@ -116,6 +116,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       uuid = crypto.randomUUID() as string,
       text = "",
       details = [],
+      crossFileLinks,
       collisionBox = new CollisionBox([new Rectangle(Vector.getZero(), Vector.getZero())]),
       color = Color.Transparent,
       sizeAdjust = "auto",
@@ -127,6 +128,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       uuid?: string;
       text?: string;
       details?: Value;
+      crossFileLinks?: ConnectableEntity["crossFileLinks"];
       color?: Color;
       sizeAdjust?: "auto" | "manual";
       collisionBox?: CollisionBox;
@@ -137,7 +139,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     },
     public unknown = false,
   ) {
-    super();
+    super(crossFileLinks);
     this.uuid = uuid;
     this.text = text;
     this.details = details;
