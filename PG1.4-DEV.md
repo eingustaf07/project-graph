@@ -1,5 +1,13 @@
 # PG1.4 development
 
+## Windows package handoff 2026-11-05
+
+Application source 958fd664cfd568e808f77ccd83fdd0e74937e549 produced Project Graph PG1.4_1.4.0_x64-setup.exe (10139599 bytes, SHA256 C4B400EC13CF494FC4433E9881B133FA811398C3A00A1CBDFD621730B2A5150B). Run 42048561699 passed the unchanged regression comparison: 604 passed, 30 known baseline failures, four skipped, eight known unhandled test errors. Rust authentication/clipboard tests and profile-preservation checks passed.
+
+Cloud startup failed to connect to WebView. The same installer was extracted read-only and launched on the user's Windows desktop. Real canvas and drawing toolbar were observed, no startup exceptions were captured, and the local report local-gui.json passed. Test instances were terminated; installed PG1.3 was preserved. The startup script now requires the real canvas without assuming drawing mode is enabled. This script-only adjustment does not change the packaged application. The revised local startup check also passed.
+
+Limitations: this does not constitute acceptance of every interaction or real cloud-account login. The HTML document title still says PG1.3, while installer metadata and the native window name say PG1.4. Single-key R/G selected-edge conversion is not implemented in this source. PG1.5 NN axis/length requirements are separate follow-up work.
+
 ## NN latency on reciprocal arc edges (source fix)
 
 Targeted reproduction on the supplied document found opposite ArcEdge connections between 工作上下文 and 筛选. Fast layout validated ordinary tree lines but recursed into the two arcs. NN on 提示词模板 took 37.6 s and threw a stack overflow in the model test. Fast layout now traverses the same solid tree lines as subtree movement and validation. The arcs remain in the document. After correction, NN on 提示词模板, 工作上下文 and 上下文窗口管理 measured 100–141 ms with collision enabled and each issued one editor request. Added a regression with two real reciprocal arcs. Installed PG1.3 UI timing and keyboard focus have not been verified with this source change.

@@ -112,20 +112,21 @@ try {
       returnByValue: true,
     });
     if (response.result?.value) report.state = JSON.parse(response.result.value);
-    if (report.state?.rootElements > 0 && report.state?.canvasCount > 0 && report.state?.toolbar) {
+    // PG1.4 hides drawing tools outside drawing mode. Canvas startup must not require that mode.
+    if (report.state?.rootElements > 0 && report.state?.canvasCount > 0) {
       report.passed = true;
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  if (!report.passed) throw new Error("Packaged application did not mount its real canvas and drawing toolbar");
+  if (!report.passed) throw new Error("Packaged application did not mount its real canvas");
   await new Promise((resolve) => setTimeout(resolve, 2000));
   if (report.errors.length) {
     report.passed = false;
     throw new Error("Startup exception after mount: " + report.errors.join("; "));
   }
   console.log(
-    "PASS: packaged Windows application mounted the real canvas and drawing toolbar without startup exceptions",
+    "PASS: packaged Windows application mounted the real canvas without startup exceptions",
   );
 } catch (error) {
   report.failure = String(error);
