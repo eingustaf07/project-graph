@@ -20,16 +20,8 @@ function materializeProductionRuntime(version: string): string {
   const outputDirectory = mkdtempSync(join(tmpdir(), "project-graph-production-cli-"));
   temporaryDirectories.push(outputDirectory);
   const result = spawnSync(
-    process.execPath,
-    [
-      process.env.npm_execpath!,
-      "--silent",
-      "--filter",
-      "@graphif/project-graph",
-      "materialize:cli",
-      "--outDir",
-      outputDirectory,
-    ],
+    "pnpm",
+    ["--silent", "--filter", "@graphif/project-graph", "materialize:cli", "--outDir", outputDirectory],
     {
       cwd: repositoryRoot,
       encoding: "utf8",
@@ -74,16 +66,8 @@ describe("Project Graph production CLI runtime", () => {
     writeFileSync(sentinelPath, "keep");
 
     const result = spawnSync(
-      process.execPath,
-      [
-        process.env.npm_execpath!,
-        "--silent",
-        "--filter",
-        "@graphif/project-graph",
-        "materialize:cli",
-        "--outDir",
-        outputDirectory,
-      ],
+      "pnpm",
+      ["--silent", "--filter", "@graphif/project-graph", "materialize:cli", "--outDir", outputDirectory],
       {
         cwd: repositoryRoot,
         encoding: "utf8",
@@ -166,20 +150,16 @@ describe("Project Graph production CLI runtime", () => {
 
   it("reuses the real child-process contract suite", () => {
     const entryPath = materializeProductionRuntime("3.2.1");
-    const result = spawnSync(
-      process.execPath,
-      [process.env.npm_execpath!, "exec", "vitest", "run", "app/src/cli/ProjectGraphCli.test.ts"],
-      {
-        cwd: repositoryRoot,
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          PROJECT_GRAPH_CLI_TEST_ENTRY: entryPath,
-          PROJECT_GRAPH_CLI_TEST_PRODUCTION: "1",
-          PROJECT_GRAPH_CLI_TEST_VERSION: "3.2.1",
-        },
+    const result = spawnSync("pnpm", ["exec", "vitest", "run", "app/src/cli/ProjectGraphCli.test.ts"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PROJECT_GRAPH_CLI_TEST_ENTRY: entryPath,
+        PROJECT_GRAPH_CLI_TEST_PRODUCTION: "1",
+        PROJECT_GRAPH_CLI_TEST_VERSION: "3.2.1",
       },
-    );
+    });
 
     expect(result).toMatchObject({ status: 0, stderr: "" });
   }, 240_000);

@@ -239,8 +239,6 @@ function expectCliError(args: string[], expected: Record<string, unknown>, exitC
   expect(result.stderr).toBe(`${JSON.stringify(error)}\n`);
 }
 
-// These external-owner fixtures use macOS lockf and POSIX signals.
-// Their callers run only on that platform, while portable CLI cases run on Windows too.
 async function waitForProjectLock(lockPath: string): Promise<void> {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
@@ -1578,188 +1576,165 @@ process.stdout.write(JSON.stringify({ status: "error", code: "PROJECT_LOAD_FAILE
     expect(readFileSync(projectPath)).toEqual(before);
   }, 15_000);
 
-  it.skipIf(process.platform !== "darwin")(
-    "returns PROJECT_BUSY instead of reading a Project held by an unconnectable owner",
-    async () => {
-      const projectPath = await createProjectFixture();
-      const { ownershipLock: lockPath } = resolveProjectOwnershipArtifactPaths(
-        realpathSync(projectPath),
-        getOwnershipDirectory(),
+  it("returns PROJECT_BUSY instead of reading a Project held by an unconnectable owner", async () => {
+    const projectPath = await createProjectFixture();
+    const { ownershipLock: lockPath } = resolveProjectOwnershipArtifactPaths(
+      realpathSync(projectPath),
+      getOwnershipDirectory(),
+    );
+    const holder = spawn("/usr/bin/lockf", ["-k", lockPath, "/bin/sleep", "8"]);
+    const deadline = Date.now() + 1000;
+    while (!existsSync(lockPath) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    try {
+      expectCliError(
+        ["tool", "invoke", "get_all_nodes", "--project", projectPath, "--input", "{}"],
+        { code: "PROJECT_BUSY", message: "Project is already owned by another runtime." },
+        1,
       );
-      const holder = spawn("/usr/bin/lockf", ["-k", lockPath, "/bin/sleep", "8"]);
-      const deadline = Date.now() + 1000;
-      while (!existsSync(lockPath) && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
-      await new Promise((resolve) => setTimeout(resolve, 50));
+    } finally {
+      holder.kill("SIGTERM");
+    }
+  }, 15_000);
 
-      try {
-        expectCliError(
-          ["tool", "invoke", "get_all_nodes", "--project", projectPath, "--input", "{}"],
-          { code: "PROJECT_BUSY", message: "Project is already owned by another runtime." },
-          1,
-        );
-      } finally {
-        holder.kill("SIGTERM");
-      }
-    },
-    15_000,
-  );
+  it("attaches an equivalent Project Path to the live Open Project without reading the persisted fallback", async () => {
+    const projectPath = await createProjectFixture();
+    const symlinkPath = join(dirname(projectPath), "fixture-link.prg");
+    symlinkSync(projectPath, symlinkPath);
+    const before = readFileSync(projectPath);
+    const liveResult = {
+      objects: [
+        {
+          ref: "n1",
+          type: "TextNode",
+          position: { x: 10, y: 20 },
+          size: { width: 100, height: 75 },
+          text: "Unsaved live node",
+          color: [0, 0, 0, 0],
+        },
+      ],
+    };
+    const host = await createOpenProjectHost(projectPath, liveResult);
 
-  it.skipIf(process.platform !== "darwin")(
-    "attaches an equivalent Project Path to the live Open Project without reading the persisted fallback",
-    async () => {
-      const projectPath = await createProjectFixture();
-      const symlinkPath = join(dirname(projectPath), "fixture-link.prg");
-      symlinkSync(projectPath, symlinkPath);
-      const before = readFileSync(projectPath);
-      const liveResult = {
-        objects: [
-          {
-            ref: "n1",
-            type: "TextNode",
-            position: { x: 10, y: 20 },
-            size: { width: 100, height: 75 },
-            text: "Unsaved live node",
-            color: [0, 0, 0, 0],
-          },
-        ],
-      };
-      const host = await createOpenProjectHost(projectPath, liveResult);
+    try {
+      const result = await runCliAsync("tool", "invoke", "get_all_nodes", "--project", symlinkPath, "--input", "{}");
 
-      try {
-        const result = await runCliAsync("tool", "invoke", "get_all_nodes", "--project", symlinkPath, "--input", "{}");
-
-        expect(result).toMatchObject({ status: 0, stdout: `${JSON.stringify(liveResult)}\n`, stderr: "" });
-        expect(host.requests).toEqual([
-          {
-            projectPath: realpathSync(projectPath),
-            toolName: "get_all_nodes",
-            input: {},
-          },
-        ]);
-        expect(readFileSync(projectPath)).toEqual(before);
-      } finally {
-        host.close();
-      }
-    },
-    15_000,
-  );
-
-  it.skipIf(process.platform !== "darwin")(
-    "routes the complete 19/6/4 built-in tool matrix to the matching Open Project",
-    async () => {
-      const projectPath = await createProjectFixture();
-      const before = readFileSync(projectPath);
-      const host = await createOpenProjectHost(projectPath, { routed: true });
-
-      try {
-        const results = await Promise.all(
-          openProjectToolMatrix.map(({ name, input }) =>
-            runCliAsync("tool", "invoke", name, "--project", projectPath, "--input", JSON.stringify(input)),
-          ),
-        );
-
-        expect(openProjectToolMatrix.filter(({ category }) => category === "project")).toHaveLength(19);
-        expect(openProjectToolMatrix.filter(({ category }) => category === "selection")).toHaveLength(6);
-        expect(openProjectToolMatrix.filter(({ category }) => category === "viewport")).toHaveLength(4);
-        expect(new Set(openProjectToolMatrix.map(({ name }) => name))).toHaveLength(29);
-        expect(results).toEqual(
-          openProjectToolMatrix.map(() => ({ status: 0, stdout: '{"routed":true}\n', stderr: "" })),
-        );
-        expect(host.requests).toEqual(
-          expect.arrayContaining(
-            openProjectToolMatrix.map(({ name, input }) => ({
-              projectPath: realpathSync(projectPath),
-              toolName: name,
-              input,
-            })),
-          ),
-        );
-        expect(host.requests).toHaveLength(29);
-        expect(readFileSync(projectPath)).toEqual(before);
-      } finally {
-        host.close();
-      }
-    },
-    60_000,
-  );
-
-  it.skipIf(process.platform !== "darwin")(
-    "requires an Open Project before entering any selection or viewport handler",
-    async () => {
-      const projectPath = await createProjectFixture();
-      const before = readFileSync(projectPath);
-      const executorReadyPath = join(dirname(projectPath), "executor-ready.txt");
-      const liveContextTools = openProjectToolMatrix.filter(({ category }) => category !== "project");
-      const previousExecutorReadyPath = process.env.PROJECT_GRAPH_CLI_EXECUTOR_READY_PATH;
-
-      const results = [];
-      process.env.PROJECT_GRAPH_CLI_EXECUTOR_READY_PATH = executorReadyPath;
-      try {
-        for (const { name, input } of liveContextTools) {
-          results.push(
-            await runCliAsync("tool", "invoke", name, "--project", projectPath, "--input", JSON.stringify(input)),
-          );
-        }
-      } finally {
-        if (previousExecutorReadyPath === undefined) delete process.env.PROJECT_GRAPH_CLI_EXECUTOR_READY_PATH;
-        else process.env.PROJECT_GRAPH_CLI_EXECUTOR_READY_PATH = previousExecutorReadyPath;
-      }
-
-      expect(liveContextTools).toHaveLength(10);
-      expect(results).toEqual(
-        liveContextTools.map(() => ({
-          status: 1,
-          stdout: "",
-          stderr: '{"code":"PROJECT_MUST_BE_OPEN","message":"This tool requires a matching Open Project."}\n',
-        })),
-      );
-      expect(existsSync(executorReadyPath)).toBe(false);
+      expect(result).toMatchObject({ status: 0, stdout: `${JSON.stringify(liveResult)}\n`, stderr: "" });
+      expect(host.requests).toEqual([
+        {
+          projectPath: realpathSync(projectPath),
+          toolName: "get_all_nodes",
+          input: {},
+        },
+      ]);
       expect(readFileSync(projectPath)).toEqual(before);
-    },
-    45_000,
-  );
+    } finally {
+      host.close();
+    }
+  }, 15_000);
 
-  it.skipIf(process.platform !== "darwin")(
-    "returns a structured error when a connectable Open Project host disconnects without using the closed route",
-    async () => {
-      const projectPath = await createProjectFixture();
-      const before = readFileSync(projectPath);
-      const host = await createOpenProjectHost(projectPath, { objects: [] });
-      await host.disconnect();
+  it("routes the complete 19/6/4 built-in tool matrix to the matching Open Project", async () => {
+    const projectPath = await createProjectFixture();
+    const before = readFileSync(projectPath);
+    const host = await createOpenProjectHost(projectPath, { routed: true });
 
-      try {
-        expectCliError(
-          ["tool", "invoke", "get_all_nodes", "--project", projectPath, "--input", "{}"],
-          { code: "RUNTIME_HOST_UNAVAILABLE", message: "Open Project Runtime Host is unavailable." },
-          1,
+    try {
+      const results = await Promise.all(
+        openProjectToolMatrix.map(({ name, input }) =>
+          runCliAsync("tool", "invoke", name, "--project", projectPath, "--input", JSON.stringify(input)),
+        ),
+      );
+
+      expect(openProjectToolMatrix.filter(({ category }) => category === "project")).toHaveLength(19);
+      expect(openProjectToolMatrix.filter(({ category }) => category === "selection")).toHaveLength(6);
+      expect(openProjectToolMatrix.filter(({ category }) => category === "viewport")).toHaveLength(4);
+      expect(new Set(openProjectToolMatrix.map(({ name }) => name))).toHaveLength(29);
+      expect(results).toEqual(
+        openProjectToolMatrix.map(() => ({ status: 0, stdout: '{"routed":true}\n', stderr: "" })),
+      );
+      expect(host.requests).toEqual(
+        expect.arrayContaining(
+          openProjectToolMatrix.map(({ name, input }) => ({
+            projectPath: realpathSync(projectPath),
+            toolName: name,
+            input,
+          })),
+        ),
+      );
+      expect(host.requests).toHaveLength(29);
+      expect(readFileSync(projectPath)).toEqual(before);
+    } finally {
+      host.close();
+    }
+  }, 60_000);
+
+  it("requires an Open Project before entering any selection or viewport handler", async () => {
+    const projectPath = await createProjectFixture();
+    const before = readFileSync(projectPath);
+    const executorReadyPath = join(dirname(projectPath), "executor-ready.txt");
+    const liveContextTools = openProjectToolMatrix.filter(({ category }) => category !== "project");
+    const previousExecutorReadyPath = process.env.PROJECT_GRAPH_CLI_EXECUTOR_READY_PATH;
+
+    const results = [];
+    process.env.PROJECT_GRAPH_CLI_EXECUTOR_READY_PATH = executorReadyPath;
+    try {
+      for (const { name, input } of liveContextTools) {
+        results.push(
+          await runCliAsync("tool", "invoke", name, "--project", projectPath, "--input", JSON.stringify(input)),
         );
-        expect(readFileSync(projectPath)).toEqual(before);
-      } finally {
-        host.close();
       }
-    },
-  );
+    } finally {
+      if (previousExecutorReadyPath === undefined) delete process.env.PROJECT_GRAPH_CLI_EXECUTOR_READY_PATH;
+      else process.env.PROJECT_GRAPH_CLI_EXECUTOR_READY_PATH = previousExecutorReadyPath;
+    }
 
-  it.skipIf(process.platform !== "darwin")(
-    "waits for a long-running Open Project invocation without imposing a timeout",
-    async () => {
-      const projectPath = await createProjectFixture();
-      const host = await createOpenProjectHost(projectPath, { completed: true }, 7200);
+    expect(liveContextTools).toHaveLength(10);
+    expect(results).toEqual(
+      liveContextTools.map(() => ({
+        status: 1,
+        stdout: "",
+        stderr: '{"code":"PROJECT_MUST_BE_OPEN","message":"This tool requires a matching Open Project."}\n',
+      })),
+    );
+    expect(existsSync(executorReadyPath)).toBe(false);
+    expect(readFileSync(projectPath)).toEqual(before);
+  }, 45_000);
 
-      try {
-        await expect(
-          runCliAsync("tool", "invoke", "get_all_nodes", "--project", projectPath, "--input", "{}"),
-        ).resolves.toEqual({ status: 0, stdout: '{"completed":true}\n', stderr: "" });
-      } finally {
-        host.close();
-      }
-    },
-    15_000,
-  );
+  it("returns a structured error when a connectable Open Project host disconnects without using the closed route", async () => {
+    const projectPath = await createProjectFixture();
+    const before = readFileSync(projectPath);
+    const host = await createOpenProjectHost(projectPath, { objects: [] });
+    await host.disconnect();
 
-  it.skipIf(process.platform !== "darwin").each(["SIGINT", "SIGTERM"] as const)(
+    try {
+      expectCliError(
+        ["tool", "invoke", "get_all_nodes", "--project", projectPath, "--input", "{}"],
+        { code: "RUNTIME_HOST_UNAVAILABLE", message: "Open Project Runtime Host is unavailable." },
+        1,
+      );
+      expect(readFileSync(projectPath)).toEqual(before);
+    } finally {
+      host.close();
+    }
+  });
+
+  it("waits for a long-running Open Project invocation without imposing a timeout", async () => {
+    const projectPath = await createProjectFixture();
+    const host = await createOpenProjectHost(projectPath, { completed: true }, 7200);
+
+    try {
+      await expect(
+        runCliAsync("tool", "invoke", "get_all_nodes", "--project", projectPath, "--input", "{}"),
+      ).resolves.toEqual({ status: 0, stdout: '{"completed":true}\n', stderr: "" });
+    } finally {
+      host.close();
+    }
+  }, 15_000);
+
+  it.each(["SIGINT", "SIGTERM"] as const)(
     "reports handled %s cancellation without stdout or protocol noise",
     async (signal) => {
       const projectPath = await createProjectFixture();
@@ -1791,36 +1766,29 @@ process.stdout.write(JSON.stringify({ status: "error", code: "PROJECT_LOAD_FAILE
     15_000,
   );
 
-  it.skipIf(process.platform !== "darwin")(
-    "does not save a closed Project or print partial success after handled cancellation",
-    async () => {
-      const projectPath = await createProjectFixture("2.7.0", createMutationStage());
-      const projectBefore = readFileSync(projectPath);
-      const invocation = spawnCliEntryProcess(
-        {},
-        "tool",
-        "invoke",
-        "create_edges",
-        "--project",
-        projectPath,
-        "--input",
-        JSON.stringify({ edges: [{ sourceRef: "n1", targetRef: "n2" }] }),
-      );
+  it("does not save a closed Project or print partial success after handled cancellation", async () => {
+    const projectPath = await createProjectFixture("2.7.0", createMutationStage());
+    const projectBefore = readFileSync(projectPath);
+    const invocation = spawnCliEntryProcess(
+      {},
+      "tool",
+      "invoke",
+      "create_edges",
+      "--project",
+      projectPath,
+      "--input",
+      JSON.stringify({ edges: [{ sourceRef: "n1", targetRef: "n2" }] }),
+    );
 
-      const { ownershipLock } = resolveProjectOwnershipArtifactPaths(
-        realpathSync(projectPath),
-        getOwnershipDirectory(),
-      );
-      await waitForProjectLock(ownershipLock);
-      invocation.child.kill("SIGTERM");
+    const { ownershipLock } = resolveProjectOwnershipArtifactPaths(realpathSync(projectPath), getOwnershipDirectory());
+    await waitForProjectLock(ownershipLock);
+    invocation.child.kill("SIGTERM");
 
-      await expect(invocation.result).resolves.toEqual({
-        status: 130,
-        stdout: "",
-        stderr: '{"code":"CANCELLED","message":"Project Graph CLI invocation was cancelled."}\n',
-      });
-      expect(readFileSync(projectPath)).toEqual(projectBefore);
-    },
-    15_000,
-  );
+    await expect(invocation.result).resolves.toEqual({
+      status: 130,
+      stdout: "",
+      stderr: '{"code":"CANCELLED","message":"Project Graph CLI invocation was cancelled."}\n',
+    });
+    expect(readFileSync(projectPath)).toEqual(projectBefore);
+  }, 15_000);
 });
