@@ -1,7 +1,8 @@
 name: Custom Windows installer
 on:
   push:
-    branches: [pg1.1-chatgpt-signin, pg11-ui-fix-package-20261012, pg11-ai-tree-safety-20261029, pg14-copy-shortcuts-20261031]
+    branches:
+      [pg1.1-chatgpt-signin, pg11-ui-fix-package-20261012, pg11-ai-tree-safety-20261029, pg14-copy-shortcuts-20261031]
     paths-ignore:
       - "**/*.md"
   workflow_dispatch:
@@ -32,7 +33,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify PG profile preservation
         shell: powershell
-        run: .\app\src-tauri\nsis\pg11-import-profile.Tests.ps1
+        run: |
+          .\app\src-tauri\nsis\pg11-import-profile.Tests.ps1
+          .\app\src-tauri\nsis\pg-current-entry.Tests.ps1
       - uses: actions/setup-node@v4
         with:
           node-version: 26

@@ -116,3 +116,11 @@ Rust 主要负责本地文件等系统能力；绝大部分业务逻辑在前端
 ## Commit Message
 
 使用 [Conventional Commits](https://www.conventionalcommits.org/)，例如：`feat: ...`、`fix: ...`、`refactor: ...`。
+
+## Windows upgrades and launchers
+
+- Preserve `mainBinaryName` and `identifier` across custom PG upgrades. Keep `productName`, version, and the native window title consistent with the release.
+- Keep the NSIS current-entry postinstall hook enabled. It updates `HKCU\Software\ProjectGraphCustom\CurrentExecutable` / `DisplayName`, the canonical `ProjectGraph.Current.File` association, and existing PG taskbar shortcuts. Do not replace this with version-specific launch paths.
+- The user's Alt/Win + numpad 4 launcher reads this registry entry on each action and matches the full executable path. Preserve its key bindings and other application mappings.
+- Before releasing a Windows upgrade, run `pg-current-entry.Tests.ps1` and `pg11-import-profile.Tests.ps1` in `app/src-tauri/nsis`. Then verify the installed executable, file association, pinned name/icon, and actual shortcut activation; script checks alone do not prove visual taskbar grouping.
+- Do not change project files, profile directories, shortcuts inside PG, or existing settings to repair Windows entry points. Do not alter protected Windows UserChoice hashes.

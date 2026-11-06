@@ -12,3 +12,14 @@
   ${EndIf}
 !macroend
 
+!macro NSIS_HOOK_POSTINSTALL
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\pg-current-entry.ps1 "${PG11_HOOK_DIR}\pg-current-entry.ps1"
+  nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\pg-current-entry.ps1" -ExecutablePath "$INSTDIR\project-graph-pg11.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "软件已安装，但当前版本入口更新失败。请重新运行安装程序修复文件关联和快捷方式。"
+  ${EndIf}
+!macroend
+
