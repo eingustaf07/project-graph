@@ -503,72 +503,76 @@ export class KeyboardOnlyTreeEngine {
     }, 0);
     this.project.stageManager.clearSelectAll();
     newNode.isSelected = true;
-    const rootNodeParents =
-      Settings.autoLayoutWhenTreeGenerate || Settings.treeGenerateCameraBehavior === "resetToTree"
-        ? this.project.graphMethods.getRoots(rootNode, true)
-        : [];
-    if (Settings.autoLayoutWhenTreeGenerate && rootNodeParents.length === 1) {
-      const rootNodeParent = rootNodeParents[0];
-      const validationResult = this.project.graphMethods.validateTreeStructure(rootNodeParent, true);
-      if (validationResult.isValid) {
-        if (Settings.autoLayoutWhenTreeGenerate) {
-          this.project.autoLayoutFastTree.autoLayoutFastTreeMode(rootNodeParent);
+    try {
+      const rootNodeParents =
+        Settings.autoLayoutWhenTreeGenerate || Settings.treeGenerateCameraBehavior === "resetToTree"
+          ? this.project.graphMethods.getRoots(rootNode, true)
+          : [];
+      if (Settings.autoLayoutWhenTreeGenerate && rootNodeParents.length === 1) {
+        const rootNodeParent = rootNodeParents[0];
+        const validationResult = this.project.graphMethods.validateTreeStructure(rootNodeParent, true);
+        if (validationResult.isValid) {
+          if (Settings.autoLayoutWhenTreeGenerate) {
+            this.project.autoLayoutFastTree.autoLayoutFastTreeMode(rootNodeParent);
+          }
+          // 更新选择状态
+          rootNodeParent.isSelected = false;
+          newNode.isSelected = true;
+          rootNode.isSelected = false;
+        } else {
+          if (Settings.autoLayoutWhenTreeGenerate) {
+            showTreeValidationErrors(validationResult, "warning");
+          }
         }
-        // 更新选择状态
-        rootNodeParent.isSelected = false;
-        newNode.isSelected = true;
-        rootNode.isSelected = false;
       } else {
         if (Settings.autoLayoutWhenTreeGenerate) {
-          showTreeValidationErrors(validationResult, "warning");
+          toast.warning("当前结构不符合树形结构：无法确定唯一的根节点");
         }
       }
-    } else {
-      if (Settings.autoLayoutWhenTreeGenerate) {
-        toast.warning("当前结构不符合树形结构：无法确定唯一的根节点");
-      }
-    }
 
-    // 特效
-    this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(rootNode, newNode));
-    SoundService.play.treeGenerateDeepSoundFile();
-    // 根据设置决定镜头行为
-    switch (Settings.treeGenerateCameraBehavior) {
-      case "none":
-        // 镜头不动
-        break;
-      case "moveToNewNode":
-        // 镜头移动向新创建的节点
-        this.project.camera.bombMove(newNode.collisionBox.getRectangle().center, 5);
-        break;
-      case "resetToTree":
-        // 重置视野，使视野覆盖当前树形结构的外接矩形
-        if (rootNodeParents.length === 1) {
-          const rootNodeParent = rootNodeParents[0];
-          const allNodes = this.project.graphMethods.getSuccessorSet(rootNodeParent, true);
-          const treeBoundingRect = Rectangle.getBoundingRectangle(
-            allNodes.map((node) => node.collisionBox.getRectangle()),
-            10, // 添加一些 padding
-          );
-          this.project.camera.resetByRectangle(treeBoundingRect);
-        }
-        break;
-    }
-    if (nextMode && newEdges.length > 0) {
-      const edges = newEdges.filter((edge): edge is LineEdge => edge instanceof LineEdge);
-      if (nextMode === "reverse") this.project.nodeConnector.reverseEdges(edges);
-      else {
-        for (const edge of edges) {
-          const undirected = MultiTargetUndirectedEdge.createFromSomeEntity(this.project, [rootNode, newNode]);
-          undirected.text = edge.text;
-          undirected.color = edge.color.clone();
-          undirected.arrow = "none";
-          this.project.stageManager.delete(edge);
-          this.project.stageManager.add(undirected);
-        }
+      // 特效
+      this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(rootNode, newNode));
+      SoundService.play.treeGenerateDeepSoundFile();
+      // 根据设置决定镜头行为
+      switch (Settings.treeGenerateCameraBehavior) {
+        case "none":
+          // 镜头不动
+          break;
+        case "moveToNewNode":
+          // 镜头移动向新创建的节点
+          this.project.camera.bombMove(newNode.collisionBox.getRectangle().center, 5);
+          break;
+        case "resetToTree":
+          // 重置视野，使视野覆盖当前树形结构的外接矩形
+          if (rootNodeParents.length === 1) {
+            const rootNodeParent = rootNodeParents[0];
+            const allNodes = this.project.graphMethods.getSuccessorSet(rootNodeParent, true);
+            const treeBoundingRect = Rectangle.getBoundingRectangle(
+              allNodes.map((node) => node.collisionBox.getRectangle()),
+              10, // 添加一些 padding
+            );
+            this.project.camera.resetByRectangle(treeBoundingRect);
+          }
+          break;
       }
-      this.nextGrowthEdge = undefined;
-      this.project.historyManager.recordStep();
+    } finally {
+      // 连线已经创建后，布局或镜头故障也不能丢掉一次性连接规则。
+      if (nextMode && newEdges.length > 0) {
+        const edges = newEdges.filter((edge): edge is LineEdge => edge instanceof LineEdge);
+        if (nextMode === "reverse") this.project.nodeConnector.reverseEdges(edges);
+        else {
+          for (const edge of edges) {
+            const undirected = MultiTargetUndirectedEdge.createFromSomeEntity(this.project, [rootNode, newNode]);
+            undirected.text = edge.text;
+            undirected.color = edge.color.clone();
+            undirected.arrow = "none";
+            this.project.stageManager.delete(edge);
+            this.project.stageManager.add(undirected);
+          }
+        }
+        this.nextGrowthEdge = undefined;
+        this.project.historyManager.recordStep();
+      }
     }
   }
 

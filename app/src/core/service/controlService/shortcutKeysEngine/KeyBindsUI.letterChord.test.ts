@@ -170,6 +170,24 @@ describe("PG1.4 copy shortcuts", () => {
 });
 afterEach(() => KeyBindsUI.uiStopListen());
 describe("held letter shortcut", () => {
+  it.each(["r", "g"])("recognizes a rapid Tab+%s chord without replaying Tab growth", async (key) => {
+    const grow = vi.fn(),
+      arm = vi.fn();
+    KeyBindsUI.registerOneUIKeyBind("testTab", "tab", true, grow);
+    KeyBindsUI.registerOneUIKeyBind("testRapidChord", "tab+" + key, true, arm);
+    for (const [type, letter] of [
+      ["keydown", "Tab"],
+      ["keydown", key],
+      ["keyup", key],
+      ["keyup", "Tab"],
+    ]) {
+      window.dispatchEvent(new KeyboardEvent(type, { key: letter, bubbles: true, cancelable: true }));
+    }
+    await flush();
+    await flush();
+    expect(arm).toHaveBeenCalledOnce();
+    expect(grow).not.toHaveBeenCalled();
+  });
   it("cancels native Tab navigation synchronously before asynchronous chord checks", async () => {
     const reverse = vi.fn();
     KeyBindsUI.registerOneUIKeyBind("testReverse", "tab+r", true, reverse);

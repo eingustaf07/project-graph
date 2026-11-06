@@ -208,6 +208,26 @@ it("still starts editing if automatic layout fails after creation", () => {
   vi.advanceTimersByTime(0);
   expect(p.controllerUtils.editTextNode).toHaveBeenCalledTimes(1);
 });
+it.each(["reverse", "undirected"] as const)(
+  "applies and consumes %s even when layout fails after connection",
+  (mode) => {
+    const { p, root, engine, select } = fixture();
+    Settings.autoLayoutWhenTreeGenerate = true;
+    p.autoLayoutFastTree = {
+      autoLayoutFastTreeMode: () => {
+        throw new Error("layout failed");
+      },
+    };
+    engine.armNextGrowthEdge(mode);
+    expect(() => engine.onDeepGenerateNode()).toThrow("layout failed");
+    if (mode === "reverse") expect(p.stageManager.getLineEdges()[0].target).toBe(root);
+    else expect(p.stage.some((edge: unknown) => edge instanceof MultiTargetUndirectedEdge)).toBe(true);
+    Settings.autoLayoutWhenTreeGenerate = false;
+    select(root.uuid);
+    engine.onDeepGenerateNode();
+    expect(p.stageManager.getLineEdges().at(-1).source).toBe(root);
+  },
+);
 it("reverses only one newly grown edge and restores the normal direction on the next growth", () => {
   const { p, root, engine, select } = fixture();
   engine.armNextGrowthEdge("reverse");
@@ -225,25 +245,31 @@ it("reverses only one newly grown edge and restores the normal direction on the 
   expect(edges[1].source).toBe(root);
 });
 
-it("creates one arrowless undirected edge, supports a single undo and redo, then restores normal growth", () => {
-  const { p, root, engine, select } = fixture();
-  const before = serialize(p.stage);
-  engine.armNextGrowthEdge("undirected");
-  engine.onDeepGenerateNode();
-  const edge = p.stage.find((object: unknown) => object instanceof MultiTargetUndirectedEdge);
-  expect(edge.arrow).toBe("none");
-  expect(edge.associationList).toContain(root);
-  expect(p.stageManager.getLineEdges()).toHaveLength(0);
-  const after = serialize(p.stage);
-  p.historyManager.undo();
-  expect(serialize(p.stage)).toEqual(before);
-  p.historyManager.redo();
-  expect(serialize(p.stage)).toEqual(after);
-  select(root.uuid);
-  engine.onDeepGenerateNode();
-  expect(p.stageManager.getLineEdges()).toHaveLength(1);
-  expect(p.stageManager.getLineEdges()[0].source.uuid).toBe(root.uuid);
-});
+it.each(["reverse", "undirected"] as const)(
+  "preserves a single undo/redo step and normal subsequent growth for %s",
+  (mode) => {
+    const { p, root, engine, select } = fixture();
+    const before = serialize(p.stage);
+    engine.armNextGrowthEdge(mode);
+    engine.onDeepGenerateNode();
+    if (mode === "undirected") {
+      const edge = p.stage.find((object: unknown) => object instanceof MultiTargetUndirectedEdge);
+      expect(edge.arrow).toBe("none");
+      expect(edge.associationList).toContain(root);
+      expect(p.stageManager.getLineEdges()).toHaveLength(0);
+    } else {
+      expect(p.stageManager.getLineEdges()[0].target).toBe(root);
+    }
+    const after = serialize(p.stage);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(after);
+    select(root.uuid);
+    engine.onDeepGenerateNode();
+    expect(p.stageManager.getLineEdges().at(-1).source.uuid).toBe(root.uuid);
+  },
+);
 
 it("keeps the pending rule on its original node and lets the last chosen mode win", () => {
   const { p, root, engine, select } = fixture();
