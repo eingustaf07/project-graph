@@ -713,6 +713,17 @@ export namespace KeyBindsUI {
           )
         : [];
 
+    // 先记录按住的 Tab，再同步阻止切焦；异步 when 检查后阻止默认行为已太晚。
+    if (
+      letter === "tab" &&
+      activeProject &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !event.shiftKey &&
+      !event.metaKey &&
+      allUIKeyBinds.some((binding) => binding.isEnabled && /^tab\+[a-z]$/.test(binding.key))
+    )
+      event.preventDefault();
     enqueue(event);
     if (await interceptInput(event)) {
       event.preventDefault();
