@@ -29,12 +29,12 @@ export default function AboutTab() {
   }, [logoClickCount]);
 
   return (
-    <div className="items-between text-foreground mx-auto flex h-full w-full max-w-1/2 flex-col justify-center gap-4">
+    <div className="text-foreground mx-auto flex h-full w-full max-w-4xl flex-col gap-4 overflow-y-auto px-6 py-8">
       <img src={logoUrl} alt="Project Graph Logo" className="absolute inset-0 -z-10 size-full blur-[150px]" />
       <img
         src={logoUrl}
         alt="Project Graph Logo"
-        className="mx-auto size-64"
+        className="mx-auto size-32 shrink-0"
         onClick={() => setLogoClickCount((it) => it + 1)}
       />
 
@@ -96,10 +96,115 @@ export default function AboutTab() {
         </div>
       </section>
 
+      <section className="rounded-md border p-4 text-sm leading-6">
+        <h2 className="mb-2 text-lg font-semibold">自定义版更新日志</h2>
+        <p className="mb-3 text-xs opacity-60">
+          按累计版本记录，每版继承此前功能。快捷键以你的实际设置为准，可在“设置 → 快捷键”中修改。
+        </p>
+        {versionHistory.map((release, index) => (
+          <details key={release.version} open={index === 0} className="border-t py-3">
+            <summary className="cursor-pointer font-semibold">
+              {release.version} · {release.title}
+            </summary>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {release.changes.map((change) => (
+                <li key={change}>{change}</li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </section>
+
       <footer className="text-xs opacity-50">{/**/}</footer>
     </div>
   );
 }
+
+const versionHistory = [
+  {
+    version: "PG1.5",
+    title: "布局、缩放控制与开发版",
+    changes: [
+      "实验性网格对齐：开启背景方格后，新生成节点以最近的任意角点对齐网格交点；兼顾树形层级与碰撞间距。在设置中搜索“网格”。",
+      "图片自由缩放：选中图片后使用四角和四边中点，共八个控制点，分别调整宽度和高度。",
+      "容器和几何涂鸦框增加四个边中点，支持八个控制点调整大小。",
+      "修复 Tab+R / Tab+G：分别让下一次 NN 新连线指向原节点或成为无向边，仅生效一次；修复 Tab 原生焦点切换干扰组合键。",
+      "修复特定曲线连接结构中 NN / TT 生长与自动布局异常。",
+      "改进普通文字节点在生成、移动时的碰撞分离，使用非递归推移处理，避免递归爆栈。",
+      "减少首次按住右键拖动画布时重复计算全图文字尺寸造成的卡顿。",
+      "统一当前版本的 Windows 启动入口、热键目标与文件关联。",
+      "日常开发版支持加载当前源码，并在检查后应用更新、恢复工程缓冲区、撤销历史与视角；底层程序修改仍需编译和重启。",
+      "修复开发环境启动时的空白画布及开发版窗口、任务栏图标。",
+    ],
+  },
+  {
+    version: "PG1.4",
+    title: "操作、音效与容器增强",
+    changes: [
+      "Ctrl+C 复制节点，按住 Ctrl 连按两次 C 复制文本；Ctrl+X 剪切后可跨文档在鼠标位置粘贴。入口为设置 → 快捷键 → 基础。",
+      "设置 → 个性化 → 音效：增加 0–100% 音量滑动条和每项音效独立开关。",
+      "双击新建节点、创建涂鸦或容器、快捷键删除增加音效；预加载和缓存音效以减少延迟。",
+      "绘图工具栏仅在 BB 画笔模式生效，默认位于底部，可拖动把手停靠上、下、左、右；移除旧鼠标模式切换栏。",
+      "实验性跨文件节点连接：在设置 → 视觉 → 实验性功能开启，通过画布右上方入口连接同一窗口内已保存的本地文件节点，支持拆分和应用内浮动。",
+      "A+I 改为打开或关闭 AI 面板；ZZ、BB、CC 模式均可按既有双击设置在空白处创建节点。",
+      "容器支持嵌套收纳与整体移动；可在设置 → 控制 → 分组框开启自动扩张、按 N 拖入或移出。",
+      "增加下一次 NN 连线方向的一次性设置，后续 PG1.5 修复其触发问题。",
+      "修复容器命名后调整大小、涂鸦重复改名、缩放时容器标题消失及连续右键连线误判自环。",
+      "增加缩小时保留节点文字的设置；修复普通文字节点碰撞与自动对齐共同使用时的重叠。",
+      "修复鸣谢名单、扩展市场 undefined 地址及 PG 账户入口缺少云服务地址的问题。",
+      "修复包含双向弧线时 NN 生长递归卡顿，并保护新节点自动进入编辑模式。",
+    ],
+  },
+  {
+    version: "PG1.3 / 1.3.1",
+    title: "剪贴板与绘图",
+    changes: [
+      "增加节点与文本两种复制方式，粘贴节点或节点树时将其中心放到鼠标位置，支持同文件和跨文件。",
+      "增加文档拆分后的合并入口，恢复在同一组标签中查看多个文件。",
+      "修复截图、剪贴板图像和复制的图片文件粘贴，图片作为画布实体继续操作。",
+      "空白画布 Ctrl+滚轮以鼠标位置为中心缩放。",
+      "增加几何涂鸦和固定边界容器，支持直线、矩形、圆形及颜色设置。",
+      "增加大小可调的橡皮：涂鸦与图片局部擦除，节点整块删除。",
+      "紧凑绘图工具栏支持容器和涂鸦模式；边框可重新选择、拖动、调整大小，点击外部结束边界编辑。",
+      "双击边框编辑或清空标题，默认无标题；修复旧图形无法重新选择的问题。",
+      "可配置绘图快捷键：ER 橡皮、KK 容器、SQ 矩形、CY 圆形、ST 直线；A+I 唤起 AI 面板。",
+      "1.3.1 修复正式打包中涂鸦类初始化顺序造成的启动失败。",
+    ],
+  },
+  {
+    version: "PG1.2",
+    title: "AI 树生成与整理",
+    changes: [
+      "AI 树生成按真实节点尺寸计算布局，增加最大宽度、避免覆盖和内容结构保护。",
+      "增加文字查找与替换、批量替换及撤销。",
+      "增加关联节点高亮，可在设置中选择直接相连或间接相连；默认关联高亮操作为 Tab+G。",
+      "实验性智能规整树形布局：设置 → 视觉 → 实验性功能开启。选中节点后使用 Ctrl+Alt+L 或右键菜单。",
+      "布局可保留原方向或统一向右、左、上、下，层级、同级和子树间距可调，支持撤销。",
+      "不安全的环路、多父节点等结构会提示拒绝布局，保留连接关系。",
+    ],
+  },
+  {
+    version: "PG1.1",
+    title: "ChatGPT 账号连接",
+    changes: [
+      "设置 → AI 增加 ChatGPT 账号与自定义 API 两种连接方式，提供登录、连接状态和断开入口。",
+      "通过官方浏览器授权流程连接 ChatGPT，Windows 认证信息使用当前用户的 DPAPI 加密保存。",
+      "AI 面板接入 ChatGPT 文本流式响应和 PG 本地工具调用，保留原 API 地址、密钥、模型、上下文与 MCP 设置。",
+      "修复活动模型名称显示，并使设置页从主区域打开。",
+      "增加独立版本名称和旧版设置迁移，延续快捷键及其他配置。",
+    ],
+  },
+  {
+    version: "PG Custom / PG1.0",
+    title: "自定义稳定基线",
+    changes: [
+      "文本节点增加最大宽度：短文本随内容自适应，达到上限自动换行，默认建议 15 个中文字符，可在设置中调整。",
+      "新建、编辑及生长节点沿用最大宽度逻辑。",
+      "自定义版本采用独立名称，官方新版本由用户手动决定更新。",
+      "作为后续 PG1.x 增量开发的稳定基线。",
+    ],
+  },
+];
 
 const Author: React.FC<{ name: string; url: string }> = ({ name, url }: { name: string; url: string }) => {
   return (
