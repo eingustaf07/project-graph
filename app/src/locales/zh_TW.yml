@@ -163,6 +163,9 @@ contextMenu:
   cancel: 取消
 
 settings:
+  snapNewNodesToGrid:
+    title: 新節點吸附到背景方格
+    description: 同時顯示背景橫線和豎線時，新節點選擇移動距離最小的角吸附到網格交點，樹形分支保留間距。
   enableSmartTreeArrange:
     title: 啟用智能規整樹形佈局（實驗）
     description: 選中根節點後按 Ctrl+Alt+L 或通過右鍵菜單規整其後代，可整次撤銷。虛線作為額外關聯邊保留；環路、多父、分組框內節點暫不支持。快捷鍵可在快捷鍵設置中修改。

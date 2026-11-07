@@ -318,7 +318,7 @@ export class Section extends ConnectableEntity {
   }
 }
 
-// Keep the derived class after its base: the production module graph contains circular model imports.
+// Define Doodle below Section because the production module graph contains circular model imports.
 function tree(entity: Entity): Entity[] {
   const result: Entity[] = [],
     visited = new Set<Entity>();

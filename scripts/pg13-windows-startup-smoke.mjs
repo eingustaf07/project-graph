@@ -50,7 +50,10 @@ try {
         await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(1500) })
       ).json();
       report.targets = pages.map((page) => ({ type: page.type, url: page.url.split(/[?#]/)[0] }));
-      target = pages.find((page) => page.type === "page" && /^https?:\/\/tauri\.localhost(?:\/|$)/.test(page.url));
+      target = pages.find((page) => page.type === "page" && (
+        /^https?:\/\/tauri\.localhost(?:\/|$)/.test(page.url) ||
+        (process.env.PG_SMOKE_DEVELOPMENT === "1" && page.url.startsWith("http://localhost:1420/"))
+      ));
     } catch (error) {
       if (Date.now() >= deadline) throw error;
     }
@@ -121,6 +124,23 @@ try {
   }
   if (!report.passed) throw new Error("Packaged application did not mount its real canvas");
   await new Promise((resolve) => setTimeout(resolve, 2000));
+  if (process.env.PG_SMOKE_DEVELOPMENT === "1") {
+    const evaluate = async (expression) =>
+      (await send("Runtime.evaluate", { expression, returnByValue: true })).result?.value;
+    const previous = await evaluate("performance.timeOrigin");
+    // Target only this isolated test window, even when the user's PG is open.
+    await send("Runtime.evaluate", { expression: "import('/src/development-session.ts').then(m => m.applyDevelopmentUpdate())" });
+    report.reloaded = false;
+    const reloadDeadline = Date.now() + 60000;
+    while (Date.now() < reloadDeadline) {
+      if (await evaluate(`performance.timeOrigin > ${previous} && document.title.includes('开发版') && !!document.querySelector('canvas')`)) {
+        report.reloaded = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+    if (!report.reloaded) { report.passed = false; throw new Error("Developer canvas did not restore after update"); }
+  }
   if (report.errors.length) {
     report.passed = false;
     throw new Error("Startup exception after mount: " + report.errors.join("; "));

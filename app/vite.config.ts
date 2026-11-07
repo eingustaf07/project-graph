@@ -9,6 +9,7 @@ import originalClassName from "unplugin-original-class-name/vite";
 import { createLogger, defineConfig } from "vite";
 import svgr from "vite-plugin-svgr";
 import { i18nAutoTW } from "./vite-plugins/i18n-auto-tw";
+import { developmentSession } from "./vite-plugins/development-session";
 
 const host = process.env.TAURI_DEV_HOST ?? "localhost";
 
@@ -17,6 +18,7 @@ export const viteLogger = createLogger("info", { prefix: "[project-graph]" });
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    ...(process.env.LR_PG_DEVELOPMENT_SESSION === "1" ? [developmentSession(path.resolve(__dirname, ".."))] : []),
     tailwindcss(),
     originalClassName({
       staticMethodName: "className",

@@ -387,8 +387,8 @@ class HistorymanagerMemoryEfficient extends HistoryManagerAbs {
  */
 @service("historyManager")
 export class HistoryManager extends HistoryManagerAbs {
-  private memoryEfficient: HistoryManagerAbs;
-  private timeEfficient: HistoryManagerAbs;
+  private memoryEfficient: HistorymanagerMemoryEfficient;
+  private timeEfficient: HistoryManagerTimeEfficient;
   private readonly unwatchHistoryManagerMode: () => void;
 
   // 当前使用的历史管理器实例
@@ -411,6 +411,26 @@ export class HistoryManager extends HistoryManagerAbs {
 
   dispose(): void {
     this.unwatchHistoryManagerMode();
+  }
+
+  developmentSnapshot() {
+    return structuredClone({
+      memory: {
+        initialStage: this.memoryEfficient.initialStage,
+        deltas: this.memoryEfficient.deltas,
+        currentIndex: this.memoryEfficient.currentIndex,
+      },
+      time: {
+        initialStage: this.timeEfficient.initialStage,
+        history: this.timeEfficient.history,
+        currentIndex: this.timeEfficient.currentIndex,
+      },
+    });
+  }
+
+  restoreDevelopmentSnapshot(snapshot: ReturnType<HistoryManager["developmentSnapshot"]>) {
+    Object.assign(this.memoryEfficient, snapshot.memory);
+    Object.assign(this.timeEfficient, snapshot.time);
   }
 
   /**

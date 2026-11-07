@@ -16,6 +16,7 @@ import { isDesktop, isMobile, isWeb } from "@/utils/platform";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getVersion } from "@tauri-apps/api/app";
 import { getMatches } from "@tauri-apps/plugin-cli";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { exists } from "@tauri-apps/plugin-fs";
@@ -88,9 +89,20 @@ setTimeout(() => {
       await runProjectGraphCliDesktopAcceptanceHost();
       return;
     }
+    if (import.meta.env.DEV && import.meta.env.LR_PG_DEVELOPMENT_SESSION === "1") {
+      const development = await import("./development-session");
+      await development.restoreDevelopmentSession();
+    }
     await loadStartFile();
     if (!isCliMode) {
       await ensureStartupDraftAndWelcome();
+    }
+    if (import.meta.env.DEV && import.meta.env.LR_PG_DEVELOPMENT_SESSION === "1") {
+      const development = await import("./development-session");
+      const title = `Project Graph PG${await getVersion()} 开发版`;
+      document.title = title;
+      if (!isWeb) await getCurrentWindow().setTitle(title);
+      await development.markDevelopmentReady();
     }
     if (isCliMode) {
       try {

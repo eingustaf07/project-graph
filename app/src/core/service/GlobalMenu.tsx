@@ -323,6 +323,7 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
             if (
               project &&
               Settings.autoImportTxtFileWhenOpenPrg &&
+              source !== "开发更新恢复" &&
               source !== "ReferenceBlockNode跳转打开-prg文件" &&
               source !== "ReferencesWindow跳转打开-prg文件"
             ) {

@@ -112,6 +112,22 @@ describe("section collision with real PG objects", () => {
 });
 
 describe("text node collision with the user's collision and auto-align settings", () => {
+  it("restores the development session history with working undo and redo", () => {
+    const { p, node } = fixture();
+    const a = node(0);
+    p.historyManager.recordStep();
+    const before = serialize(p.stage);
+    a.moveTo(new Vector(600, 700));
+    p.historyManager.recordStep();
+    const after = serialize(p.stage);
+    const saved = p.historyManager.developmentSnapshot();
+    p.historyManager = new HistoryManager(p);
+    p.historyManager.restoreDevelopmentSnapshot(saved);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(after);
+  });
   beforeEach(() => {
     settings.isEnableEntityCollision = true;
   });
