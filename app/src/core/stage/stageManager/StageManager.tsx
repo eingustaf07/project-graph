@@ -961,7 +961,7 @@ export class StageManager {
     for (const entity of entities) {
       if (entity instanceof TextNode) {
         if (entity.sizeAdjust === "auto") {
-          entity.forceAdjustSizeByText();
+          entity.refreshSizeByTextIfNeeded();
         }
       } else if (entity instanceof Section) {
         entity.adjustLocationAndSize();

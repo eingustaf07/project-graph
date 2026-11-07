@@ -105,6 +105,61 @@ describe("Text node maximum width", () => {
     expect(item.rectangle.size).toEqual(new Vector(520, 220));
   });
 
+  it("skips unchanged pan refreshes but preserves an explicit forced refresh", () => {
+    const item = node("中".repeat(20));
+    const collision = vi.spyOn(item as any, "updateOtherEntityLocationByMove");
+    const bounds = item.rectangle;
+    for (let i = 0; i < 10; i++) item.refreshSizeByTextIfNeeded();
+    expect(item.rectangle).toBe(bounds);
+    item.moveTo(new Vector(100, 200));
+    collision.mockClear();
+    item.refreshSizeByTextIfNeeded();
+    expect(collision).not.toHaveBeenCalled();
+    expect(item.rectangle.location).toEqual(new Vector(100, 200));
+    const beforeForced = item.rectangle;
+    item.forceAdjustSizeByText();
+    expect(item.rectangle).not.toBe(beforeForced);
+  });
+
+  it("invalidates automatic refresh for text, effective font, limit and external size changes", () => {
+    const item = node("中".repeat(20));
+    for (const change of [
+      () => {
+        item.text = "短";
+      },
+      () => {
+        item.fontFamily = "Example CJK";
+      },
+      () => {
+        item.fontWeight = "bold";
+      },
+      () => {
+        Settings.textNodeMaxCharWidth = 8;
+      },
+      () => {
+        item.rectangle.size.x = 1000;
+      },
+      () => {
+        item.rectangle.size.y = 1000;
+      },
+    ]) {
+      const old = item.rectangle;
+      change();
+      item.refreshSizeByTextIfNeeded();
+      expect(item.rectangle).not.toBe(old);
+      const refreshed = item.rectangle;
+      item.refreshSizeByTextIfNeeded();
+      expect(item.rectangle).toBe(refreshed);
+    }
+    item.fontFamily = "";
+    item.refreshSizeByTextIfNeeded();
+    const old = item.rectangle;
+    Settings.defaultFontFamily = "Another CJK";
+    item.refreshSizeByTextIfNeeded();
+    expect(item.rectangle).not.toBe(old);
+    Settings.defaultFontFamily = "sans-serif";
+  });
+
   it("measures mixed Latin/CJK text by rendered width", () => {
     expect(node("a".repeat(30)).rectangle.height).toBe(65);
     expect(node("中" + "a".repeat(29)).rectangle.height).toBe(110);

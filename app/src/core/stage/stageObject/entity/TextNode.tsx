@@ -301,6 +301,42 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     );
     this.constrainToFixedBoundary();
     this.resolveOverlaps();
+    this.lastAutoSize = {
+      text: this.text,
+      fontSize: this.getFontSize(),
+      fontFamily: this.fontFamily || Settings.defaultFontFamily,
+      fontWeight: this.fontWeight || "normal",
+      maxCharWidth: Settings.textNodeMaxCharWidth,
+      width: this.rectangle.width,
+      height: this.rectangle.height,
+    };
+  }
+
+  private lastAutoSize?: {
+    text: string;
+    fontSize: number;
+    fontFamily: string;
+    fontWeight: string;
+    maxCharWidth: number;
+    width: number;
+    height: number;
+  };
+
+  public refreshSizeByTextIfNeeded(): void {
+    const previous = this.lastAutoSize;
+    // Panning refreshes the whole stage. Unchanged nodes must not re-wrap text or run collision propagation.
+    if (
+      previous &&
+      previous.text === this.text &&
+      previous.fontSize === this.getFontSize() &&
+      previous.fontFamily === (this.fontFamily || Settings.defaultFontFamily) &&
+      previous.fontWeight === (this.fontWeight || "normal") &&
+      previous.maxCharWidth === Settings.textNodeMaxCharWidth &&
+      previous.width === this.rectangle.width &&
+      previous.height === this.rectangle.height
+    )
+      return;
+    this.adjustSizeByText();
   }
 
   public resolveOverlaps() {
