@@ -118,6 +118,41 @@ it("commits repeated title edits and never replaces an externally updated title 
   await act(() => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
   expect(shape.text).toBe("其他编辑入口的新标题");
   expect(history).toHaveBeenCalledTimes(6);
+  for (const bounded of [false, true]) {
+    shape.bounded = bounded;
+    await open();
+    expect(host.querySelectorAll("[data-pg-doodle-handle]")).toHaveLength(8);
+    for (const [side, dx, dy] of [
+      ["上", 0, -20],
+      ["右", 20, 0],
+      ["下", 0, 20],
+      ["左", -20, 0],
+    ] as const) {
+      const button = host.querySelector<HTMLButtonElement>(`[aria-label="调整${side}边"]`)!;
+      button.setPointerCapture = vi.fn();
+      const before = shape.frame.clone();
+      const point = new Vector(
+        side === "左" ? before.left : side === "右" ? before.right : before.center.x,
+        side === "上" ? before.top : side === "下" ? before.bottom : before.center.y,
+      );
+      const dispatch = async (type: string, p: Vector) => {
+        const event = new MouseEvent(type, { button: 0, bubbles: true, clientX: p.x, clientY: p.y });
+        Object.defineProperty(event, "pointerId", { value: 1 });
+        await act(() => button.dispatchEvent(event));
+      };
+      await dispatch("pointerdown", point);
+      await dispatch("pointermove", point.add(new Vector(dx, dy)));
+      expect(shape.frame).toEqual(before);
+      const calls = history.mock.calls.length;
+      await dispatch("pointerup", point.add(new Vector(dx, dy)));
+      expect(history).toHaveBeenCalledTimes(calls + 1);
+      expect(shape.frame.width).toBe(before.width + Math.abs(dx));
+      expect(shape.frame.height).toBe(before.height + Math.abs(dy));
+      expect(shape.text).toBe("其他编辑入口的新标题");
+      if (side === "左") expect(shape.frame.right).toBe(before.right);
+      if (side === "上") expect(shape.frame.bottom).toBe(before.bottom);
+    }
+  }
   canvas.remove();
 });
 

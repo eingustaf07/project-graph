@@ -46,7 +46,14 @@ function ToolButton({ label, children, ...props }: ComponentProps<typeof Button>
   );
 }
 type Gesture = { start: Vector; end: Vector; pointerId: number };
-type Resize = { original: Rectangle; anchor: Vector; end: Vector; pointerId: number; entity: Doodle };
+type Resize = {
+  original: Rectangle;
+  anchor: Vector;
+  end: Vector;
+  direction: Vector;
+  pointerId: number;
+  entity: Doodle;
+};
 type Dock = "top" | "bottom" | "left" | "right";
 export function nearestToolbarEdge(
   x: number,
@@ -76,6 +83,25 @@ function frameFromPoints(start: Vector, end: Vector, shape: DoodleShape): Rectan
   return new Rectangle(
     new Vector(end.x < start.x ? start.x - width : start.x, end.y < start.y ? start.y - height : start.y),
     new Vector(width, height),
+  );
+}
+
+function frameFromResize(resize: Resize, point: Vector): Rectangle {
+  const { original, anchor, direction } = resize;
+  if (resize.entity.shape === "circle" && (direction.x === 0 || direction.y === 0)) {
+    const size = direction.x === 0 ? Math.abs(point.y - anchor.y) : Math.abs(point.x - anchor.x);
+    return new Rectangle(
+      new Vector(
+        direction.x === 0 ? original.center.x - size / 2 : Math.min(point.x, anchor.x),
+        direction.y === 0 ? original.center.y - size / 2 : Math.min(point.y, anchor.y),
+      ),
+      Vector.same(size),
+    );
+  }
+  return frameFromPoints(
+    new Vector(direction.x === 0 ? original.left : anchor.x, direction.y === 0 ? original.top : anchor.y),
+    new Vector(direction.x === 0 ? original.right : point.x, direction.y === 0 ? original.bottom : point.y),
+    resize.entity.shape,
   );
 }
 
@@ -361,7 +387,7 @@ function DrawingTools({ project }: { project: Project }) {
   const preview = gesture
     ? frameFromPoints(gesture.start, gesture.end, shape)
     : resize
-      ? frameFromPoints(resize.anchor, resize.end, resize.entity.shape)
+      ? frameFromResize(resize, resize.end)
       : undefined;
   const showFrame = preview ?? selected?.frame;
   const viewFrame = showFrame
@@ -409,7 +435,7 @@ function DrawingTools({ project }: { project: Project }) {
     event.preventDefault();
     event.stopPropagation();
     try {
-      const frame = frameFromPoints(resize.anchor, world(event), resize.entity.shape);
+      const frame = frameFromResize(resize, world(event));
       resize.entity.resizeFrame(frame);
       project.stageManager.updateReferences();
       project.historyManager.recordStep();
@@ -631,20 +657,30 @@ function DrawingTools({ project }: { project: Project }) {
           [1, -1],
           [-1, 1],
           [1, 1],
+          [0, -1],
+          [1, 0],
+          [0, 1],
+          [-1, 0],
         ].map(([dx, dy]) => {
           const rect = selected.frame;
           const anchor = new Vector(dx < 0 ? rect.right : rect.left, dy < 0 ? rect.bottom : rect.top);
           return (
             <button
               key={`${dx},${dy}`}
-              aria-label={`调整${dy < 0 ? "上" : "下"}${dx < 0 ? "左" : "右"}角`}
+              aria-label={
+                dx === 0
+                  ? `调整${dy < 0 ? "上" : "下"}边`
+                  : dy === 0
+                    ? `调整${dx < 0 ? "左" : "右"}边`
+                    : `调整${dy < 0 ? "上" : "下"}${dx < 0 ? "左" : "右"}角`
+              }
               data-pg-doodle-handle
               type="button"
               className="bg-background border-primary absolute z-40 size-3 rounded-sm border-2"
               style={{
-                left: (dx < 0 ? viewFrame.left : viewFrame.right) - 6,
-                top: (dy < 0 ? viewFrame.top : viewFrame.bottom) - 6,
-                cursor: dx === dy ? "nwse-resize" : "nesw-resize",
+                left: viewFrame.left + (viewFrame.width * (dx + 1)) / 2 - 6,
+                top: viewFrame.top + (viewFrame.height * (dy + 1)) / 2 - 6,
+                cursor: dx === 0 ? "ns-resize" : dy === 0 ? "ew-resize" : dx === dy ? "nwse-resize" : "nesw-resize",
               }}
               onPointerDown={(event) => {
                 event.preventDefault();
@@ -654,6 +690,7 @@ function DrawingTools({ project }: { project: Project }) {
                   original: rect.clone(),
                   anchor,
                   end: world(event),
+                  direction: new Vector(dx, dy),
                   pointerId: event.pointerId,
                   entity: selected,
                 });
