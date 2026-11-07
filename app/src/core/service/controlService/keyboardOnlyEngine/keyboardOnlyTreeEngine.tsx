@@ -531,6 +531,7 @@ export class KeyboardOnlyTreeEngine {
       }
 
       // 特效
+      if (Settings.isEnableEntityCollision) newNode.resolveOverlaps();
       this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(rootNode, newNode));
       SoundService.play.treeGenerateDeepSoundFile();
       // 根据设置决定镜头行为
@@ -683,6 +684,7 @@ export class KeyboardOnlyTreeEngine {
         toast.warning("当前结构不符合树形结构：无法确定唯一的根节点");
       }
     }
+    if (Settings.isEnableEntityCollision) newNode.resolveOverlaps();
     this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(parent, newNode));
     SoundService.play.treeGenerateBroadSoundFile();
     setTimeout(

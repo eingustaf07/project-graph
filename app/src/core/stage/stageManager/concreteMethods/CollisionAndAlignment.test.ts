@@ -194,6 +194,25 @@ describe("text node collision with the user's collision and auto-align settings"
         expect(overlap(nodes[i], nodes[j])).toBe(false);
       }
   });
+  it("pushes a blocker out of a 4096-node row without propagating movement through the row", () => {
+    const { p, node } = fixture();
+    const active = node(-500);
+    const step = active.rectangle.width;
+    const row = Array.from(
+      { length: 4096 },
+      (_, i) =>
+        new TextNode(p, {
+          text: active.text,
+          collisionBox: new CollisionBox([new Rectangle(new Vector(i * step, 0), Vector.getZero())]),
+        }),
+    );
+    p.stage.push(...row);
+    const scans = vi.spyOn(p.stageManager, "getEntities");
+    active.moveTo(Vector.getZero());
+    expect(scans).toHaveBeenCalledTimes(1);
+    expect(row.every((n) => !overlap(active, n))).toBe(true);
+    expect(row.slice(1).every((n, i) => !overlap(row[0], n) && n.rectangle.left === (i + 1) * step)).toBe(true);
+  });
   it("preserves opt-out and does not move the live graph while constructing detached clipboard nodes", () => {
     const { p, node } = fixture();
     const a = node(0);

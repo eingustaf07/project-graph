@@ -6,7 +6,9 @@ import { ConnectableEntity } from "@/core/stage/stageObject/abstract/Connectable
 import type { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import type { ResizeAble } from "@/core/stage/stageObject/abstract/StageObjectInterface";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
-import { Section } from "@/core/stage/stageObject/entity/Section";
+import { fitDoodleBounds } from "@/core/algorithm/doodleBounds";
+import { nearestFreeTranslation } from "@/core/algorithm/entityClearance";
+import { Section, boundedDoodleOf } from "@/core/stage/stageObject/entity/Section";
 import { getMultiLineTextSize, getTextSize } from "@/utils/font";
 import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
@@ -454,6 +456,43 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     this.updateFatherSectionByMove();
     // 移动其他实体，递归碰撞
     this.updateOtherEntityLocationByMove();
+  }
+
+  private static readonly activeCollisions = new WeakSet<Project>();
+
+  protected override updateOtherEntityLocationByMove(): void {
+    if (!Settings.isEnableEntityCollision || TextNode.activeCollisions.has(this.project)) return;
+    TextNode.activeCollisions.add(this.project);
+    try {
+      const boundary = boundedDoodleOf(this);
+      const entities = this.project.stageManager.getEntities();
+      // Move groups first: moving a group can also move its text children.
+      if (!boundary) {
+        for (const other of entities) {
+          if (!(other instanceof TextNode)) this.collideWithOtherEntity(other);
+        }
+      }
+      const anchor = this.rectangle;
+      for (const other of entities) {
+        if (!(other instanceof TextNode) || other === this || other.nearestLockedAncestorSection) continue;
+        if (!anchor.isCollideWith(other.rectangle) || boundedDoodleOf(other) !== boundary) continue;
+        const obstacles: Rectangle[] = [];
+        for (const item of entities) {
+          if (item === other || boundedDoodleOf(item) !== boundary) continue;
+          if (item instanceof Section && (item.isDoodle || this.project.sectionMethods.isEntityInSection(other, item)))
+            continue;
+          obstacles.push(item instanceof TextNode ? item.rectangle : item.collisionBox.getRectangle());
+        }
+        const delta = nearestFreeTranslation(
+          other.rectangle,
+          obstacles,
+          (candidate) => !boundary || !!fitDoodleBounds(boundary.frame, boundary.shape, candidate)?.isZero(),
+        );
+        if (delta) other.move(delta);
+      }
+    } finally {
+      TextNode.activeCollisions.delete(this.project);
+    }
   }
 
   protected override collideWithOtherEntity(other: Entity): void {

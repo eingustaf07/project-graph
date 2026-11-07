@@ -45,6 +45,7 @@ import { Decoder } from "@msgpack/msgpack";
 import { parseProjectFile } from "@/core/ProjectFile";
 import { GraphMethods } from "@/core/stage/stageManager/basicMethods/GraphMethods";
 import { AutoLayoutFastTree } from "@/core/service/controlService/autoLayoutEngine/autoLayoutFastTreeMode";
+import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/StageSectionInOutManager";
 import { EntityMoveManager } from "@/core/stage/stageManager/concreteMethods/StageEntityMoveManager";
 import { Settings } from "@/core/service/Settings";
 
@@ -133,6 +134,7 @@ it.skipIf(!process.env.PG_NN_READ_FILE)(
     };
     p.controller = { pressingKeySet: new Set() };
     p.controllerUtils = { editTextNode: vi.fn() };
+    p.sectionInOutManager = new SectionInOutManager(p);
     p.entityMoveManager = new EntityMoveManager(p);
     p.sectionCollisionSolver = { solveOverlaps: vi.fn() };
     p.autoLayoutFastTree = new AutoLayoutFastTree(p);
@@ -150,9 +152,21 @@ it.skipIf(!process.env.PG_NN_READ_FILE)(
     }
     Object.assign(report, { nnMs: performance.now() - nnStart, failure });
     await new Promise((resolve) => setTimeout(resolve, 150));
-    expect(p.controllerUtils.editTextNode).toHaveBeenCalledTimes(1);
-    if (process.env.PG_NN_REPORT) await writeFile(process.env.PG_NN_REPORT, JSON.stringify(report));
     expect(failure).toBeUndefined();
+    expect(p.controllerUtils.editTextNode).toHaveBeenCalledTimes(1);
+
+    if (Settings.isEnableEntityCollision) {
+      const created = p.stageManager.getTextNodes().find((n: TextNode) => !nodes.includes(n));
+      expect(created).toBeDefined();
+      expect(nodes.filter((n: TextNode) => created.rectangle.isCollideWith(n.rectangle))).toHaveLength(0);
+      const dropAt = candidate.rectangle.location.clone();
+      const dragStart = performance.now();
+      p.entityMoveManager.moveEntityToUtils(created, dropAt);
+      Object.assign(report, { dragMs: performance.now() - dragStart });
+      expect(created.rectangle.location).toEqual(dropAt);
+      expect(created.rectangle.isCollideWith(candidate.rectangle)).toBe(false);
+    }
+    if (process.env.PG_NN_REPORT) await writeFile(process.env.PG_NN_REPORT, JSON.stringify(report));
     expect(bytes.length).toBeGreaterThan(0);
   },
   60000,

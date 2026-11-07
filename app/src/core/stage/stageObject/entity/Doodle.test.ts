@@ -100,6 +100,22 @@ beforeEach(() => {
   Settings.containerNBoundary = false;
 });
 describe("real PG doodles and fixed containers", () => {
+  it("pushes existing text aside on creation and drag inside a fixed container", () => {
+    const p = fixture();
+    const d = cage(p);
+    const old = node(p);
+    const fresh = node(p);
+    p.stageManager.add(old);
+    p.stageManager.add(fresh);
+    expect(fresh.rectangle.location).toEqual(new Vector(180, 160));
+    expect(old.rectangle.isCollideWith(fresh.rectangle)).toBe(false);
+    const target = old.rectangle.location.clone();
+    p.entityMoveManager.moveEntityToUtils(fresh, target);
+    expect(fresh.rectangle.location).toEqual(target);
+    expect(old.rectangle.isCollideWith(fresh.rectangle)).toBe(false);
+    inside(d, old.rectangle);
+    inside(d, fresh.rectangle);
+  });
   it("grows for new content but keeps dragged members inside until N is held, then supports reentry", () => {
     Settings.containerNBoundary = true;
     const p = fixture();
