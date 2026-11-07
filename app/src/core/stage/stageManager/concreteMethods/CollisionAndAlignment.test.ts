@@ -126,7 +126,10 @@ describe("text node collision with the user's collision and auto-align settings"
     try {
       expect(node(-147, 256).rectangle.location).toEqual(new Vector(-147, 256));
       Object.assign(settings, { showBackgroundVerticalLines: true });
-      expect(node(147, 256).rectangle.location).toEqual(new Vector(100, 300));
+      const snapped = node(147, 256);
+      const r = snapped.rectangle;
+      expect([r.left, r.right].some((x) => Math.abs(x / 100 - Math.round(x / 100)) < 1e-8)).toBe(true);
+      expect([r.top, r.bottom].some((y) => Math.abs(y / 100 - Math.round(y / 100)) < 1e-8)).toBe(true);
     } finally {
       Object.assign(settings, {
         snapNewNodesToGrid: false,

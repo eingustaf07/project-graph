@@ -9,28 +9,40 @@ export function creationGridGap(project: Project): number {
   return project.backgroundRenderer?.getCurrentGap() ?? 0;
 }
 
-// Round shared layer coordinates together. When two originally disjoint
-// intervals would touch or overlap, reserve the next available grid line.
+const onGrid = (value: number, gap: number) => Math.abs(value / gap - Math.round(value / gap)) < 1e-8;
+
+// Keep shared layer coordinates together. Each axis may use either rectangle edge.
 function snapAxis(starts: number[], sizes: number[], gap: number) {
-  const ids = starts.map((_, i) => i);
-  const byStart = ids.slice().sort((a, b) => starts[a] - starts[b]);
-  const byEnd = ids.slice().sort((a, b) => starts[a] + sizes[a] - starts[b] - sizes[b]);
+  const groups = new Map<number, number[]>();
+  starts.forEach((start, i) => {
+    if (!groups.has(start)) groups.set(start, []);
+    groups.get(start)!.push(i);
+  });
+  const byEnd = starts.map((_, i) => i).sort((a, b) => starts[a] + sizes[a] - starts[b] - sizes[b]);
   const snapped: number[] = [];
   let nextEnd = 0,
     minimum = -Infinity;
-  for (const i of byStart) {
+  for (const [start, members] of [...groups].sort((a, b) => a[0] - b[0])) {
     while (
-      nextEnd < ids.length &&
-      starts[byEnd[nextEnd]] + sizes[byEnd[nextEnd]] <= starts[i] &&
-      starts[byEnd[nextEnd]] < starts[i]
+      nextEnd < byEnd.length &&
+      starts[byEnd[nextEnd]] + sizes[byEnd[nextEnd]] <= start &&
+      starts[byEnd[nextEnd]] < start
     ) {
       const j = byEnd[nextEnd++];
-      minimum = Math.max(
-        minimum,
-        Math.ceil((snapped[j] + sizes[j] + (starts[j] + sizes[j] < starts[i] ? 0.001 : 0)) / gap) * gap,
-      );
+      minimum = Math.max(minimum, snapped[j] + sizes[j] + (starts[j] + sizes[j] < start ? 0.001 : 0));
     }
-    snapped[i] = Math.max(minimum, Math.round(starts[i] / gap) * gap);
+    const offsets = [0, sizes[members[0]]];
+    const candidates = offsets
+      .map((offset) => {
+        const nearest = Math.round((start + offset) / gap) * gap - offset;
+        return nearest < minimum ? Math.ceil((minimum + offset) / gap) * gap - offset : nearest;
+      })
+      .filter((at) => members.every((i) => onGrid(at, gap) || onGrid(at + sizes[i], gap)));
+    const at = candidates.sort((a, b) => Math.abs(a - start) - Math.abs(b - start))[0];
+    members.forEach((i) => {
+      snapped[i] = at;
+    });
+    minimum = Math.max(minimum, at);
   }
   return snapped;
 }

@@ -130,7 +130,7 @@ about:
 settings:
   snapNewNodesToGrid:
     title: Snap new nodes to the background grid
-    description: Align the top left corner to grid intersections while both horizontal and vertical lines are visible. Keep tree branches spaced apart.
+    description: Align the nearest rectangle corner to a grid intersection while both horizontal and vertical lines are visible. Keep tree branches spaced apart.
   enableSmartTreeArrange:
     title: Enable smart tree arrangement (experimental)
     description: Select a root and press Ctrl+Alt+L or use the context menu. One undo restores the operation. Dashed links are associations; cycles, multiple parents and grouped nodes are refused. The shortcut is customizable.

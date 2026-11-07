@@ -173,9 +173,10 @@ it.skipIf(!process.env.PG_NN_READ_FILE)(
       expect(created.rectangle.left).toBeCloseTo(sibling.rectangle.left, 4);
       if (process.env.PG_GRID_GAP) {
         for (const node of [created, sibling, parent]) {
-          for (const value of [node.rectangle.left, node.rectangle.top]) {
-            expect(value / Number(process.env.PG_GRID_GAP)).toBe(Math.round(value / Number(process.env.PG_GRID_GAP)));
-          }
+          const gap = Number(process.env.PG_GRID_GAP);
+          const onGrid = (value: number) => Math.abs(value / gap - Math.round(value / gap)) < 1e-8;
+          expect([node.rectangle.left, node.rectangle.right].some(onGrid)).toBe(true);
+          expect([node.rectangle.top, node.rectangle.bottom].some(onGrid)).toBe(true);
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 180));

@@ -165,7 +165,7 @@ contextMenu:
 settings:
   snapNewNodesToGrid:
     title: 新节点吸附到背景方格
-    description: 同时显示背景横线和竖线时，新节点的左上角吸附到网格交点，树形分支保留间距。
+    description: 同时显示背景横线和竖线时，新节点选择移动距离最小的角吸附到网格交点，树形分支保留间距。
   enableSmartTreeArrange:
     title: 启用智能规整树形布局（实验）
     description: 选中根节点后按 Ctrl+Alt+L 或通过右键菜单规整其后代，可整次撤销。虚线作为额外关联边保留；环路、多父、分组框内节点暂不支持。快捷键可在快捷键设置中修改。
