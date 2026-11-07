@@ -1,0 +1,71 @@
+name: Windows development shell
+on:
+  push:
+    branches: [pg15-nn-growth-20261106]
+    paths:
+      - app/src-tauri/**
+      - .github/workflows/windows-development.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  development:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      PG_DEVELOPMENT_SHELL: "1"
+      CARGO_BUILD_JOBS: "2"
+      CARGO_PROFILE_RELEASE_LTO: "thin"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "8"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+          cache-on-failure: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @graphif/project-graph type-check
+      - name: Compile development desktop shell
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $null = New-Item -ItemType Directory -Force app/src-tauri/target/release
+          Set-Content app/src-tauri/target/release/start-server.ps1 'exit 0'
+          $pnpm = (Get-Command pnpm.cmd).Source
+          $vite = Start-Process -FilePath $pnpm -ArgumentList '--filter @graphif/project-graph dev' -WindowStyle Hidden -PassThru
+          $dev = Start-Process -FilePath $pnpm -ArgumentList '--filter @graphif/project-graph tauri dev --release --no-watch --no-dev-server-wait' -WindowStyle Hidden -RedirectStandardOutput dev-build.log -RedirectStandardError dev-build-errors.log -PassThru
+          $deadline = (Get-Date).AddMinutes(45)
+          while ((Get-Date) -lt $deadline) {
+            $native = Get-Process project-graph -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($native) {
+              Start-Sleep 5
+              Stop-Process -Id $native.Id -ErrorAction SilentlyContinue
+              break
+            }
+            if ($dev.HasExited) {
+              Get-Content dev-build-errors.log -Tail 80
+              throw 'Development compilation exited before launching the application'
+            }
+            Start-Sleep 5
+          }
+          if (!$native) { throw 'Development compilation timed out' }
+          $null = New-Item -ItemType Directory -Force development-shell
+          Copy-Item app/src-tauri/target/release/project-graph.exe development-shell/project-graph-pg11.exe
+          Get-FileHash development-shell/project-graph-pg11.exe | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PG-development-shell
+          path: development-shell
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: PG-development-build-logs
+          path: dev-build*.log
