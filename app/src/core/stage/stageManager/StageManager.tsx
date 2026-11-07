@@ -1,3 +1,4 @@
+import { nearestFreeTranslation } from "@/core/algorithm/entityClearance";
 import { Project, service } from "@/core/Project";
 import { EntityShrinkEffect } from "@/core/service/feedbackService/effectEngine/concrete/EntityShrinkEffect";
 import { PenStrokeDeletedEffect } from "@/core/service/feedbackService/effectEngine/concrete/PenStrokeDeletedEffect";
@@ -286,27 +287,62 @@ export class StageManager {
   snapCreatedNodes(nodes: ConnectableEntity[]) {
     const gap = creationGridGap(this.project);
     if (!gap) return;
-    const members = nodes.filter((n) => !(n instanceof Section));
+    const members = nodes.filter((n) => !(n instanceof Section) && !n.nearestLockedAncestorSection);
     const rects = members.map((n) => n.collisionBox.getRectangle());
     const locations = gridLocations(rects, gap);
-    const sections = new Set<Section>();
-    members.forEach((n, i) => {
+    const targets = members.map((n, i) => {
       const boundary = boundedDoodleOf(n);
       const target = new Rectangle(locations[i], rects[i].size);
-      if (boundary && !fitDoodleBounds(boundary.frame, boundary.shape, target)?.isZero()) {
-        // Try adjacent intersections toward the interior before giving the container wall priority.
-        const center = boundary.frame.center.subtract(target.size.multiply(0.5));
-        const towards = new Vector(Math.sign(center.x - target.left) * gap, Math.sign(center.y - target.top) * gap);
-        const alternatives = [new Vector(towards.x, 0), new Vector(0, towards.y), towards]
-          .map((offset) => target.location.add(offset))
-          .sort((a, b) => a.subtract(rects[i].location).magnitude() - b.subtract(rects[i].location).magnitude());
-        const inside = alternatives.find((at) =>
-          fitDoodleBounds(boundary.frame, boundary.shape, new Rectangle(at, target.size))?.isZero(),
+      if (boundary && !fitDoodleBounds(boundary.frame, boundary.shape, target)?.isZero()) return null;
+      return target;
+    });
+    // Apply the entire tree together. Per-node wall corrections can collapse sibling branches.
+    if (targets.some((target) => target === null)) return;
+    const planned = targets as Rectangle[];
+    const selected = new Set<Entity>(nodes);
+    const ancestors = new Set<Entity>();
+    for (const node of nodes)
+      for (let parent = node.parentSection; parent; parent = parent.parentSection) ancestors.add(parent);
+    if (Settings.isEnableEntityCollision && planned.length) {
+      const obstacles = this.getEntities()
+        .filter(
+          (e) =>
+            !selected.has(e) &&
+            !ancestors.has(e) &&
+            !(e instanceof Section && e.isDoodle) &&
+            members.some((n) => boundedDoodleOf(n) === boundedDoodleOf(e)),
+        )
+        .map((e) => e.collisionBox.getRectangle());
+      if (planned.some((r) => obstacles.some((wall) => r.isCollideWith(wall)))) {
+        const bounds = Rectangle.getBoundingRectangle(planned);
+        const delta = nearestFreeTranslation(
+          bounds,
+          obstacles,
+          (candidate) => {
+            const offset = candidate.location.subtract(bounds.location);
+            return members.every((n, i) => {
+              const boundary = boundedDoodleOf(n);
+              return (
+                !boundary ||
+                !!fitDoodleBounds(
+                  boundary.frame,
+                  boundary.shape,
+                  new Rectangle(planned[i].location.add(offset), planned[i].size),
+                )?.isZero()
+              );
+            });
+          },
+          gap,
         );
-        if (!inside) return;
-        target.location = inside;
+        if (!delta) return;
+        planned.forEach((r) => {
+          r.location = r.location.add(delta);
+        });
       }
-      const delta = target.location.subtract(rects[i].location);
+    }
+    const sections = new Set<Section>();
+    members.forEach((n, i) => {
+      const delta = planned[i].location.subtract(rects[i].location);
       if (delta.isZero()) return;
       translateClipboardEntities([n], delta);
       for (let parent = n.parentSection; parent; parent = parent.parentSection) sections.add(parent);

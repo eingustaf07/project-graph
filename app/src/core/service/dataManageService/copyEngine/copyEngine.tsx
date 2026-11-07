@@ -157,6 +157,10 @@ export class CopyEngine {
       this.project.stage.push(...objects);
       inserted = true;
       this.project.stageManager.updateReferences();
+      if (Settings.snapNewNodesToGrid)
+        this.project.stageManager.snapCreatedNodes(
+          entities.filter((e): e is ConnectableEntity => e instanceof ConnectableEntity),
+        );
       const copiedSet = new Set(entities);
       entities
         .filter((entity) => !entity.parentSection || !copiedSet.has(entity.parentSection))

@@ -1,3 +1,4 @@
+import { creationGridGap } from "@/core/algorithm/creationGrid";
 import { Settings } from "@/core/service/Settings";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import type { Section } from "@/core/stage/stageObject/entity/Section";
@@ -164,7 +165,14 @@ export abstract class Entity extends StageObject {
         : selfRectangle.top - otherRectangle.bottom;
     const moveDelta = Math.abs(dx) < Math.abs(dy) ? new Vector(dx, 0) : new Vector(0, dy);
     if (moveDelta.isZero()) return;
-    other.move(moveDelta);
+    const gap = creationGridGap(this.project);
+    const delta = gap
+      ? new Vector(
+          Math.sign(moveDelta.x) * Math.ceil(Math.abs(moveDelta.x) / gap) * gap,
+          Math.sign(moveDelta.y) * Math.ceil(Math.abs(moveDelta.y) / gap) * gap,
+        )
+      : moveDelta;
+    other.move(delta);
   }
   /**
    * 是不是因为所在的Section被折叠而隐藏了

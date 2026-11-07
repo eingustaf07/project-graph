@@ -1,3 +1,4 @@
+import { creationGridGap } from "@/core/algorithm/creationGrid";
 import type { Project } from "@/core/Project";
 import { Renderer } from "@/core/render/canvas2d/renderer";
 import { NodeMoveShadowEffect } from "@/core/service/feedbackService/effectEngine/concrete/NodeMoveShadowEffect";
@@ -487,6 +488,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
           other.rectangle,
           obstacles,
           (candidate) => !boundary || !!fitDoodleBounds(boundary.frame, boundary.shape, candidate)?.isZero(),
+          creationGridGap(this.project),
         );
         if (delta) other.move(delta);
       }

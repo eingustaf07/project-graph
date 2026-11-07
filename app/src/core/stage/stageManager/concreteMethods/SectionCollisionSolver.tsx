@@ -1,3 +1,4 @@
+import { creationGridGap } from "@/core/algorithm/creationGrid";
 import { Project, service } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
@@ -40,7 +41,13 @@ export class SectionCollisionSolver {
       const siblingRect = sibling.collisionBox.getRectangle();
       if (!grownRect.isCollideWith(siblingRect)) continue;
 
-      const delta = this.computePushDelta(grownRect, siblingRect);
+      let delta = this.computePushDelta(grownRect, siblingRect);
+      const gap = creationGridGap(this.project);
+      if (gap)
+        delta = new Vector(
+          Math.sign(delta.x) * Math.ceil(Math.abs(delta.x) / gap) * gap,
+          Math.sign(delta.y) * Math.ceil(Math.abs(delta.y) / gap) * gap,
+        );
       if (delta.x === 0 && delta.y === 0) continue;
 
       // 直接平移 sibling 整棵子树，不触发父级更新或碰撞事件链

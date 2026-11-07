@@ -138,6 +138,75 @@ describe("text node collision with the user's collision and auto-align settings"
       });
     }
   });
+  it("keeps snapped nodes on a grid corner after a drag collision and restores the full result on undo", () => {
+    const { p, node } = fixture();
+    p.backgroundRenderer = { getCurrentGap: () => 100 };
+    Object.assign(settings, {
+      snapNewNodesToGrid: true,
+      showBackgroundHorizontalLines: true,
+      showBackgroundVerticalLines: true,
+    });
+    try {
+      const a = node(150, 150),
+        b = node(600, 600),
+        c = node(600, 700);
+      const corner = (n: TextNode) => {
+        const onGrid = (v: number) => Math.abs(v / 100 - Math.round(v / 100)) < 1e-8;
+        expect([n.rectangle.left, n.rectangle.right].some(onGrid)).toBe(true);
+        expect([n.rectangle.top, n.rectangle.bottom].some(onGrid)).toBe(true);
+      };
+      p.historyManager.recordStep();
+      const before = serialize(p.stage);
+      a.moveTo(b.rectangle.location.clone());
+      p.historyManager.recordStep();
+      const after = serialize(p.stage);
+      for (const item of [a, b, c]) corner(item);
+      expect(overlap(a, b)).toBe(false);
+      expect(overlap(b, c)).toBe(false);
+      p.historyManager.undo();
+      expect(serialize(p.stage)).toEqual(before);
+      p.historyManager.redo();
+      expect(serialize(p.stage)).toEqual(after);
+    } finally {
+      Object.assign(settings, {
+        snapNewNodesToGrid: false,
+        showBackgroundHorizontalLines: false,
+        showBackgroundVerticalLines: false,
+      });
+    }
+  });
+  it("moves a snapped batch together out of existing nodes, preserving layer alignment and branch spacing", () => {
+    const { p, node } = fixture();
+    const obstacle = node(100, 100);
+    const a = node(700, 700),
+      b = node(700, 900);
+    settings.isEnableEntityCollision = false;
+    a.moveTo(new Vector(115, 105));
+    b.moveTo(new Vector(115, 305));
+    settings.isEnableEntityCollision = true;
+    p.backgroundRenderer = { getCurrentGap: () => 100 };
+    Object.assign(settings, {
+      snapNewNodesToGrid: true,
+      showBackgroundHorizontalLines: true,
+      showBackgroundVerticalLines: true,
+    });
+    try {
+      p.stageManager.snapCreatedNodes([a, b]);
+      expect(a.rectangle.left).toBe(b.rectangle.left);
+      expect(a.rectangle.bottom).toBeLessThan(b.rectangle.top);
+      expect(overlap(a, obstacle)).toBe(false);
+      expect(overlap(b, obstacle)).toBe(false);
+      const after = serialize(p.stage);
+      p.stageManager.snapCreatedNodes([a, b]);
+      expect(serialize(p.stage)).toEqual(after);
+    } finally {
+      Object.assign(settings, {
+        snapNewNodesToGrid: false,
+        showBackgroundHorizontalLines: false,
+        showBackgroundVerticalLines: false,
+      });
+    }
+  });
   it("separates nodes with exactly matching centers after a drag", () => {
     const { node } = fixture();
     const a = node(0),

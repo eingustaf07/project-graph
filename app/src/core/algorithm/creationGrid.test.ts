@@ -1,3 +1,4 @@
+import { nearestFreeTranslation } from "./entityClearance";
 vi.mock("@/core/service/Settings", () => ({ Settings: {} }));
 import { describe, it, expect, vi } from "vitest";
 import { Vector } from "@graphif/data-structures";
@@ -24,4 +25,13 @@ describe("nearest corner grid alignment", () => {
     expect(locations[0].x).toBe(locations[1].x);
     expect(locations[0].y + 51).toBeLessThan(locations[1].y);
   });
+});
+
+it("projects collision clearance over every obstacle on the grid, including an obstacle beyond the first overlap", () => {
+  const box = new Rectangle(new Vector(0, 0), new Vector(80, 80));
+  const walls = [
+    new Rectangle(new Vector(10, 0), new Vector(110, 80)),
+    new Rectangle(new Vector(150, 0), new Vector(80, 80)),
+  ];
+  expect(nearestFreeTranslation(box, walls, (r) => r.top === 0 && r.left >= 0, 100)).toEqual(new Vector(300, 0));
 });
