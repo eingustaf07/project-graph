@@ -121,6 +121,7 @@ Rust 主要负责本地文件等系统能力；绝大部分业务逻辑在前端
 
 - The user's daily PG is the live-source Windows development version from this checkout. After implementing and checking frontend changes, POST to `http://localhost:1420/__pg_development/apply` and verify `/__pg_development/status` has a newer `readyAt`. This applies the checked source and restores the open project buffers, history and viewport. Report any recovery failure and fix it before handing off.
 - Start the development desktop through `%LOCALAPPDATA%\Project Graph Development\project-graph-pg11.exe`. It starts its own local Vite server and uses the existing profile. For native Rust changes, rebuild the development shell through `Windows development shell`, update the executable after safely closing it, and verify startup before updating Windows entry points.
+- Deploy `scripts/set-pg-development-icon.ps1` beside the development executable together with `app/src-tauri/icons/icon.ico`. The development server launcher starts this helper to set the window icons. Development shortcuts must use this ICO as their IconLocation.
 
 - Preserve `mainBinaryName` and `identifier` across custom PG upgrades. Keep `productName`, version, and the native window title consistent with the release.
 - Keep the NSIS current-entry postinstall hook enabled. It updates `HKCU\Software\ProjectGraphCustom\CurrentExecutable` / `DisplayName`, the canonical `ProjectGraph.Current.File` association, and existing PG taskbar shortcuts. Do not replace this with version-specific launch paths.

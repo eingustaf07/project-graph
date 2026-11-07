@@ -2,6 +2,9 @@ $ErrorActionPreference = 'Stop'
 $mutex = New-Object Threading.Mutex($false, 'Local\ProjectGraphDevelopmentServer')
 $locked = $false
 try {
+    $nativeProcessId = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
+    $iconScript = Join-Path $PSScriptRoot 'set-pg-development-icon.ps1'
+    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $iconScript + '"'), '-TargetProcessId', $nativeProcessId)
     $locked = $mutex.WaitOne(180000)
     if (!$locked) { throw '等待开发服务器启动超时。' }
     $config = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'development.json') | ConvertFrom-Json
