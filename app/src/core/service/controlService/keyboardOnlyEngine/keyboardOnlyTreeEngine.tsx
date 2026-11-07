@@ -356,7 +356,7 @@ export class KeyboardOnlyTreeEngine {
           const validationResult = this.project.graphMethods.validateTreeStructure(rootNodeParent, true);
           if (validationResult.isValid) {
             if (Settings.autoLayoutWhenTreeGenerate) {
-              this.project.autoAlign.autoLayoutSelectedFastTreeMode(rootNodeParent);
+              this.project.autoAlign.autoLayoutSelectedFastTreeMode(rootNodeParent, true);
             }
           } else {
             if (Settings.autoLayoutWhenTreeGenerate) {
@@ -517,7 +517,7 @@ export class KeyboardOnlyTreeEngine {
         const validationResult = this.project.graphMethods.validateTreeStructure(rootNodeParent, true);
         if (validationResult.isValid) {
           if (Settings.autoLayoutWhenTreeGenerate) {
-            this.project.autoLayoutFastTree.autoLayoutFastTreeMode(rootNodeParent);
+            this.project.autoLayoutFastTree.autoLayoutFastTreeMode(rootNodeParent, true);
           }
           // 更新选择状态
           rootNodeParent.isSelected = false;
@@ -535,6 +535,7 @@ export class KeyboardOnlyTreeEngine {
       }
 
       // 特效
+      if (Settings.snapNewNodesToGrid) this.project.stageManager.snapCreatedNodes([newNode]);
       if (Settings.isEnableEntityCollision) newNode.resolveOverlaps();
       this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(rootNode, newNode));
       SoundService.play.treeGenerateDeepSoundFile();
@@ -676,7 +677,7 @@ export class KeyboardOnlyTreeEngine {
       const validationResult = this.project.graphMethods.validateTreeStructure(rootNodeParent, true);
       if (validationResult.isValid) {
         if (Settings.autoLayoutWhenTreeGenerate) {
-          this.project.autoAlign.autoLayoutSelectedFastTreeMode(rootNodeParent);
+          this.project.autoAlign.autoLayoutSelectedFastTreeMode(rootNodeParent, true);
         }
         // 更新选择状态
         rootNodeParent.isSelected = false;
@@ -692,6 +693,7 @@ export class KeyboardOnlyTreeEngine {
         toast.warning("当前结构不符合树形结构：无法确定唯一的根节点");
       }
     }
+    if (Settings.snapNewNodesToGrid) this.project.stageManager.snapCreatedNodes([newNode]);
     if (Settings.isEnableEntityCollision) newNode.resolveOverlaps();
     this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(parent, newNode));
     SoundService.play.treeGenerateBroadSoundFile();

@@ -1,3 +1,4 @@
+import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Project, service } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
@@ -146,6 +147,10 @@ export class CopyEngine {
       // References point to the same deserialized instances; change each id only once.
       for (const object of objects) object.uuid = v4();
       const rect = centerClipboardEntities(entities, location);
+      if (Settings.snapNewNodesToGrid)
+        this.project.stageManager.snapCreatedNodes(
+          entities.filter((e): e is ConnectableEntity => e instanceof ConnectableEntity),
+        );
       const boundedRect = containPastedEntities(this.project, entities, location);
       previousSelection = this.project.stage.filter((object) => object.isSelected);
       this.project.stageManager.clearSelectAll();

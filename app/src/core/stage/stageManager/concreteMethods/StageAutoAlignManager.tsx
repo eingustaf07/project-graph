@@ -429,7 +429,7 @@ export class AutoAlign {
    * 自动布局树形结构
    * @param selectedRootEntity
    */
-  autoLayoutSelectedFastTreeMode(selectedRootEntity: ConnectableEntity) {
+  autoLayoutSelectedFastTreeMode(selectedRootEntity: ConnectableEntity, afterGrowth = false) {
     // 检测树形结构（跳过虚线边，虚线边不参与树形结构判断）
     const validationResult = this.project.graphMethods.validateTreeStructure(selectedRootEntity, true);
     if (!validationResult.isValid) {
@@ -437,6 +437,6 @@ export class AutoAlign {
       showTreeValidationErrors(validationResult, "error");
       return;
     }
-    this.project.autoLayoutFastTree.autoLayoutFastTreeMode(selectedRootEntity);
+    this.project.autoLayoutFastTree.autoLayoutFastTreeMode(selectedRootEntity, afterGrowth);
   }
 }

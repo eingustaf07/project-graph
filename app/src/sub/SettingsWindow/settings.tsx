@@ -331,6 +331,7 @@ export const categories = {
       "enableCrossFileConnections",
       "windowCollapsingWidth",
       "windowCollapsingHeight",
+      "snapNewNodesToGrid",
       "enableSmartTreeArrange",
       "smartTreeArrangeMode",
       "smartTreeArrangeDirection",

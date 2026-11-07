@@ -145,10 +145,17 @@ it.skipIf(!process.env.PG_NN_READ_FILE)(
     p.sectionCollisionSolver = { solveOverlaps: vi.fn() };
     p.autoLayoutFastTree = new AutoLayoutFastTree(p);
     p.autoAlign = {
-      autoLayoutSelectedFastTreeMode: (root: TextNode) => p.autoLayoutFastTree.autoLayoutFastTreeMode(root),
+      autoLayoutSelectedFastTreeMode: (root: TextNode, afterGrowth = false) =>
+        p.autoLayoutFastTree.autoLayoutFastTreeMode(root, afterGrowth),
     };
     Settings.autoLayoutWhenTreeGenerate = true;
     Settings.isEnableEntityCollision = process.env.PG_NN_COLLISION === "1";
+    if (process.env.PG_GRID_GAP) {
+      Settings.snapNewNodesToGrid = true;
+      Settings.showBackgroundHorizontalLines = true;
+      Settings.showBackgroundVerticalLines = true;
+      p.backgroundRenderer = { getCurrentGap: () => Number(process.env.PG_GRID_GAP) };
+    }
     if (process.env.PG_ARC_TEST) {
       const incoming = p.stageManager.getArcEdges().find((e: any) => e.target === candidate);
       const outgoing = p.stageManager.getArcEdges().find((e: any) => e.source === candidate);
@@ -164,6 +171,13 @@ it.skipIf(!process.env.PG_NN_READ_FILE)(
       expect(p.graphMethods.getEdgesBetween(parent, created)).toHaveLength(1);
       expect(created.rectangle.isCollideWith(sibling.rectangle)).toBe(false);
       expect(created.rectangle.left).toBeCloseTo(sibling.rectangle.left, 4);
+      if (process.env.PG_GRID_GAP) {
+        for (const node of [created, sibling, parent]) {
+          for (const value of [node.rectangle.left, node.rectangle.top]) {
+            expect(value / Number(process.env.PG_GRID_GAP)).toBe(Math.round(value / Number(process.env.PG_GRID_GAP)));
+          }
+        }
+      }
       await new Promise((resolve) => setTimeout(resolve, 180));
       expect(p.controllerUtils.editTextNode).toHaveBeenCalledTimes(1);
       return;

@@ -21,6 +21,10 @@ import { captureNewDoodleEntity } from "@/core/stage/stageObject/entity/Doodle";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
+import { creationGridGap, gridLocations } from "@/core/algorithm/creationGrid";
+import { translateClipboardEntities } from "@/core/service/dataManageService/copyEngine/clipboardPosition";
+import { boundedDoodleOf } from "@/core/stage/stageObject/entity/Doodle";
+import { fitDoodleBounds } from "@/core/algorithm/doodleBounds";
 import { Direction } from "@/types/directions";
 // import { Serialized } from "@/types/node";
 import { Vector } from "@graphif/data-structures";
@@ -279,8 +283,40 @@ export class StageManager {
     return this.project.stage.filter((node) => node instanceof ArcEdge);
   }
 
+  snapCreatedNodes(nodes: ConnectableEntity[]) {
+    const gap = creationGridGap(this.project);
+    if (!gap) return;
+    const members = nodes.filter((n) => !(n instanceof Section));
+    const rects = members.map((n) => n.collisionBox.getRectangle());
+    const locations = gridLocations(rects, gap);
+    const sections = new Set<Section>();
+    members.forEach((n, i) => {
+      const boundary = boundedDoodleOf(n);
+      const target = new Rectangle(locations[i], rects[i].size);
+      if (boundary && !fitDoodleBounds(boundary.frame, boundary.shape, target)?.isZero()) {
+        // Try adjacent intersections toward the interior before giving the container wall priority.
+        const center = boundary.frame.center.subtract(target.size.multiply(0.5));
+        const towards = new Vector(Math.sign(center.x - target.left) * gap, Math.sign(center.y - target.top) * gap);
+        const alternatives = [new Vector(towards.x, 0), new Vector(0, towards.y), towards]
+          .map((offset) => target.location.add(offset))
+          .sort((a, b) => a.subtract(rects[i].location).magnitude() - b.subtract(rects[i].location).magnitude());
+        const inside = alternatives.find((at) =>
+          fitDoodleBounds(boundary.frame, boundary.shape, new Rectangle(at, target.size))?.isZero(),
+        );
+        if (!inside) return;
+        target.location = inside;
+      }
+      const delta = target.location.subtract(rects[i].location);
+      if (delta.isZero()) return;
+      translateClipboardEntities([n], delta);
+      for (let parent = n.parentSection; parent; parent = parent.parentSection) sections.add(parent);
+    });
+    [...sections].sort((a, b) => b.sectionDepth - a.sectionDepth).forEach((s) => s.adjustLocationAndSize());
+  }
+
   add(stageObject: StageObject, skipUpdateReferences = false, placement?: { doodleOnly?: boolean }) {
     if (stageObject instanceof Entity) captureNewDoodleEntity(this.project, stageObject, placement?.doodleOnly);
+    if (stageObject instanceof ConnectableEntity && Settings.snapNewNodesToGrid) this.snapCreatedNodes([stageObject]);
     this.project.stage.push(stageObject);
     if (!skipUpdateReferences) {
       this.updateReferences();

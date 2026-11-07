@@ -612,7 +612,7 @@ export class AutoLayoutFastTree {
    * 快速树形布局
    * @param rootNode
    */
-  public autoLayoutFastTreeMode(rootNode: ConnectableEntity) {
+  public autoLayoutFastTreeMode(rootNode: ConnectableEntity, afterGrowth = false) {
     // 树形结构的根节点 矩形左上角位置固定不动
     const rootLeftTopLocation = rootNode.collisionBox.getRectangle().leftTop.clone();
 
@@ -756,6 +756,7 @@ export class AutoLayoutFastTree {
     for (const node of treeNodes) {
       this.project.entityMoveManager.moveEntityUtils(node, delta);
     }
+    if (afterGrowth) this.project.stageManager.snapCreatedNodes(treeNodes);
     // ------- 恢复完毕
   }
 

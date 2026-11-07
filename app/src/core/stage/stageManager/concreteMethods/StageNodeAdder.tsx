@@ -161,6 +161,7 @@ export class NodeAdder {
       const targetLocation = entityRectangle.leftBottom;
       newNode.moveTo(targetLocation);
     }
+    if (Settings.snapNewNodesToGrid) this.project.stageManager.snapCreatedNodes([newNode]);
     this.project.historyManager.recordStep();
     // 创建时没有记录，这里调整完位置再记录
     return uuid;

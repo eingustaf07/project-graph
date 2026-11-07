@@ -283,6 +283,7 @@ export const settingsIcons = {
   maxFps: Timer,
   maxFpsUnfocused: Timer,
   aiContextWindow: Gauge,
+  snapNewNodesToGrid: AlignJustify,
   enableSmartTreeArrange: AlignJustify,
   smartTreeArrangeMode: AlignJustify,
   smartTreeArrangeDirection: ArrowRight,

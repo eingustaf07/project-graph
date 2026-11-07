@@ -144,6 +144,7 @@ export const settingsSchema = z.object({
   enableSpaceKeyMouseLeftDrag: z.boolean().default(true),
   enableDragAutoAlign: z.boolean().default(false),
   reverseTreeMoveMode: z.boolean().default(false),
+  snapNewNodesToGrid: z.boolean().default(false),
   enableSmartTreeArrange: z.boolean().default(false),
   smartTreeArrangeMode: z.union([z.literal("preserve"), z.literal("standard")]).default("preserve"),
   smartTreeArrangeDirection: z

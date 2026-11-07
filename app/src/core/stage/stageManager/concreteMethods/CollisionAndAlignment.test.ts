@@ -115,6 +115,26 @@ describe("text node collision with the user's collision and auto-align settings"
   beforeEach(() => {
     settings.isEnableEntityCollision = true;
   });
+  it("snaps newly created nodes only while both background grid lines are visible", () => {
+    const { p, node } = fixture();
+    p.backgroundRenderer = { getCurrentGap: () => 100 };
+    Object.assign(settings, {
+      snapNewNodesToGrid: true,
+      showBackgroundHorizontalLines: true,
+      showBackgroundVerticalLines: false,
+    });
+    try {
+      expect(node(-147, 256).rectangle.location).toEqual(new Vector(-147, 256));
+      Object.assign(settings, { showBackgroundVerticalLines: true });
+      expect(node(147, 256).rectangle.location).toEqual(new Vector(100, 300));
+    } finally {
+      Object.assign(settings, {
+        snapNewNodesToGrid: false,
+        showBackgroundVerticalLines: false,
+        showBackgroundHorizontalLines: false,
+      });
+    }
+  });
   it("separates nodes with exactly matching centers after a drag", () => {
     const { node } = fixture();
     const a = node(0),

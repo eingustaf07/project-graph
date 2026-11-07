@@ -1,3 +1,4 @@
+import { creationGridGap, gridLocations } from "@/core/algorithm/creationGrid";
 import type { Project } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
@@ -194,6 +195,21 @@ export function generateAITreeEntries(
         root ? (options.direction === "down" ? "y" : "x") : undefined,
       )
     : placeInFreeSpace(planned, obstacles, options.safetyGap ?? 60, options.direction === "down" ? "y" : "x");
+  const grid = creationGridGap(project);
+  if (grid) {
+    const locations = gridLocations(
+      planned.map((r) => new Rectangle(new Vector(r.x, r.y), new Vector(r.width, r.height))),
+      grid,
+    );
+    planned = planned.map((r, i) => ({ ...r, x: locations[i].x, y: locations[i].y }));
+    if (
+      container &&
+      planned.some(
+        (r) => !new Rectangle(new Vector(r.x, r.y), new Vector(r.width, r.height)).isAbsoluteIn(container.rectangle),
+      )
+    )
+      throw new Error("网格吸附后节点超出容器，请先扩大容器");
+  }
   if (findOverlaps(planned, obstacles).length) throw new Error("创建前验证发现重叠，未创建节点");
   nodes.forEach((node, i) => setRect(node, planned[i]));
   const edges = entries.flatMap((entry, i) => {
