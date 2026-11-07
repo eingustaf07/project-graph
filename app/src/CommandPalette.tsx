@@ -36,6 +36,8 @@ export default function CommandPalette({ zoomStyle }: { zoomStyle?: React.CSSPro
     })();
   }, [commandPaletteVisible]);
 
+  if (!commandPaletteVisible) return null;
+
   return (
     <CommandDialog open={commandPaletteVisible} onOpenChange={setCommandPaletteVisible} contentStyle={zoomStyle}>
       <Command shouldFilter>

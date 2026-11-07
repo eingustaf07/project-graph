@@ -33,20 +33,25 @@ export function paintWithErasures(
     layer = document.createElement("canvas");
     scratch.set(ctx, layer);
   }
-  layer.width = Math.max(1, Math.ceil((right - left) * dpr));
-  layer.height = Math.max(1, Math.ceil((bottom - top) * dpr));
+  const width = Math.max(1, Math.ceil((right - left) * dpr));
+  const height = Math.max(1, Math.ceil((bottom - top) * dpr));
+  if (layer.width < width) layer.width = width;
+  if (layer.height < height) layer.height = height;
   const target = layer.getContext("2d");
   if (!target) throw new Error("无法创建橡皮擦遮罩画布");
-  target.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
+  target.clearRect(0, 0, width, height);
+  target.save();
   try {
+    target.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
     project.canvas.ctx = target;
     paint(target);
+    applyEraserMarks(target, marks, origin, frame.width * scale, frame.height * scale);
   } finally {
     project.canvas.ctx = ctx;
+    target.restore();
   }
-  applyEraserMarks(target, marks, origin, frame.width * scale, frame.height * scale);
   // Composite only this object's pixels, so overlapping objects and the canvas background are never punched out.
-  ctx.drawImage(layer, left, top, right - left, bottom - top);
+  ctx.drawImage(layer, 0, 0, width, height, left, top, right - left, bottom - top);
 }
 
 export function applyEraserMarks(

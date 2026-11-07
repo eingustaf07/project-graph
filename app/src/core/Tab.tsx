@@ -121,24 +121,18 @@ export abstract class Tab extends React.Component<Record<string, never>, Record<
   loop() {
     if (this.rafHandle !== -1) return;
 
-    const startTime = performance.now();
-    let ticksExecuted = 0;
+    let lastTick = performance.now();
 
     const animationFrame = (time: number) => {
       const isFocused = document.hasFocus();
       const maxFps = Math.max(1, isFocused ? Settings.maxFps : Settings.maxFpsUnfocused);
       const timeStep = 1000 / maxFps;
-      const totalElapsed = time - startTime;
-      const expectedTicks = Math.floor(totalElapsed / timeStep);
-      let ticksNeeded = expectedTicks - ticksExecuted;
-      if (ticksNeeded > 10) {
-        ticksExecuted = expectedTicks;
-        ticksNeeded = 0;
-      }
-      while (ticksNeeded > 0) {
+      const elapsed = time - lastTick;
+      if (elapsed >= timeStep) {
+        // Only the last canvas drawn before a refresh can be displayed. Drop missed
+        // frames while carrying the fractional remainder for the requested FPS.
+        lastTick = time - (elapsed % timeStep);
         this.tick();
-        ticksExecuted++;
-        ticksNeeded--;
       }
       this.rafHandle = requestAnimationFrame(animationFrame);
     };

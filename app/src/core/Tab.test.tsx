@@ -16,6 +16,41 @@ class TestTab extends Tab {
 }
 
 describe("Tab cleanup", () => {
+  it("discards missed display frames and resumes rendering after focus changes", () => {
+    let frame: FrameRequestCallback;
+    vi.stubGlobal("requestAnimationFrame", (next: FrameRequestCallback) => {
+      frame = next;
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const now = vi.spyOn(performance, "now").mockReturnValue(0);
+    const focus = vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    const tab = new TestTab({});
+    const tick = vi.fn();
+    tab.loadService(
+      class {
+        static id = "frameProbe";
+        tick = tick;
+      },
+    );
+    try {
+      tab.loop();
+      frame!(100);
+      expect(tick).toHaveBeenCalledTimes(1);
+      focus.mockReturnValue(false);
+      frame!(2100);
+      expect(tick).toHaveBeenCalledTimes(2);
+      focus.mockReturnValue(true);
+      frame!(2120);
+      expect(tick).toHaveBeenCalledTimes(3);
+    } finally {
+      tab.pause();
+      now.mockRestore();
+      focus.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("releases every acquired service and listener before surfacing cleanup failures", async () => {
     const disposed = vi.fn();
     const tab = new TestTab({});

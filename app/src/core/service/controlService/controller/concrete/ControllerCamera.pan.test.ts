@@ -51,6 +51,7 @@ afterEach(() => {
 function fixture() {
   const p = {
     stage: [],
+    attachments: new Map(),
     canvas: { element: document.createElement("canvas") },
     controller: {
       isCameraLocked: false,
@@ -128,7 +129,8 @@ it.skipIf(!process.env.PG_PAN_READ_FILE)(
     const path = process.env.PG_PAN_READ_FILE!;
     const bytes = await readFile(path);
     const hash = (value: Uint8Array) => createHash("sha256").update(value).digest("hex");
-    const parsed = await parseProjectFile(new Uint8Array(bytes), new Decoder(), new Map());
+    const { p, control } = fixture();
+    const parsed = await parseProjectFile(new Uint8Array(bytes), new Decoder(), p.attachments);
     if (process.env.PG_PAN_SETTINGS) {
       const saved = JSON.parse(await readFile(process.env.PG_PAN_SETTINGS, "utf8"));
       for (const key of [
@@ -142,7 +144,6 @@ it.skipIf(!process.env.PG_PAN_READ_FILE)(
         if (key in saved) Object.assign(Settings, { [key]: saved[key] });
       }
     }
-    const { p, control } = fixture();
     p.stage = deserialize(parsed.serializedStageObjects, p);
     p.stageManager.updateReferences();
     const before = JSON.stringify(serialize(p.stage));

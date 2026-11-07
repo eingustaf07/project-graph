@@ -93,9 +93,17 @@ export class TextRenderer {
     const viewportHeight = this.project.renderer.h;
     if (viewportHeight > 0 && (location.y - size * 0.25 >= viewportHeight || location.y + size * 1.25 <= 0)) return;
 
-    const textWidth = getTextSize(text, size, fontFamily, fontWeight).x;
-    const visibleRun = this.visibleTextRun(text, location.x, size, textWidth, fontFamily, fontWeight);
-    if (!visibleRun) return;
+    let left = location.x;
+    const viewportWidth = this.project.renderer.w;
+    if (viewportWidth > 0 && left >= viewportWidth) return;
+    // Short runs beginning inside the viewport are always drawn in full.
+    if (viewportWidth > 0 && (left < 0 || text.length >= 16)) {
+      const width = getTextSize(text, size, fontFamily, fontWeight).x;
+      const run = this.visibleTextRun(text, left, size, width, fontFamily, fontWeight);
+      if (!run) return;
+      text = run.text;
+      left = run.left;
+    }
 
     const ctx = this.project.canvas.ctx;
     const font = resolveFont(TEXT_RENDER_SIZE, fontFamily, fontWeight);
@@ -105,9 +113,9 @@ export class TextRenderer {
     if (ctx.font !== font) ctx.font = font;
     if (ctx.fillStyle !== fillStyle) ctx.fillStyle = fillStyle;
     ctx.save();
-    ctx.translate(visibleRun.left, location.y);
+    ctx.translate(left, location.y);
     ctx.scale(size / TEXT_RENDER_SIZE, size / TEXT_RENDER_SIZE);
-    ctx.fillText(visibleRun.text, 0, TEXT_RENDER_SIZE / 2);
+    ctx.fillText(text, 0, TEXT_RENDER_SIZE / 2);
     ctx.restore();
   }
 
