@@ -1772,11 +1772,11 @@ keyBinds:
       开启后，屏幕左上角将会显示调试信息。
       若您遇到bug截图反馈时，建议开启此选项。
   nextGrowthEdgeReverse:
-    title: 下一次生长的箭头指回当前节点
-    description: 按住 Tab 再按 R。仅影响此节点下一次向下一级生长的新节点，不修改已有连线。
+    title: 反转连线方向
+    description: 选中有向线时立即反转箭头。选中单个节点时，让下一次 NN 生长的箭头指回该节点。
   nextGrowthEdgeUndirected:
-    title: 下一次生长使用无向连线
-    description: 按住 Tab 再按 G。仅影响此节点下一次向下一级生长的新节点，生效后自动恢复。
+    title: 转为无向连线
+    description: 选中有向线时立即转为无向线。选中单个节点时，仅下一次 NN 生长使用无向线。
   generateNodeTreeWithDeepMode:
     title: 生长子级节点
     description: |

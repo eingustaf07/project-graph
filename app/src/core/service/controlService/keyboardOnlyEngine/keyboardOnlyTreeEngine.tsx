@@ -2,6 +2,7 @@ import { Project, service } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { ArcEdge } from "@/core/stage/stageObject/association/ArcEdge";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { toast } from "sonner";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
@@ -16,6 +17,10 @@ import { RectangleRenderEffect } from "../../feedbackService/effectEngine/concre
 import { SoundService } from "../../feedbackService/SoundService";
 import { Settings } from "../../Settings";
 
+function isSelectedDirectedEdge(item: unknown): item is LineEdge | ArcEdge {
+  return (item instanceof LineEdge || item instanceof ArcEdge) && item.isSelected;
+}
+
 /**
  * 专用于Xmind式的树形结构的键盘操作引擎
  */
@@ -23,6 +28,43 @@ import { Settings } from "../../Settings";
 export class KeyboardOnlyTreeEngine {
   constructor(private readonly project: Project) {}
   private nextGrowthEdge?: { nodeId: string; mode: "reverse" | "undirected" };
+
+  canChangeEdgeDirection() {
+    return (
+      !Settings.viewerMode &&
+      (this.project.stage.some(isSelectedDirectedEdge) ||
+        (this.project.keyboardOnlyEngine.isOpenning() &&
+          this.project.stageManager.getConnectableEntity().filter((node) => node.isSelected).length === 1))
+    );
+  }
+
+  changeEdgeDirection(mode: "reverse" | "undirected") {
+    if (!this.canChangeEdgeDirection()) return;
+    const edges = this.project.stage.filter(isSelectedDirectedEdge);
+    if (!edges.length) {
+      this.armNextGrowthEdge(mode);
+      return;
+    }
+    if (mode === "reverse") {
+      this.project.nodeConnector.reverseEdges(edges);
+    } else {
+      const convertible = edges.filter((edge) => edge.source !== edge.target);
+      if (convertible.length < edges.length) toast.warning("自环无法转换为无向连线");
+      if (!convertible.length) return;
+      for (const edge of convertible) {
+        const replacement = MultiTargetUndirectedEdge.createFromSomeEntity(this.project, [edge.source, edge.target]);
+        replacement.uuid = edge.uuid;
+        replacement.text = edge.text;
+        replacement.color = edge.color.clone();
+        replacement.rectRates = [edge.sourceRectangleRate.clone(), edge.targetRectangleRate.clone()];
+        if (edge.lineType === "double" || edge.lineType === "dashed") replacement.lineType = edge.lineType;
+        replacement.isSelected = true;
+        this.project.stage[this.project.stage.indexOf(edge)] = replacement;
+      }
+      this.project.stageManager.updateReferences();
+    }
+    this.project.historyManager.recordStep();
+  }
 
   armNextGrowthEdge(mode: "reverse" | "undirected") {
     const nodes = this.project.stageManager.getConnectableEntity().filter((node) => node.isSelected);

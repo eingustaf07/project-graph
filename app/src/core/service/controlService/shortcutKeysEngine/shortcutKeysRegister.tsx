@@ -1907,12 +1907,8 @@ export const allKeyBinds: KeyBindItem[] = [
     id,
     defaultKey,
     icon: GitBranch,
-    when: (project?: Project) =>
-      !!project &&
-      !Settings.viewerMode &&
-      project.keyboardOnlyEngine.isOpenning() &&
-      project.stageManager.getConnectableEntity().filter((node) => node.isSelected).length === 1,
-    onPress: (project?: Project) => project?.keyboardOnlyTreeEngine.armNextGrowthEdge(mode),
+    when: (project?: Project) => !!project?.keyboardOnlyTreeEngine.canChangeEdgeDirection(),
+    onPress: (project?: Project) => project?.keyboardOnlyTreeEngine.changeEdgeDirection(mode),
   })),
   {
     id: "generateNodeTreeWithDeepMode",

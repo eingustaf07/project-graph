@@ -1973,11 +1973,11 @@ keyBinds:
 
       若您遇到bug截圖回報時，建議開啟此選項。'
   nextGrowthEdgeReverse:
-    title: 下一次生長的箭頭指回目前節點
-    description: 按住 Tab 再按 R。只影響此節點下一次生長的新節點，不修改既有連線。
+    title: 反轉連線方向
+    description: 選取有向線時立即反轉箭頭。選取單一節點時，讓下一次 NN 生長的箭頭指回該節點。
   nextGrowthEdgeUndirected:
-    title: 下一次生長使用無向連線
-    description: 按住 Tab 再按 G。只生效一次，之後自動恢復一般生長。
+    title: 轉為無向連線
+    description: 選取有向線時立即轉為無向線。選取單一節點時，僅下一次 NN 生長使用無向線。
   generateNodeTreeWithDeepMode:
     title: 生長子層節點
     description: '按下後，瞬間生長一個節點並放置在當前選取節點的右側

@@ -2032,11 +2032,11 @@ keyBinds:
       Saat diaktifkan, informasi debug akan ditampilkan di sudut kiri atas layar.
       Disarankan mengaktifkan ini saat melaporkan bug dengan screenshot.
   nextGrowthEdgeReverse:
-    title: Arahkan panah berikutnya ke simpul ini
-    description: Tahan Tab dan tekan R. Berlaku hanya untuk anak berikutnya dari simpul terpilih.
+    title: Balik arah garis
+    description: Balik arah garis terpilih, atau arahkan panah anak berikutnya kembali ke simpul terpilih.
   nextGrowthEdgeUndirected:
-    title: Gunakan garis tanpa arah untuk anak berikutnya
-    description: Tahan Tab dan tekan G. Berlaku sekali, lalu kembali ke perilaku normal.
+    title: Ubah menjadi garis tanpa arah
+    description: Ubah garis terpilih menjadi garis tanpa arah, atau gunakan garis tanpa arah hanya untuk anak berikutnya.
   generateNodeTreeWithDeepMode:
     title: Tumbuhkan Node Anak
     description: |

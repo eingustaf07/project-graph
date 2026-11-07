@@ -304,7 +304,8 @@ it.each(["reverse", "undirected"] as const)(
   (mode) => {
     const { p, root, engine, select } = fixture();
     const before = serialize(p.stage);
-    engine.armNextGrowthEdge(mode);
+    expect(engine.canChangeEdgeDirection()).toBe(true);
+    engine.changeEdgeDirection(mode);
     engine.onDeepGenerateNode();
     if (mode === "undirected") {
       const edge = p.stage.find((object: unknown) => object instanceof MultiTargetUndirectedEdge);
@@ -324,6 +325,47 @@ it.each(["reverse", "undirected"] as const)(
     expect(p.stageManager.getLineEdges().at(-1).source.uuid).toBe(root.uuid);
   },
 );
+
+it.each(["reverse", "undirected"] as const)("updates a selected existing edge in ordinary mouse mode: %s", (mode) => {
+  const { p, root, engine, select } = fixture();
+  const child = new TextNode(p, { text: "child" });
+  p.stageManager.add(child);
+  p.nodeConnector.connectEntityFast(root, child, "label");
+  const edge = p.stageManager.getLineEdges()[0];
+  p.historyManager.recordStep();
+  select(edge.uuid);
+  p.keyboardOnlyEngine.isOpenning = () => false;
+  expect(engine.canChangeEdgeDirection()).toBe(true);
+  const before = serialize(p.stage);
+  engine.changeEdgeDirection(mode);
+  const result = p.stageManager.get(edge.uuid);
+  expect(result.text).toBe("label");
+  expect(result.isSelected).toBe(true);
+  expect(result.associationList).toEqual(mode === "reverse" ? [child, root] : [root, child]);
+  if (mode === "undirected") {
+    expect(result).toBeInstanceOf(MultiTargetUndirectedEdge);
+    expect(result.arrow).toBe("none");
+  } else expect(result).toBeInstanceOf(LineEdge);
+  const after = serialize(p.stage);
+  p.historyManager.undo();
+  expect(serialize(p.stage)).toEqual(before);
+  p.historyManager.redo();
+  expect(serialize(p.stage)).toEqual(after);
+});
+
+it("reverses selected arcs without moving the curve or its label", () => {
+  const { p, root, engine, select } = fixture();
+  const child = new TextNode(p, { text: "child" });
+  p.stageManager.add(child);
+  const arc = new ArcEdge(p, { associationList: [root, child], offset: 20, textPosition: 0.25 });
+  p.stageManager.add(arc);
+  select(arc.uuid);
+  engine.changeEdgeDirection("reverse");
+  expect(arc.source).toBe(child);
+  expect(arc.target).toBe(root);
+  expect(arc.offset).toBe(-20);
+  expect(arc.textPosition).toBe(0.75);
+});
 
 it("keeps the pending rule on its original node and lets the last chosen mode win", () => {
   const { p, root, engine, select } = fixture();

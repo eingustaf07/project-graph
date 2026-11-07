@@ -102,7 +102,7 @@ export class NodeConnector {
   // 将多个节点之间全连接
 
   // 反向连线
-  reverseEdges(edges: LineEdge[]) {
+  reverseEdges(edges: (LineEdge | ArcEdge)[]) {
     edges.forEach((edge) => {
       const oldSource = edge.source;
       edge.source = edge.target;
@@ -110,6 +110,10 @@ export class NodeConnector {
       const oldSourceRectRage = edge.sourceRectangleRate;
       edge.sourceRectangleRate = edge.targetRectangleRate;
       edge.targetRectangleRate = oldSourceRectRage;
+      if (edge instanceof ArcEdge) {
+        edge.offset = -edge.offset;
+        edge.textPosition = 1 - edge.textPosition;
+      }
     });
     this.project.stageManager.updateReferences();
   }

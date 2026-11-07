@@ -1769,11 +1769,11 @@ keyBinds:
       When pressed, grow a node using only the keyboard.
       Release to complete the growth.
   nextGrowthEdgeReverse:
-    title: Point the next grown edge back to this node
-    description: Hold Tab and press R. Applies only to the next child grown from the selected node.
+    title: Reverse edge direction
+    description: Reverse selected directed edges, or point the next child edge back to the selected node.
   nextGrowthEdgeUndirected:
-    title: Use an undirected edge for the next grown node
-    description: Hold Tab and press G. Applies once to the selected node, then restores normal growth.
+    title: Make edge undirected
+    description: Convert selected directed edges to undirected edges, or grow the next child with an undirected edge.
   generateNodeTreeWithDeepMode:
     title: Grow Node in Child Mode
     description: |
