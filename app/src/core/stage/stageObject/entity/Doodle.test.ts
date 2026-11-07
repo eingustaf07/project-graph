@@ -100,6 +100,35 @@ beforeEach(() => {
   Settings.containerNBoundary = false;
 });
 describe("real PG doodles and fixed containers", () => {
+  it("undoes, redoes and reloads independently resized images without resetting their dimensions", async () => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({ width: 100, height: 100, close: vi.fn() })),
+    );
+    try {
+      const p = fixture();
+      p.attachments.set("screenshot", new Blob(["image"]));
+      const image = new ImageNode(p, { attachmentId: "screenshot" });
+      await image.waitForClipboardBitmap();
+      p.stageManager.add(image);
+      p.historyManager.recordStep();
+      const before = serialize(p.stage);
+      image.resizeHandle(new Vector(130, 83));
+      p.historyManager.recordStep();
+      const after = serialize(p.stage);
+      p.historyManager.undo();
+      await Promise.all(p.stageManager.getImageNodes().map((n) => n.waitForClipboardBitmap()));
+      expect(serialize(p.stage)).toEqual(before);
+      p.historyManager.redo();
+      await Promise.all(p.stageManager.getImageNodes().map((n) => n.waitForClipboardBitmap()));
+      expect(serialize(p.stage)).toEqual(after);
+      const restored = deserialize(decode(new Encoder().encode(after)), p) as ImageNode[];
+      await Promise.all(restored.map((n) => n.waitForClipboardBitmap()));
+      expect(restored[0].rectangle.size).toEqual(new Vector(230, 183));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("pushes existing text aside on creation and drag inside a fixed container", () => {
     const p = fixture();
     const d = cage(p);

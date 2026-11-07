@@ -564,36 +564,40 @@ describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
     expectPoint(copy.collisionBox.getRectangle().center, new Vector(-4600, 3300));
   });
 
-  it("loads attachments in the destination before image construction and centering", async () => {
-    vi.stubGlobal(
-      "createImageBitmap",
-      vi.fn(async () => ({ width: 80, height: 40, close: vi.fn() })),
-    );
-    try {
-      const source = fixture();
-      const target = fixture();
-      const blob = new Blob([new Uint8Array([1, 2, 3, 255])], { type: "image/png" });
-      const id = source.addAttachment(blob);
-      const image = new ImageNode(source, { attachmentId: id, scale: 2 });
-      await image.waitForClipboardBitmap();
-      source.stage.push(image);
-      image.isSelected = true;
-      target.historyManager = new HistoryManager(target);
-      await source.copyEngine.copy("nodes");
-      await target.copyEngine.paste();
-      const copy = target.stage[0] as ImageNode;
-      expect(copy.state).toBe("success");
-      expect(copy.scale).toBe(2);
-      expect(copy.attachmentId).not.toBe(id);
-      expect(new Uint8Array(await target.attachments.get(copy.attachmentId)!.arrayBuffer())).toEqual(
-        new Uint8Array(await blob.arrayBuffer()),
+  it.each([false, true])(
+    "loads attachments before centering and preserves free image dimensions (%s)",
+    async (stretched) => {
+      vi.stubGlobal(
+        "createImageBitmap",
+        vi.fn(async () => ({ width: 80, height: 40, close: vi.fn() })),
       );
-      expectPoint(copy.rectangle.center, new Vector(-4600, 3300));
-      expect(copy.rectangle.size).toEqual(new Vector(160, 80));
-      await image.dispose();
-      await copy.dispose();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
+      try {
+        const source = fixture();
+        const target = fixture();
+        const blob = new Blob([new Uint8Array([1, 2, 3, 255])], { type: "image/png" });
+        const id = source.addAttachment(blob);
+        const image = new ImageNode(source, { attachmentId: id, scale: 2 });
+        await image.waitForClipboardBitmap();
+        if (stretched) image.resizeHandle(new Vector(40, 40));
+        source.stage.push(image);
+        image.isSelected = true;
+        target.historyManager = new HistoryManager(target);
+        await source.copyEngine.copy("nodes");
+        await target.copyEngine.paste();
+        const copy = target.stage[0] as ImageNode;
+        expect(copy.state).toBe("success");
+        expect(copy.scale).toBe(stretched ? 2.5 : 2);
+        expect(copy.attachmentId).not.toBe(id);
+        expect(new Uint8Array(await target.attachments.get(copy.attachmentId)!.arrayBuffer())).toEqual(
+          new Uint8Array(await blob.arrayBuffer()),
+        );
+        expectPoint(copy.rectangle.center, new Vector(-4600, 3300));
+        expect(copy.rectangle.size).toEqual(stretched ? new Vector(200, 120) : new Vector(160, 80));
+        await image.dispose();
+        await copy.dispose();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 });

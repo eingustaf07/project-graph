@@ -286,6 +286,7 @@ export class EntityRenderer {
         this.project.renderer.transformWorld2View(imageNode.rectangle.location),
         imageNode.scale,
         imageNode,
+        imageNode.rectangle.size,
       );
     } else if (imageNode.state === "notFound") {
       this.project.textRenderer.renderTextFromCenter(
@@ -313,25 +314,20 @@ export class EntityRenderer {
         imageNode.collisionBox,
         this.project.stageStyleManager.currentStyle.CollideBoxSelected,
       );
-      // 渲染右下角缩放控制点
-      const resizeHandleRect = imageNode.getResizeHandleRect();
-      const viewResizeHandleRect = new Rectangle(
-        this.project.renderer.transformWorld2View(resizeHandleRect.location),
-        resizeHandleRect.size.multiply(this.project.camera.currentScale),
-      );
-      this.project.shapeRenderer.renderRect(
-        viewResizeHandleRect,
-        this.project.stageStyleManager.currentStyle.CollideBoxSelected,
-        this.project.stageStyleManager.currentStyle.StageObjectBorder,
-        2 * this.project.camera.currentScale,
-        8 * this.project.camera.currentScale,
-      );
-      // 渲染箭头指示
-      this.project.shapeRenderer.renderResizeArrow(
-        viewResizeHandleRect,
-        this.project.stageStyleManager.currentStyle.StageObjectBorder,
-        2 * this.project.camera.currentScale,
-      );
+      for (const handle of imageNode.getResizeHandles()) {
+        const resizeHandleRect = handle.rectangle;
+        const viewResizeHandleRect = new Rectangle(
+          this.project.renderer.transformWorld2View(resizeHandleRect.location),
+          resizeHandleRect.size.multiply(this.project.camera.currentScale),
+        );
+        this.project.shapeRenderer.renderRect(
+          viewResizeHandleRect,
+          this.project.stageStyleManager.currentStyle.CollideBoxSelected,
+          this.project.stageStyleManager.currentStyle.StageObjectBorder,
+          2 * this.project.camera.currentScale,
+          8 * this.project.camera.currentScale,
+        );
+      }
     }
   }
 

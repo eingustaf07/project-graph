@@ -20,6 +20,7 @@ type ImageNodeOptions = {
   details?: Value;
   attachmentId?: string;
   scale?: number;
+  heightScale?: number;
   isBackground?: boolean;
 };
 
@@ -51,6 +52,8 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
   attachmentId: string;
   @serializable
   scale: number;
+  @serializable
+  heightScale: number;
   /**
    * 是否为背景图片
    */
@@ -86,6 +89,7 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
       crossFileLinks,
       attachmentId = "",
       scale = 1,
+      heightScale,
       isBackground = false,
       erasures = [],
     }: ImageNodeOptions,
@@ -98,6 +102,7 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
     this.details = details;
     this.attachmentId = attachmentId;
     this.scale = scale;
+    this.heightScale = heightScale ?? 1;
     this.isBackground = isBackground;
     this.erasures = erasures;
 
@@ -109,8 +114,15 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
     if (typeof createImageBitmap === "undefined") return;
     this.loadBitmap(createImageBitmap(blob), () => {
       this.state = "success";
-      // 设置碰撞箱
-      this.scaleUpdate(0);
+      // The serializer rounds numbers to two decimals. Restore size from the saved
+      // rectangle so a rounded aspect factor cannot progressively change its height.
+      if (heightScale !== undefined && this.rectangle.width > 0 && this.rectangle.height > 0) {
+        this.scale = this.rectangle.width / this.bitmap!.width;
+        this.heightScale = this.rectangle.height / (this.bitmap!.height * this.scale);
+        this.updateFatherSectionByMove();
+      } else {
+        this.scaleUpdate(0);
+      }
       this.onReady?.();
     });
   }
@@ -174,7 +186,10 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
     }
     if (!this.bitmap) return;
     this.collisionBox = new CollisionBox([
-      new Rectangle(this.rectangle.location, new Vector(this.bitmap.width, this.bitmap.height).multiply(this.scale)),
+      new Rectangle(
+        this.rectangle.location,
+        new Vector(this.bitmap.width * this.scale, this.bitmap.height * this.scale * this.heightScale),
+      ),
     ]);
     this.updateFatherSectionByMove();
   }
@@ -383,21 +398,46 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
    * 处理拖拽缩放逻辑
    * @param delta 拖拽距离向量
    */
-  resizeHandle(delta: Vector) {
+  resizeHandle(delta: Vector, direction = new Vector(1, 1)) {
     if (!this.bitmap) return;
+    const previous = this.rectangle;
+    const width =
+      direction.x === 0
+        ? previous.width
+        : Math.max(this.bitmap.width * 0.1, Math.min(this.bitmap.width * 10, previous.width + delta.x * direction.x));
+    const height =
+      direction.y === 0
+        ? previous.height
+        : Math.max(
+            this.bitmap.height * 0.1,
+            Math.min(this.bitmap.height * 10, previous.height + delta.y * direction.y),
+          );
+    this.scale = width / this.bitmap.width;
+    this.heightScale = height / (this.bitmap.height * this.scale);
+    const location = previous.location.add(
+      new Vector(direction.x < 0 ? previous.width - width : 0, direction.y < 0 ? previous.height - height : 0),
+    );
+    this.collisionBox.shapes[0] = new Rectangle(location, new Vector(width, height));
+    this.updateFatherSectionByMove();
+  }
 
-    // 计算当前图片的实际显示尺寸
-    const currentDisplayWidth = this.bitmap.width * this.scale;
-
-    // 根据delta计算新的显示尺寸（只使用delta.x，保持等比例缩放）
-    const newDisplayWidth = Math.max(currentDisplayWidth + delta.x, this.bitmap.width * 0.1);
-
-    // 计算新的缩放比例
-    const newScale = newDisplayWidth / this.bitmap.width;
-
-    // 更新缩放比例，使用现有的scaleUpdate方法保持一致性
-    const scaleDiff = newScale - this.scale;
-    this.scaleUpdate(scaleDiff);
+  getResizeHandles(): { direction: Vector; rectangle: Rectangle }[] {
+    const rect = this.rectangle;
+    const size = Math.min(18 / (this.project.camera?.currentScale || 1), rect.width / 3, rect.height / 3);
+    const handles = [];
+    for (const y of [-1, 0, 1]) {
+      for (const x of [-1, 0, 1]) {
+        if (x === 0 && y === 0) continue;
+        handles.push({
+          direction: new Vector(x, y),
+          rectangle: new Rectangle(
+            rect.location.add(new Vector(((rect.width - size) * (x + 1)) / 2, ((rect.height - size) * (y + 1)) / 2)),
+            Vector.same(size),
+          ),
+        });
+      }
+    }
+    return handles;
   }
 
   /**
@@ -405,8 +445,6 @@ export class ImageNode extends ConnectableEntity implements ResizeAble {
    * 返回右下角的一个小矩形，用于拖拽缩放
    */
   getResizeHandleRect(): Rectangle {
-    const rect = this.collisionBox.getRectangle();
-    // 创建一个25x25的矩形，位于图片右下角
-    return new Rectangle(new Vector(rect.right - 25, rect.bottom - 25), new Vector(25, 25));
+    return this.getResizeHandles().at(-1)!.rectangle;
   }
 }

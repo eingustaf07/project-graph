@@ -216,6 +216,7 @@ addExecutor("edit_image_node", () => (project, { ref, data }, references) => {
 
   const previous = {
     scale: node.scale,
+    heightScale: node.heightScale,
     isBackground: node.isBackground,
     rectangle: node.collisionBox.getRectangle().clone(),
   };
@@ -223,7 +224,7 @@ addExecutor("edit_image_node", () => (project, { ref, data }, references) => {
     const currentRect = node.collisionBox.getRectangle();
     if (data.displaySize) {
       const intrinsicWidth = node.bitmap?.width ?? currentRect.width / node.scale;
-      const intrinsicHeight = node.bitmap?.height ?? currentRect.height / node.scale;
+      const intrinsicHeight = node.bitmap ? node.bitmap.height * node.heightScale : currentRect.height / node.scale;
       if (
         !Number.isFinite(intrinsicWidth) ||
         !Number.isFinite(intrinsicHeight) ||
@@ -275,6 +276,7 @@ addExecutor("edit_image_node", () => (project, { ref, data }, references) => {
     };
   } catch (error) {
     node.scale = previous.scale;
+    node.heightScale = previous.heightScale;
     node.isBackground = previous.isBackground;
     node.collisionBox.updateShapeList([previous.rectangle]);
     throw error;

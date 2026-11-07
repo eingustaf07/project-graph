@@ -225,7 +225,7 @@ const definitions: BuiltInToolDefinition[] = [
   }),
   defineTool({
     name: "edit_image_node",
-    description: "编辑 ImageNode 的显示尺寸和背景状态。图片始终保持原始宽高比；此工具不会移动节点。",
+    description: "编辑 ImageNode 的显示尺寸和背景状态。按当前显示宽高比整体缩放；此工具不会移动节点。",
     inputSchema: z.object({
       ref: nodeRefSchema,
       data: z.object({

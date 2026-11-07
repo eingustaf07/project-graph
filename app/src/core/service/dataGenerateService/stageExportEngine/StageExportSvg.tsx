@@ -298,6 +298,7 @@ export class StageExportSvg {
         )}
         <image
           href={href}
+          preserveAspectRatio="none"
           x={node.rectangle.leftTop.x}
           y={node.rectangle.leftTop.y}
           width={node.rectangle.size.x}

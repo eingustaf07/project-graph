@@ -337,10 +337,17 @@ export class ControllerUtils {
     const selectedEntities = this.project.stageManager.getSelectedStageObjects();
 
     for (const selectedEntity of selectedEntities) {
+      if (selectedEntity instanceof ImageNode) {
+        if (
+          !selectedEntity.nearestLockedAncestorSection &&
+          selectedEntity.getResizeHandles().some((handle) => handle.rectangle.isPointIn(clickedLocation))
+        )
+          return true;
+        continue;
+      }
       // 检查是否是支持缩放的实体类型
       if (
         selectedEntity instanceof TextNode ||
-        selectedEntity instanceof ImageNode ||
         selectedEntity instanceof SvgNode ||
         selectedEntity instanceof ReferenceBlockNode
       ) {

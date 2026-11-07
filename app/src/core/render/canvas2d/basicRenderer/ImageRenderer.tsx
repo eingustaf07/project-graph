@@ -22,14 +22,15 @@ export class ImageRenderer {
     location: Vector,
     scale: number = 1 / (window.devicePixelRatio || 1),
     entity?: Entity,
+    displaySize?: Vector,
   ) {
     const paint = (ctx: CanvasRenderingContext2D) =>
       ctx.drawImage(
         source,
         location.x,
         location.y,
-        source.width * scale * this.project.camera.currentScale,
-        source.height * scale * this.project.camera.currentScale,
+        (displaySize?.x ?? source.width * scale) * this.project.camera.currentScale,
+        (displaySize?.y ?? source.height * scale) * this.project.camera.currentScale,
       );
     if (entity) paintWithErasures(this.project, entity, paint);
     else paint(this.project.canvas.ctx);

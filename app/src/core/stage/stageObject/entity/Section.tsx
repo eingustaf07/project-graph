@@ -339,6 +339,7 @@ const editableKeys = [
   "fontFamily",
   "fontWeight",
   "scale",
+  "heightScale",
   "latexSource",
   "segments",
   "frame",
