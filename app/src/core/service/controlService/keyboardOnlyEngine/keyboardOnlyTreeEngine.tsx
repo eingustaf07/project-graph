@@ -303,6 +303,10 @@ export class KeyboardOnlyTreeEngine {
    * @returns
    */
   onDeepGenerateNode(defaultText = "", selectAll = true, editEdgeFirst = false) {
+    this.project.stageManager.withGrowthEdges(() => this.generateDeepNode(defaultText, selectAll, editEdgeFirst));
+  }
+
+  private generateDeepNode(defaultText = "", selectAll = true, editEdgeFirst = false) {
     if (!this.project.keyboardOnlyEngine.isOpenning()) {
       return;
     }
@@ -582,6 +586,10 @@ export class KeyboardOnlyTreeEngine {
    * @returns
    */
   onBroadGenerateNode() {
+    this.project.stageManager.withGrowthEdges(() => this.generateBroadNode());
+  }
+
+  private generateBroadNode() {
     if (!this.project.keyboardOnlyEngine.isOpenning()) {
       return;
     }

@@ -81,7 +81,7 @@ export class GraphMethods {
 
     // 1. 检测自环
     for (const node of allNodes) {
-      const selfLoopEdges = this.project.stageManager.getLineEdges().filter((edge) => {
+      const selfLoopEdges = this.project.stageManager.getTreeEdges().filter((edge) => {
         if (skipDashed && isDashedEdge(edge)) return false;
         return edge.source.uuid === node.uuid && edge.target.uuid === node.uuid;
       });
@@ -214,7 +214,7 @@ export class GraphMethods {
   /** 获取节点连接的子节点数组，未排除自环 */
   nodeChildrenArray(node: ConnectableEntity, skipDashed = false): ConnectableEntity[] {
     const res: ConnectableEntity[] = [];
-    for (const edge of this.project.stageManager.getLineEdges()) {
+    for (const edge of this.project.stageManager.getTreeEdges()) {
       if (skipDashed && edge.lineType === "dashed") continue;
       if (edge.source.uuid === node.uuid) {
         res.push(edge.target);
@@ -229,7 +229,7 @@ export class GraphMethods {
    */
   nodeParentArray(node: ConnectableEntity, skipDashed = false): ConnectableEntity[] {
     const res: ConnectableEntity[] = [];
-    for (const edge of this.project.stageManager.getLineEdges()) {
+    for (const edge of this.project.stageManager.getTreeEdges()) {
       if (skipDashed && edge.lineType === "dashed") continue;
       if (edge.target.uuid === node.uuid && edge.target.uuid !== edge.source.uuid) {
         res.push(edge.source);
@@ -239,11 +239,11 @@ export class GraphMethods {
   }
 
   edgeChildrenArray(node: ConnectableEntity): Edge[] {
-    return this.project.stageManager.getLineEdges().filter((edge) => edge.source.uuid === node.uuid);
+    return this.project.stageManager.getTreeEdges().filter((edge) => edge.source.uuid === node.uuid);
   }
 
   edgeParentArray(node: ConnectableEntity): Edge[] {
-    return this.project.stageManager.getLineEdges().filter((edge) => edge.target.uuid === node.uuid);
+    return this.project.stageManager.getTreeEdges().filter((edge) => edge.target.uuid === node.uuid);
   }
 
   /**
@@ -252,7 +252,7 @@ export class GraphMethods {
    */
   private getReversedEdgeDict(skipDashed = false): Record<string, string> {
     const res: Record<string, string> = {};
-    for (const edge of this.project.stageManager.getLineEdges()) {
+    for (const edge of this.project.stageManager.getTreeEdges()) {
       if (skipDashed && edge.lineType === "dashed") continue;
       res[edge.target.uuid] = edge.source.uuid;
     }
@@ -304,7 +304,7 @@ export class GraphMethods {
   }
 
   isConnected(node: ConnectableEntity, target: ConnectableEntity): boolean {
-    for (const edge of this.project.stageManager.getLineEdges()) {
+    for (const edge of this.project.stageManager.getTreeEdges()) {
       if (edge.source === node && edge.target === target) {
         return true;
       }
@@ -354,7 +354,7 @@ export class GraphMethods {
    */
   getOneStepSuccessorSet(node: ConnectableEntity): ConnectableEntity[] {
     const result: ConnectableEntity[] = []; // 存储可达节点的结果集
-    for (const edge of this.project.stageManager.getLineEdges()) {
+    for (const edge of this.project.stageManager.getTreeEdges()) {
       if (edge.source === node && edge.target.uuid !== edge.source.uuid) {
         result.push(edge.target);
       }

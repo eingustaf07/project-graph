@@ -185,6 +185,90 @@ export class StageManager {
   getEdges(): Edge[] {
     return this.project.stage.filter((node) => node instanceof Edge);
   }
+  private growthArcs: ArcEdge[] = [];
+
+  getTreeEdges(): (LineEdge | ArcEdge)[] {
+    const lines = this.getLineEdges();
+    return this.growthArcs.length ? [...lines, ...this.growthArcs] : lines;
+  }
+
+  /** Keep the same curved branches throughout one growth operation, including after adding the new edge. */
+  withGrowthEdges(action: () => void): void {
+    const arcs = this.getArcEdges().filter((edge) => edge.lineType !== "dashed" && edge.arrowType !== "none");
+    if (arcs.length === 0) return action();
+    const components = new Map<string, string>();
+    const hasParent = new Set<string>();
+    const root = (id: string): string => {
+      while (components.has(id)) {
+        const parent = components.get(id)!;
+        if (components.has(parent)) components.set(id, components.get(parent)!);
+        id = parent;
+      }
+      return id;
+    };
+    const join = (edge: LineEdge | ArcEdge) => {
+      const from = root(edge.source.uuid);
+      const to = root(edge.target.uuid);
+      if (from !== to) components.set(to, from);
+      hasParent.add(edge.target.uuid);
+    };
+    for (const edge of this.getLineEdges()) if (edge.lineType !== "dashed") join(edge);
+    const previous = this.growthArcs;
+
+    const adjacency = new Map<string, { next: string; arc: ArcEdge }[]>();
+    const parentCounts = new Map<string, number>();
+    for (const arc of arcs) {
+      const from = root(arc.source.uuid),
+        to = root(arc.target.uuid);
+      if (from === to) continue;
+      parentCounts.set(arc.target.uuid, (parentCounts.get(arc.target.uuid) ?? 0) + 1);
+      for (const [id, next] of [
+        [from, to],
+        [to, from],
+      ]) {
+        if (!adjacency.has(id)) adjacency.set(id, []);
+        adjacency.get(id)!.push({ next, arc });
+      }
+    }
+    // Only bridges establish unambiguous branches. Parallel and return arcs stay associations.
+    const seen = new Map<string, number>();
+    const low = new Map<string, number>();
+    const branches: ArcEdge[] = [];
+    for (const start of adjacency.keys()) {
+      if (seen.has(start)) continue;
+      const visit = (id: string, incoming?: ArcEdge) => {
+        const index = seen.size;
+        seen.set(id, index);
+        low.set(id, index);
+        return { id, incoming, cursor: 0 };
+      };
+      const stack = [visit(start)];
+      while (stack.length) {
+        const frame = stack[stack.length - 1];
+        const edge = adjacency.get(frame.id)![frame.cursor++];
+        if (edge) {
+          if (edge.arc === frame.incoming) continue;
+          if (seen.has(edge.next)) low.set(frame.id, Math.min(low.get(frame.id)!, seen.get(edge.next)!));
+          else stack.push(visit(edge.next, edge.arc));
+        } else {
+          stack.pop();
+          const parent = stack[stack.length - 1];
+          if (!parent || !frame.incoming) continue;
+          const target = frame.incoming.target.uuid;
+          if (low.get(frame.id)! > seen.get(parent.id)! && !hasParent.has(target) && parentCounts.get(target) === 1)
+            branches.push(frame.incoming);
+          low.set(parent.id, Math.min(low.get(parent.id)!, low.get(frame.id)!));
+        }
+      }
+    }
+    this.growthArcs = branches;
+    try {
+      action();
+    } finally {
+      this.growthArcs = previous;
+    }
+  }
+
   getLineEdges(): LineEdge[] {
     return this.project.stage.filter((node) => node instanceof LineEdge);
   }

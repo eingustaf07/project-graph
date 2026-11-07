@@ -24,7 +24,13 @@ vi.mock("@/core/service/Settings", () => ({
 }));
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
 vi.mock("@/core/service/feedbackService/SoundService", () => ({
-  SoundService: { play: { associationAdjustSoundFile: vi.fn(), treeGenerateDeepSoundFile: vi.fn() } },
+  SoundService: {
+    play: {
+      associationAdjustSoundFile: vi.fn(),
+      treeGenerateDeepSoundFile: vi.fn(),
+      treeGenerateBroadSoundFile: vi.fn(),
+    },
+  },
 }));
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), warning: vi.fn() }) }));
@@ -143,6 +149,25 @@ it.skipIf(!process.env.PG_NN_READ_FILE)(
     };
     Settings.autoLayoutWhenTreeGenerate = true;
     Settings.isEnableEntityCollision = process.env.PG_NN_COLLISION === "1";
+    if (process.env.PG_ARC_TEST) {
+      const incoming = p.stageManager.getArcEdges().find((e: any) => e.target === candidate);
+      const outgoing = p.stageManager.getArcEdges().find((e: any) => e.source === candidate);
+      expect(incoming).toBeDefined();
+      expect(outgoing).toBeDefined();
+      const broad = process.env.PG_ARC_TEST === "TT";
+      if (broad) engine.onBroadGenerateNode();
+      else engine.onDeepGenerateNode();
+      const created = p.stageManager.getTextNodes().find((n: TextNode) => !nodes.includes(n));
+      expect(created).toBeDefined();
+      const parent = broad ? incoming.source : candidate;
+      const sibling = broad ? candidate : outgoing.target;
+      expect(p.graphMethods.getEdgesBetween(parent, created)).toHaveLength(1);
+      expect(created.rectangle.isCollideWith(sibling.rectangle)).toBe(false);
+      expect(created.rectangle.left).toBeCloseTo(sibling.rectangle.left, 4);
+      await new Promise((resolve) => setTimeout(resolve, 180));
+      expect(p.controllerUtils.editTextNode).toHaveBeenCalledTimes(1);
+      return;
+    }
     const nnStart = performance.now();
     let failure: string | undefined;
     try {

@@ -1,7 +1,7 @@
 import { Project, service } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
-import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { ArcEdge } from "@/core/stage/stageObject/association/ArcEdge";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle, Line } from "@graphif/shapes";
@@ -617,8 +617,8 @@ export class AutoLayoutFastTree {
     const rootLeftTopLocation = rootNode.collisionBox.getRectangle().leftTop.clone();
 
     // 与树形校验、子树边界和移动使用同一组边。额外的曲线可能指回祖先。
-    const childrenByParent = new Map<ConnectableEntity, LineEdge[]>();
-    for (const edge of this.project.stageManager.getLineEdges()) {
+    const childrenByParent = new Map<ConnectableEntity, Edge[]>();
+    for (const edge of this.project.stageManager.getTreeEdges()) {
       if (edge.lineType === "dashed") continue;
       const children = childrenByParent.get(edge.source);
       if (children) children.push(edge);
@@ -635,6 +635,26 @@ export class AutoLayoutFastTree {
       // 对于非标准连线，只保持父子节点的相对位置不变，但仍对其子树进行递归格式化
       const outNonStandardEdges = outEdges.filter((edge) => edge.isNonStandardDirection());
 
+      // Center or mixed anchors have no cardinal direction. Preserve the curved branch's visual orientation.
+      for (const edges of [outUnknownEdges, outNonStandardEdges]) {
+        for (let i = edges.length - 1; i >= 0; i--) {
+          const edge = edges[i];
+          if (!(edge instanceof ArcEdge)) continue;
+          const delta = edge.target.collisionBox
+            .getRectangle()
+            .center.subtract(node.collisionBox.getRectangle().center);
+          const group =
+            Math.abs(delta.x) >= Math.abs(delta.y)
+              ? delta.x >= 0
+                ? outRightEdges
+                : outLeftEdges
+              : delta.y >= 0
+                ? outBottomEdges
+                : outTopEdges;
+          group.push(edge);
+          edges.splice(i, 1);
+        }
+      }
       // 获取排序后的子节点列表
       let rightChildList = outRightEdges.map((edge) => edge.target);
       let leftChildList = outLeftEdges.map((edge) => edge.target);
