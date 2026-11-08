@@ -307,8 +307,8 @@ settings:
     tooltipPin: 固定到右侧快捷栏
     tooltipUnpin: 从右侧快捷栏取消固定
   containerNBoundary:
-    title: 容器 K 键进出
-    description: 先选中节点，再按住 K 拖入或拖出容器即可改变归属。普通拖动会被边界挡住；内部新增内容仍可扩大容器。
+    title: 容器 V 键进出
+    description: 先选中节点，再按住 V 拖入或拖出容器即可改变归属。普通拖动会被边界挡住；内部新增内容仍可扩大容器。
   containerAutoExpand:
     title: 容器自动扩大
     description: 开启后，内部节点生成、调整大小或移动超出边界时，容器及外层容器自动扩大，节点保持位置；关闭时使用固定边界。

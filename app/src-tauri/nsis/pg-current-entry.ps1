@@ -24,6 +24,17 @@ using System.Runtime.InteropServices;
  void SetValue(ref PGPropertyKey key, ref PGPropertyValue value); void Commit();
 }
 public static class PGEntryShell {
+ [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern uint GetFinalPathNameByHandle(Microsoft.Win32.SafeHandles.SafeFileHandle handle, System.Text.StringBuilder path, uint size, uint flags);
+ public static string PhysicalExecutable(string path) {
+  using (var file = System.IO.File.Open(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite | System.IO.FileShare.Delete)) {
+   var text = new System.Text.StringBuilder(32768);
+   var length = GetFinalPathNameByHandle(file.SafeFileHandle, text, (uint)text.Capacity, 0);
+   if (length == 0 || length >= text.Capacity) throw new System.ComponentModel.Win32Exception();
+   var resolved = text.ToString();
+   if (resolved.StartsWith(@"\\?\UNC\")) return @"\\" + resolved.Substring(8);
+   return resolved.StartsWith(@"\\?\") ? resolved.Substring(4) : resolved;
+  }
+ }
  [DllImport("shell32.dll", CharSet=CharSet.Unicode)] static extern int SHGetPropertyStoreFromParsingName(string path, IntPtr context, uint flags, ref Guid iid, out PGPropertyStore store);
  [DllImport("shell32.dll", CharSet=CharSet.Unicode)] public static extern void SHChangeNotify(uint action, uint flags, string first, string second);
  public static void SetShortcutIdentity(string path, string displayName) {
@@ -39,6 +50,8 @@ public static class PGEntryShell {
 }
 '@
 }
+
+$ExecutablePath = [PGEntryShell]::PhysicalExecutable($ExecutablePath)
 
 function Set-EntryValue([string]$Path, [string]$Name, [string]$Value) {
     if (!(Test-Path -LiteralPath $Path)) { $null = New-Item -Path $Path -Force }

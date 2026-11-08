@@ -252,18 +252,18 @@ describe("held letter shortcut", () => {
     await up("Tab");
     expect(existing).toHaveBeenCalledOnce();
   });
-  it("counts a held transfer key as one press and still recognizes a physical KK", async () => {
+  it("counts a held transfer key as one press and still recognizes a physical VV", async () => {
     const container = vi.fn();
-    KeyBindsUI.registerOneUIKeyBind("heldKTest", "k k", true, container);
-    await down("k");
-    await down("k", { repeat: true });
-    await down("k", { repeat: true });
+    KeyBindsUI.registerOneUIKeyBind("heldVTest", "v v", true, container);
+    await down("v");
+    await down("v", { repeat: true });
+    await down("v", { repeat: true });
     expect(container).not.toHaveBeenCalled();
-    await up("k");
-    await down("k");
-    await up("k");
+    await up("v");
+    await down("v");
+    await up("v");
     expect(container).toHaveBeenCalledOnce();
-    KeyBindsUI.unregisterOneUIKeyBind("heldKTest");
+    KeyBindsUI.unregisterOneUIKeyBind("heldVTest");
   });
   it("routes configured SQ, CY, ST and KK sequences", async () => {
     const tool = vi.fn();

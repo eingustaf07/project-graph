@@ -336,8 +336,8 @@ settings:
     title: 跨檔案節點連線（實驗）
     description: 在分割或浮動的本機檔案間連線，請儲存起點檔案。關閉只隱藏連線，不刪除紀錄。移動或重新命名目標檔案後需重新連線。
   containerNBoundary:
-    title: 容器 K 鍵進出
-    description: 先選取節點，再按住 K 拖入或拖出容器以變更歸屬。一般拖曳會被邊界擋住；新增內容仍可擴大容器。
+    title: 容器 V 鍵進出
+    description: 先選取節點，再按住 V 拖入或拖出容器以變更歸屬。一般拖曳會被邊界擋住；新增內容仍可擴大容器。
   containerAutoExpand:
     title: 容器自動擴大
     description: 開啟後，內部節點生成、調整大小或移動超出邊界時，容器及外層容器自動擴大，節點保持位置；關閉時使用固定邊界。

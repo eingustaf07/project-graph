@@ -22,6 +22,7 @@ try {
             $link.Save()
         }
         & (Join-Path $PSScriptRoot 'pg-current-entry.ps1') -ExecutablePath $exe -DisplayName ('Project Graph PG' + $version) -ClassesRoot ($registry+'\Classes') -StateRoot ($registry+'\Current') -RegisteredApplicationsRoot ($registry+'\RegisteredApps') -PinnedDirectory $pinned -StartMenuDirectory $menu
+        $exe = [PGEntryShell]::PhysicalExecutable($exe)
         $shortcut = Join-Path $pinned ('Project Graph PG'+$version+'.lnk')
         foreach ($id in @('ProjectGraph.Current.File','ProjectGraph.PG11.File','ProjectGraph.PG13.File','ProjectGraph.PG14.File')) {
             $command = (Get-Item ($registry+'\Classes\'+$id+'\shell\open\command')).GetValue('')

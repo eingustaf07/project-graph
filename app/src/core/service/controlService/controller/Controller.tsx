@@ -35,9 +35,9 @@ export class Controller {
 
   // 检测正在按下的键
   readonly pressingKeySet: Set<string> = new Set();
-  private clearTransferKey = () => this.pressingKeySet.delete("k");
+  private clearTransferKey = () => this.pressingKeySet.delete("v");
   private releaseTransferKey = (event: KeyboardEvent) => {
-    if (event.key.toLowerCase() === "k") this.clearTransferKey();
+    if (event.key.toLowerCase() === "v") this.clearTransferKey();
   };
   pressingKeysString(): string {
     let res = "";

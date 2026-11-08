@@ -686,10 +686,10 @@ export namespace KeyBindsUI {
 
     const activeProject = getFocusedProject();
     if (event.repeat && !event.defaultPrevented && !isCopyInputFocused()) {
-      // A held transfer modifier is one physical press, not a K K sequence.
+      // A held transfer modifier is one physical press, not a V V sequence.
       if (
         activeProject &&
-        event.key.toLowerCase() === "k" &&
+        event.key.toLowerCase() === "v" &&
         !event.ctrlKey &&
         !event.metaKey &&
         !event.altKey &&

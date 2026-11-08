@@ -29,7 +29,7 @@ export class ContainerNodeDrag {
       allowTransfer &&
       this.selected.has(entity) &&
       entity.isSelected &&
-      this.project.controller.pressingKeySet.has("k");
+      this.project.controller.pressingKeySet.has("v");
     let desired = delta;
     if (transfer) {
       const center = (this.pointerTargets.get(entity) ?? box.center).add(delta);
