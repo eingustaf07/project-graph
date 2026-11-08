@@ -34,6 +34,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
     if (event.button !== 0) {
       return;
     }
+    this.project.entityMoveManager.endPointerDrag();
     if (Settings.mouseLeftMode !== "selectAndMove") {
       return;
     }
@@ -89,6 +90,8 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
 
     // 单击选中
     if (clickedStageObject !== null) {
+      if (!Settings.viewerMode && clickedStageObject instanceof Entity)
+        this.project.entityMoveManager.beginPointerDrag(clickedStageObject);
       this.isMovingEntity = !Settings.viewerMode;
       this.shakeDetector.reset(); // 开始拖拽时重置摇晃检测器
       this.shiftAxisLock = null;
@@ -202,21 +205,10 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
         : this.project.controller.pressingKeySet.has("control");
 
       // 根据模式选择移动方式
-      if (Settings.reverseTreeMoveMode) {
-        // 反转模式：默认树形移动，按住Ctrl键单一移动
-        if (isControlPressed) {
-          this.project.entityMoveManager.moveSelectedEntities(diffLocation);
-        } else {
-          this.project.entityMoveManager.moveEntitiesWithChildren(diffLocation);
-        }
-      } else {
-        // 正常模式：默认单一移动，按住Ctrl键树形移动
-        if (isControlPressed) {
-          this.project.entityMoveManager.moveEntitiesWithChildren(diffLocation);
-        } else {
-          this.project.entityMoveManager.moveSelectedEntities(diffLocation);
-        }
-      }
+      this.project.entityMoveManager.dragSelection(
+        diffLocation,
+        Settings.reverseTreeMoveMode ? !isControlPressed : isControlPressed,
+      );
 
       // 预瞄反馈
       if (Settings.enableDragAutoAlign) {
@@ -242,17 +234,17 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
   };
 
   public mouseup: (event: MouseEvent) => void = (event: MouseEvent) => {
+    if (event.button !== 0) return;
     if (Settings.viewerMode) {
+      this.project.entityMoveManager.endPointerDrag();
       this.isMovingEntity = false;
       this.shakeDetector.reset();
       this.shiftAxisLock = null;
       this.shiftAccumulatedDelta = Vector.getZero();
       return;
     }
-    if (event.button !== 0) {
-      return;
-    }
     if (Settings.mouseLeftMode !== "selectAndMove") {
+      this.project.entityMoveManager.endPointerDrag();
       return;
     }
 
@@ -273,6 +265,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
       }
     }
 
+    this.project.entityMoveManager.endPointerDrag();
     this.isMovingEntity = false;
     this.shakeDetector.reset();
     this.shiftAxisLock = null;
@@ -280,6 +273,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
   };
 
   public mouseMoveOutWindowForcedShutdown(_outsideLocation: Vector): void {
+    this.project.entityMoveManager.endPointerDrag();
     super.mouseMoveOutWindowForcedShutdown(_outsideLocation);
     this.isMovingEntity = false;
   }

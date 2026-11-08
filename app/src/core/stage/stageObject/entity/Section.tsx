@@ -466,12 +466,6 @@ export class Doodle extends Section {
 
   override constrainChild = (child: Entity): void => {
     if (!this.bounded) return;
-    if (
-      Settings.containerNBoundary &&
-      this.project.entityMoveManager?.isMovingWithinContainer &&
-      this.project.controller?.pressingKeySet.has("n")
-    )
-      return;
     let root = child;
     const visited = new Set<Entity>();
     while (root.parentSection && root.parentSection !== this && !visited.has(root)) {

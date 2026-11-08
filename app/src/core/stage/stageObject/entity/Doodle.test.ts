@@ -145,7 +145,7 @@ describe("real PG doodles and fixed containers", () => {
     inside(d, old.rectangle);
     inside(d, fresh.rectangle);
   });
-  it("grows for new content but keeps dragged members inside until N is held, then supports reentry", () => {
+  it("grows for new content but keeps dragged members inside until K is held, then supports reentry", () => {
     Settings.containerNBoundary = true;
     const p = fixture();
     const d = cage(p);
@@ -160,12 +160,14 @@ describe("real PG doodles and fixed containers", () => {
     p.entityMoveManager.moveEntityToUtils(n, new Vector(800, 800));
     inside(d, n.rectangle);
     expect(serialize(d.frame)).toEqual(original);
-    p.controller.pressingKeySet.add("n");
-    p.entityMoveManager.moveEntityUtils(n, new Vector(800, 0));
+    n.isSelected = true;
+    p.entityMoveManager.beginPointerDrag(n);
+    p.controller.pressingKeySet.add("k");
+    p.entityMoveManager.dragSelection(new Vector(800, 0), false);
     expect(n.parentSection).toBeNull();
     expect(d.children).not.toContain(n);
     const destination = new Vector(200, 200).subtract(n.rectangle.center);
-    p.entityMoveManager.moveEntityUtils(n, destination);
+    p.entityMoveManager.dragSelection(destination, false);
     expect(n.parentSection).toBe(d);
     expect(d.children).toContain(n);
     expect(serialize(d.frame)).toEqual(original);
@@ -176,23 +178,71 @@ describe("real PG doodles and fixed containers", () => {
     expect(d.frame.right).toBeGreaterThan(600);
     inside(d, outside.rectangle);
   });
-  it("does not enroll an outside dragged node without N and supports incremental N-key exit", () => {
+  it.each(["rectangle", "circle"] as const)(
+    "blocks normal drags and transfers only a preselected node with K (%s)",
+    (shape) => {
+      Settings.containerNBoundary = true;
+      const p = fixture();
+      const d = cage(p, shape);
+      const n = node(p, "外部节点", new Vector(900, 300));
+      p.stageManager.add(n);
+      p.entityMoveManager.beginPointerDrag(n);
+      n.isSelected = true;
+      p.controller.pressingKeySet.add("k");
+      p.entityMoveManager.dragSelection(new Vector(-1500, 0), false);
+      expect(n.parentSection).toBeNull();
+      expect(n.rectangle.left).toBeCloseTo(d.frame.right, 0);
+      p.entityMoveManager.endPointerDrag();
+      p.entityMoveManager.beginPointerDrag(n);
+      for (const key of ["n", "b"]) {
+        p.controller.pressingKeySet.clear();
+        p.controller.pressingKeySet.add(key);
+        p.entityMoveManager.dragSelection(new Vector(-500, 0), false);
+        expect(n.parentSection).toBeNull();
+        expect(n.rectangle.left).toBeCloseTo(d.frame.right, 0);
+      }
+      p.entityMoveManager.moveAlignedEntity(n, new Vector(-50, 0));
+      expect(n.rectangle.left).toBeCloseTo(d.frame.right, 0);
+      p.controller.pressingKeySet.clear();
+      p.controller.pressingKeySet.add("k");
+      for (let i = 0; i < 40; i++) p.entityMoveManager.dragSelection(new Vector(-5, 0), false);
+      expect(n.parentSection).toBe(d);
+      const original = serialize(d.frame);
+      for (let i = 0; i < 100; i++) p.entityMoveManager.dragSelection(new Vector(8, 0), false);
+      expect(n.parentSection).toBeNull();
+      expect(serialize(d.frame)).toEqual(original);
+    },
+  );
+  it("requires K at the inner wall and returns an exiting node to the outer container", () => {
     Settings.containerNBoundary = true;
     const p = fixture();
-    const d = cage(p, "circle");
-    const n = node(p, "外部节点", new Vector(900, 300));
+    const outer = cage(p);
+    const inner = new Doodle(p, { bounded: true, frame: new Rectangle(new Vector(230, 180), new Vector(300, 300)) });
+    inner.captureEnclosed();
+    p.stageManager.add(inner);
+    const n = node(p, "A", new Vector(30, 245));
     p.stageManager.add(n);
-    p.entityMoveManager.moveEntityUtils(n, new Vector(-700, 0));
-    expect(n.parentSection).toBeNull();
-    p.controller.pressingKeySet.add("n");
-    p.entityMoveManager.moveEntityUtils(n, new Vector(1, 0));
-    expect(n.parentSection).toBe(d);
-    const original = serialize(d.frame);
-    for (let i = 0; i < 100; i++) p.entityMoveManager.moveEntityUtils(n, new Vector(8, 0));
-    expect(n.parentSection).toBeNull();
-    expect(serialize(d.frame)).toEqual(original);
+    expect(n.parentSection).toBe(outer);
+    n.isSelected = true;
+    p.entityMoveManager.beginPointerDrag(n);
+    p.entityMoveManager.dragSelection(new Vector(300, 0), false);
+    expect(n.rectangle.right).toBeCloseTo(inner.frame.left);
+    expect(n.parentSection).toBe(outer);
+    p.controller.pressingKeySet.add("k");
+    p.entityMoveManager.dragSelection(new Vector(120, 0), false);
+    expect(n.parentSection).toBe(inner);
+    expect(outer.children).not.toContain(n);
+    p.controller.pressingKeySet.clear();
+    p.entityMoveManager.dragSelection(new Vector(-400, 0), false);
+    inside(inner, n.rectangle);
+    p.controller.pressingKeySet.add("k");
+    p.entityMoveManager.dragSelection(new Vector(-150, 0), false);
+    expect(n.parentSection).toBe(outer);
+    expect(inner.children).not.toContain(n);
+    inside(outer, n.rectangle);
   });
-  it("restores N-key transfer membership through undo, redo and file serialization", () => {
+
+  it("restores K-key transfer membership through undo, redo and file serialization", () => {
     Settings.containerNBoundary = true;
     const p = fixture();
     const d = cage(p);
@@ -200,8 +250,10 @@ describe("real PG doodles and fixed containers", () => {
     p.stageManager.add(n);
     d.adopt(n);
     p.historyManager = new HistoryManager(p);
-    p.controller.pressingKeySet.add("n");
-    p.entityMoveManager.moveEntityUtils(n, new Vector(900, 0));
+    n.isSelected = true;
+    p.entityMoveManager.beginPointerDrag(n);
+    p.controller.pressingKeySet.add("k");
+    p.entityMoveManager.dragSelection(new Vector(900, 0), false);
     p.historyManager.recordStep();
     p.historyManager.undo();
     expect((p.stage.find((e) => e.uuid === n.uuid) as TextNode).parentSection?.uuid).toBe(d.uuid);

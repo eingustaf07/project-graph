@@ -247,8 +247,8 @@ settings:
     title: Cross-file node connections (experimental)
     description: Connect nodes in split or floating local files using the upper-right control. Save the source file. Disabling hides connections without deleting them. Reconnect after moving or renaming a target file.
   containerNBoundary:
-    title: Container N-key transfer
-    description: New content grows containers; moving nodes keeps the boundary fixed. Hold N while dragging into or out of a container to change membership.
+    title: Container transfer with K
+    description: Select a node, then hold K and drag it into or out of a container. Ordinary drags stop at the boundary. New content can still expand the container.
   containerAutoExpand:
     title: Automatically expand containers
     description: Expand containers and their enclosing containers when content is created, resized or moved beyond the boundary, preserving node positions. Disable for fixed boundaries.

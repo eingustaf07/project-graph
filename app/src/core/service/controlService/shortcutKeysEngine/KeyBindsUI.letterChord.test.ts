@@ -252,6 +252,19 @@ describe("held letter shortcut", () => {
     await up("Tab");
     expect(existing).toHaveBeenCalledOnce();
   });
+  it("counts a held transfer key as one press and still recognizes a physical KK", async () => {
+    const container = vi.fn();
+    KeyBindsUI.registerOneUIKeyBind("heldKTest", "k k", true, container);
+    await down("k");
+    await down("k", { repeat: true });
+    await down("k", { repeat: true });
+    expect(container).not.toHaveBeenCalled();
+    await up("k");
+    await down("k");
+    await up("k");
+    expect(container).toHaveBeenCalledOnce();
+    KeyBindsUI.unregisterOneUIKeyBind("heldKTest");
+  });
   it("routes configured SQ, CY, ST and KK sequences", async () => {
     const tool = vi.fn();
     for (const command of doodleCommands.filter((item) => item.key && item.id !== "doodleEraser")) {

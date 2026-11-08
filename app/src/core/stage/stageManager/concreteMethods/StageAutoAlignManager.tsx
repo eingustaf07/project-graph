@@ -106,7 +106,7 @@ export class AutoAlign {
     const dy = this.getGridSnapDeltaY(selectionRect);
     if (dx === 0 && dy === 0) return;
     for (const entity of selectedEntities) {
-      entity.move(new Vector(dx, dy));
+      this.project.entityMoveManager.moveAlignedEntity(entity, new Vector(dx, dy));
     }
   }
 
@@ -165,7 +165,7 @@ export class AutoAlign {
     moveTargetRectangle.location.x += xMoveDiff;
     moveTargetRectangle.location.y += yMoveDiff;
     for (const entity of selectedEntities) {
-      entity.move(new Vector(xMoveDiff, yMoveDiff));
+      this.project.entityMoveManager.moveAlignedEntity(entity, new Vector(xMoveDiff, yMoveDiff));
     }
     for (const targetRectangle of xTargetRectangles.concat(yTargetRectangles)) {
       this._addAlignEffectByRect(moveTargetRectangle, targetRectangle);
@@ -251,19 +251,19 @@ export class AutoAlign {
       // 根据实体左边缘对齐
       if (leftMod < 50 - leftMod) {
         // 向左
-        selectedEntity.move(new Vector(-leftMod, 0));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(-leftMod, 0));
       } else {
         // 向右
-        selectedEntity.move(new Vector(50 - leftMod, 0));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(50 - leftMod, 0));
       }
     } else {
       // 根据右边缘对齐
       if (rightMode < 50 - rightMode) {
         // 向左
-        selectedEntity.move(new Vector(-rightMode, 0));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(-rightMode, 0));
       } else {
         // 向右
-        selectedEntity.move(new Vector(50 - rightMode, 0));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(50 - rightMode, 0));
       }
     }
   }
@@ -277,19 +277,19 @@ export class AutoAlign {
       // 根据实体左边缘对齐
       if (topMod < 50 - topMod) {
         // 向左
-        selectedEntity.move(new Vector(0, -topMod));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(0, -topMod));
       } else {
         // 向右
-        selectedEntity.move(new Vector(0, 50 - topMod));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(0, 50 - topMod));
       }
     } else {
       // 根据右边缘对齐
       if (bottomMode < 50 - bottomMode) {
         // 向左
-        selectedEntity.move(new Vector(0, -bottomMode));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(0, -bottomMode));
       } else {
         // 向右
-        selectedEntity.move(new Vector(0, 50 - bottomMode));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(0, 50 - bottomMode));
       }
     }
   }
@@ -382,7 +382,7 @@ export class AutoAlign {
     const minDistance = ArrayFunctions.getMinAbsValue(distanceList);
     if (Math.abs(minDistance) < 25) {
       if (!isPreAlign) {
-        selectedEntity.move(new Vector(minDistance, 0));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(minDistance, 0));
       }
       // 添加特效
       this._addAlignEffect(selectedEntity, otherEntity);
@@ -403,7 +403,7 @@ export class AutoAlign {
     const minDistance = ArrayFunctions.getMinAbsValue(distanceList);
     if (Math.abs(minDistance) < 25) {
       if (!isPreAlign) {
-        selectedEntity.move(new Vector(0, minDistance));
+        this.project.entityMoveManager.moveAlignedEntity(selectedEntity, new Vector(0, minDistance));
       }
       // 添加特效
       this._addAlignEffect(selectedEntity, otherEntity);

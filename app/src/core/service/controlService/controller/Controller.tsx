@@ -35,6 +35,10 @@ export class Controller {
 
   // 检测正在按下的键
   readonly pressingKeySet: Set<string> = new Set();
+  private clearTransferKey = () => this.pressingKeySet.delete("k");
+  private releaseTransferKey = (event: KeyboardEvent) => {
+    if (event.key.toLowerCase() === "k") this.clearTransferKey();
+  };
   pressingKeysString(): string {
     let res = "";
     for (const key of this.pressingKeySet) {
@@ -109,6 +113,8 @@ export class Controller {
    * @param this.project.canvas.element
    */
   constructor(private readonly project: Project) {
+    window.addEventListener("blur", this.clearTransferKey);
+    window.addEventListener("keyup", this.releaseTransferKey);
     // 绑定事件
     this.project.canvas.element.addEventListener("keydown", this.keydown.bind(this));
     this.project.canvas.element.addEventListener("keyup", this.keyup.bind(this));
@@ -132,6 +138,8 @@ export class Controller {
       });
   }
   dispose() {
+    window.removeEventListener("blur", this.clearTransferKey);
+    window.removeEventListener("keyup", this.releaseTransferKey);
     Object.values(this).forEach((v) => {
       if (v instanceof Controller) {
         v.dispose();

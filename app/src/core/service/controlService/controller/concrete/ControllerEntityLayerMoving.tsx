@@ -5,6 +5,7 @@ import { RectanglePushInEffect } from "@/core/service/feedbackService/effectEngi
 import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { Settings } from "@/core/service/Settings";
 import { Section } from "@/core/stage/stageObject/entity/Section";
+import { boundedDoodleOf, Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
@@ -51,6 +52,19 @@ export class ControllerLayerMovingClass extends ControllerClass {
 
     // 提前检查点击的位置是否有一个TextNode，如果有，则转换成Section
     const entity = this.project.stageManager.findEntityByLocation(mouseLocation);
+    const targetSection = this.project.sectionMethods.getInnermostSectionByLocation(mouseLocation);
+    if (Settings.containerNBoundary) {
+      const destination =
+        entity instanceof TextNode
+          ? boundedDoodleOf(entity)
+          : targetSection instanceof Doodle && targetSection.bounded
+            ? targetSection
+            : targetSection
+              ? boundedDoodleOf(targetSection)
+              : null;
+      if (this.project.stageManager.getSelectedEntities().some((selected) => boundedDoodleOf(selected) !== destination))
+        return;
+    }
     if (entity && entity instanceof TextNode) {
       // 防止无限循环嵌套：当跳入的实体是选中的所有内容当中任意一个Section的内部时，禁止触发该操作
       const selectedEntities = this.project.stageManager.getSelectedEntities();
@@ -83,7 +97,6 @@ export class ControllerLayerMovingClass extends ControllerClass {
       return; // 这个return必须写
     }
 
-    const targetSection = this.project.sectionMethods.getInnermostSectionByLocation(mouseLocation);
     const selectedEntities = this.project.stageManager.getSelectedEntities();
 
     // 检查目标位置是否在锁定的 section 内（包括祖先section的锁定状态）

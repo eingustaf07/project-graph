@@ -487,7 +487,9 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
         const delta = nearestFreeTranslation(
           other.rectangle,
           obstacles,
-          (candidate) => !boundary || !!fitDoodleBounds(boundary.frame, boundary.shape, candidate)?.isZero(),
+          (candidate) =>
+            (!boundary || !!fitDoodleBounds(boundary.frame, boundary.shape, candidate)?.isZero()) &&
+            (this.project.entityMoveManager?.allowsCollisionPlacement(boundary, other.rectangle, candidate) ?? true),
           creationGridGap(this.project),
         );
         if (delta) other.move(delta);

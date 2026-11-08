@@ -5,7 +5,9 @@ import { RectanglePushInEffect } from "@/core/service/feedbackService/effectEngi
 import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
-import { boundedDoodleOf, Doodle } from "@/core/stage/stageObject/entity/Doodle";
+import { ContainerNodeDrag } from "./ContainerNodeDrag";
+import type { Doodle } from "@/core/stage/stageObject/entity/Doodle";
+import type { Rectangle } from "@graphif/shapes";
 import { Vector } from "@graphif/data-structures";
 
 /**
@@ -17,6 +19,38 @@ import { Vector } from "@graphif/data-structures";
 @service("entityMoveManager")
 export class EntityMoveManager {
   public isMovingWithinContainer = false;
+  private containerDrag?: ContainerNodeDrag;
+  private pointerMoving = false;
+
+  dragSelection(delta: Vector, withTree: boolean) {
+    this.pointerMoving = true;
+    try {
+      if (withTree) this.moveEntitiesWithChildren(delta);
+      else this.moveSelectedEntities(delta);
+    } finally {
+      this.pointerMoving = false;
+    }
+  }
+
+  beginPointerDrag(clicked: Entity) {
+    this.containerDrag = Settings.containerNBoundary ? new ContainerNodeDrag(this.project, clicked) : undefined;
+  }
+
+  endPointerDrag() {
+    this.containerDrag = undefined;
+  }
+
+  allowsCollisionPlacement(owner: Doodle | null, box: Rectangle, destination: Rectangle) {
+    return (
+      !this.containerDrag ||
+      this.containerDrag.exteriorFraction(owner, box, destination.location.subtract(box.location)) === 1
+    );
+  }
+
+  moveAlignedEntity(entity: Entity, delta: Vector) {
+    if (this.containerDrag) this.moveEntityUtils(entity, delta, true, false);
+    else entity.move(delta);
+  }
   constructor(private readonly project: Project) {}
 
   // ─────── 持续移动物理引擎（复用 Camera 同款物理模型）───────
@@ -108,35 +142,29 @@ export class EntityMoveManager {
    * @param delta
    * @param isAutoAdjustSection 移动的时候是否触发分组框的弹性调整
    */
-  moveEntityUtils(entity: Entity, delta: Vector, isAutoAdjustSection: boolean = true) {
+  moveEntityUtils(
+    entity: Entity,
+    delta: Vector,
+    isAutoAdjustSection: boolean = true,
+    allowTransfer = this.pointerMoving,
+  ) {
     // 检查实体是否可以被移动（锁定状态检查）
     if (!this.canMoveEntity(entity)) {
       return;
     }
     // 让自己移动
-    const nTransfer = Settings.containerNBoundary && this.project.controller?.pressingKeySet.has("n");
-    const boundary = boundedDoodleOf(entity);
-    if (nTransfer && boundary && !boundary.containsContentPoint(entity.collisionBox.getRectangle().center.add(delta))) {
-      this.project.sectionInOutManager.entityDropParent(entity, false, null, true);
-    }
     const wasMoving = this.isMovingWithinContainer;
     this.isMovingWithinContainer = true;
     try {
+      const previousParent = entity.parentSection;
+      if (this.containerDrag) {
+        delta = this.containerDrag.constrain(entity, delta, allowTransfer);
+        if (delta.isZero() && previousParent === entity.parentSection) return;
+      }
       entity.move(delta);
+      if (entity.parentSection !== previousParent) this.project.stageManager.updateReferences();
     } finally {
       this.isMovingWithinContainer = wasMoving;
-    }
-    if (nTransfer) {
-      const target = this.project.sectionMethods.getInnermostSectionByLocation(
-        entity.collisionBox.getRectangle().center,
-      );
-      const targetBoundary = target instanceof Doodle ? target : target ? boundedDoodleOf(target) : null;
-      if (targetBoundary?.bounded && targetBoundary !== entity && !boundedDoodleOf(entity)) {
-        targetBoundary.adopt(entity);
-        this.project.stageManager.updateReferences();
-      } else if (boundary && !entity.parentSection) {
-        this.project.stageManager.updateReferences();
-      }
     }
 
     if (isAutoAdjustSection) {

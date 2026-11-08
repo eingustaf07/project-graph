@@ -279,8 +279,8 @@ settings:
     title: Koneksi simpul antar berkas (eksperimental)
     description: Hubungkan simpul di berkas lokal terpisah atau mengambang. Simpan berkas sumber. Menonaktifkan hanya menyembunyikan koneksi. Hubungkan ulang setelah memindahkan atau mengganti nama berkas tujuan.
   containerNBoundary:
-    title: Transfer kontainer dengan N
-    description: Konten baru memperbesar kontainer. Tahan N saat menyeret masuk atau keluar untuk mengubah keanggotaan; gerakan biasa dibatasi bingkai.
+    title: Transfer kontainer dengan K
+    description: Pilih simpul, lalu tahan K dan seret masuk atau keluar untuk mengubah keanggotaannya. Seretan biasa berhenti di batas. Konten baru dapat memperbesar kontainer.
   containerAutoExpand:
     title: Perluas wadah otomatis
     description: Perluas wadah dan wadah induknya saat isi dibuat, diubah ukurannya atau dipindahkan melewati batas, tanpa memindahkan posisi simpul. Nonaktifkan untuk batas tetap.

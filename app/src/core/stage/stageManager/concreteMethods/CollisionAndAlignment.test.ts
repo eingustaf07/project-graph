@@ -37,6 +37,7 @@ import { StageManager } from "../StageManager";
 import { SectionMethods } from "../basicMethods/SectionMethods";
 import { SectionCollisionSolver } from "./SectionCollisionSolver";
 import { AutoAlign } from "./StageAutoAlignManager";
+import { EntityMoveManager } from "./StageEntityMoveManager";
 import { getMultiLineTextSize } from "@/utils/font";
 import { HistoryManager } from "../StageHistoryManager";
 import { serialize, deserialize } from "@graphif/serializer";
@@ -58,6 +59,7 @@ function fixture() {
   p.sectionMethods = new SectionMethods(p);
   p.sectionCollisionSolver = new SectionCollisionSolver(p);
   p.autoAlign = new AutoAlign(p);
+  p.entityMoveManager = new EntityMoveManager(p);
   p.historyManager = new HistoryManager(p);
   const node = (x: number, y = 0) => {
     const child = new TextNode(p, {

@@ -173,12 +173,12 @@ export default function WelcomeWindow({ tabId }: { tabId: string }) {
   }
 
   async function openProject(uri: URI | undefined, source: string) {
-    // 先关欢迎窗，避免系统文件对话框触发 closeWhenClickOutside 的竞态
-    await closeSelf();
     const opened = await onOpenFile(uri, source);
+    if (!opened) return;
+    await closeSelf();
     if (opened instanceof Project) {
       await closeEmptyDrafts(opened);
-    } else if (opened) {
+    } else {
       await closeEmptyDrafts();
     }
   }

@@ -4,7 +4,7 @@ import { Extension } from "@/core/extension/Extension";
 import { loadAllServicesAfterInit, loadAllServicesBeforeInit } from "@/core/loadAllServices";
 import { Project, ProjectState } from "@/core/Project";
 import { loadWithProjectOwnership, ProjectOwnershipError, type ProjectOwnershipLease } from "@/core/ProjectOwnership";
-import { isResourceTab } from "@/core/Tab";
+import { TabWorkspace } from "@/core/TabWorkspace";
 import { TabFactory } from "@/core/TabFactory";
 import { activeResourceTabAtom, activeTabAtom, store, tabsAtom } from "@/state";
 import { PathString } from "@/utils/pathString";
@@ -43,6 +43,7 @@ type OpeningProject = {
 };
 
 const openingProjects = new Map<string, OpeningProject>();
+const pendingOwnershipChecks = new Set<Promise<void>>();
 
 function getOpeningProject(ownershipId: string) {
   const existing = openingProjects.get(ownershipId);
@@ -161,7 +162,6 @@ export async function onLeaveCollaboration() {
 
 /** 关闭未编辑的空草稿（打开真实文件后清理启动草稿） */
 export async function closeEmptyDrafts(except?: Project) {
-  const { TabWorkspace } = await import("@/core/TabWorkspace");
   const empties = store
     .get(tabsAtom)
     .filter(
@@ -172,8 +172,7 @@ export async function closeEmptyDrafts(except?: Project) {
 }
 
 function focusExistingTab(tab: Project | Extension) {
-  store.set(activeTabAtom, tab);
-  if (isResourceTab(tab)) store.set(activeResourceTabAtom, tab);
+  TabWorkspace.focus(tab.id);
   if (tab instanceof Project) tab.loop();
   if (Settings.pauseRenderWhenTabUnfocused) {
     store
@@ -199,7 +198,7 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
     .get(tabsAtom)
     .find(
       (tab): tab is Project | Extension =>
-        (tab instanceof Project || tab instanceof Extension) && tab.uri.toString() === uri.toString(),
+        (tab instanceof Project || tab instanceof Extension) && !tab.closing && tab.uri.toString() === uri.toString(),
     );
   if (textuallyMatchingTab) {
     focusExistingTab(textuallyMatchingTab);
@@ -210,6 +209,12 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
   let loadServiceTime = 0;
   let openingOwnershipId: string | undefined;
   let openingProject: OpeningProject | undefined;
+  const ownershipChecked = Promise.withResolvers<void>();
+  pendingOwnershipChecks.add(ownershipChecked.promise);
+  const finishOwnershipCheck = () => {
+    pendingOwnershipChecks.delete(ownershipChecked.promise);
+    ownershipChecked.resolve();
+  };
   const finishOpeningProject = (project: Project | undefined) => {
     openingProject?.resolve(project);
     if (openingOwnershipId && openingProjects.get(openingOwnershipId) === openingProject) {
@@ -222,6 +227,7 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
       openingOwnershipId = ownership.ownershipId;
       openingProject = getOpeningProject(ownership.ownershipId);
     }
+    finishOwnershipCheck();
     const dummyProject = new Project(uri);
     try {
       loadAllServicesBeforeInit(dummyProject);
@@ -250,8 +256,10 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
       uri.scheme === "file" && uri.fsPath.toLowerCase().endsWith(".prg")
         ? await loadWithProjectOwnership(uri.fsPath, createTab)
         : { status: "opened" as const, value: await createTab() };
+    finishOwnershipCheck();
     if (result.status === "already_open") {
-      const opening = getOpeningProject(result.ownershipId);
+      // Alias opens can receive their native responses in either order.
+      if (!openingProjects.has(result.ownershipId)) await Promise.all([...pendingOwnershipChecks]);
       const registered = store
         .get(tabsAtom)
         .find(
@@ -260,24 +268,22 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
             !candidate.closing &&
             candidate.canonicalProjectPath === result.canonicalPath,
         );
-      if (registered) {
-        opening.resolve(registered);
-        openingProjects.delete(result.ownershipId);
-      }
-      const existing = registered ?? (await opening.promise);
+      const existing = registered ?? (await openingProjects.get(result.ownershipId)?.promise);
       if (!existing) throw new ProjectOwnershipError("PROJECT_BUSY");
       focusExistingTab(existing);
       return existing;
     }
     tab = result.value;
   } catch (e) {
+    finishOwnershipCheck();
     if (e instanceof ProjectOwnershipError) {
       await Dialog.buttons(i18next.t("projectOwnership.openFailedTitle"), e.message, [
         { id: "ok", label: i18next.t("projectOwnership.ok") },
       ]);
       return undefined;
     }
-    throw e;
+    toast.error(`无法打开文件：${e instanceof Error ? e.message : String(e)}`);
+    return undefined;
   }
 
   try {
@@ -295,14 +301,13 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
               tab.projectState = ProjectState.Unsaved;
             }
           }
+          TabWorkspace.open(tab);
+          finishOpeningProject(tab instanceof Project ? tab : undefined);
         },
         {
           loading: "正在打开文件...",
           success: async () => {
             const readFileTime = performance.now() - initializationStartedAt;
-            store.set(tabsAtom, [...store.get(tabsAtom), tab]);
-            finishOpeningProject(tab instanceof Project ? tab : undefined);
-            store.set(activeTabAtom, tab);
             const project = tab instanceof Project ? tab : undefined;
             await RecentFileManager.addRecentFileByUri(uri);
             if (

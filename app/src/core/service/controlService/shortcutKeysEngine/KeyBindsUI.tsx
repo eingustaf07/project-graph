@@ -686,6 +686,16 @@ export namespace KeyBindsUI {
 
     const activeProject = getFocusedProject();
     if (event.repeat && !event.defaultPrevented && !isCopyInputFocused()) {
+      // A held transfer modifier is one physical press, not a K K sequence.
+      if (
+        activeProject &&
+        event.key.toLowerCase() === "k" &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.shiftKey
+      )
+        return;
       for (const binding of allUIKeyBinds) {
         if (
           (binding.id === "copy" || binding.id === "copyText") &&

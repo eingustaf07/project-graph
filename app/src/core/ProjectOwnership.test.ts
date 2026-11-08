@@ -119,6 +119,31 @@ describe("desktop Project ownership lifecycle", () => {
     expect(load).not.toHaveBeenCalled();
   });
 
+  it("reclaims its own lease after a WebView reload without claiming it twice in the current document", async () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => storage.get(key),
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+    const acquisition = { status: "already_owned", ownershipId: "desktop-321-4", canonicalPath: "/projects/check.prg" };
+    storage.set(
+      "pg:desktop-lease:desktop-321-4",
+      JSON.stringify({ path: acquisition.canonicalPath, document: performance.timeOrigin - 1000 }),
+    );
+    try {
+      invokeMock.mockResolvedValue(acquisition);
+      const reopened = await loadWithProjectOwnership(acquisition.canonicalPath, async (lease) => lease);
+      if (reopened.status !== "opened") throw Error("expected to reopen");
+      const duplicate = await loadWithProjectOwnership(acquisition.canonicalPath, vi.fn());
+      expect(duplicate.status).toBe("already_open");
+      await reopened.value?.dispose();
+      expect(storage.size).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("normalizes release failures for the Project user-visible error boundary", async () => {
     invokeMock
       .mockResolvedValueOnce({

@@ -17,6 +17,24 @@ type DesktopOwnershipAcquisition = {
   canonicalPath: string;
 };
 
+// A WebView reload resets the JS tab list but not the desktop process's file locks.
+// sessionStorage is private to this window and survives a reload. Only reclaim a
+// lease issued to a previous document of this window for the same canonical path.
+function leaseMarker(id: string) {
+  return "pg:desktop-lease:" + id;
+}
+
+function ownedBeforeReload(acquisition: DesktopOwnershipAcquisition) {
+  const value = globalThis.sessionStorage?.getItem(leaseMarker(acquisition.ownershipId));
+  if (!value) return false;
+  try {
+    const marker = JSON.parse(value);
+    return marker.path === acquisition.canonicalPath && marker.document !== performance.timeOrigin;
+  } catch {
+    return false;
+  }
+}
+
 export class ProjectOwnershipError extends Error {
   readonly name = "ProjectOwnershipError";
 
@@ -41,7 +59,12 @@ export class ProjectOwnershipLease {
   constructor(
     readonly ownershipId: string,
     readonly canonicalPath: string,
-  ) {}
+  ) {
+    globalThis.sessionStorage?.setItem(
+      leaseMarker(ownershipId),
+      JSON.stringify({ path: canonicalPath, document: performance.timeOrigin }),
+    );
+  }
 
   async makeConnectable(): Promise<void> {
     try {
@@ -60,6 +83,7 @@ export class ProjectOwnershipLease {
     })
       .then(() => {
         this.disposed = true;
+        globalThis.sessionStorage?.removeItem(leaseMarker(this.ownershipId));
       })
       .catch((error) => {
         this.disposePromise = undefined;
@@ -253,7 +277,7 @@ export async function loadWithProjectOwnership<T>(
   } catch (error) {
     throw toProjectOwnershipError(error);
   }
-  if (acquisition.status === "already_owned") {
+  if (acquisition.status === "already_owned" && !ownedBeforeReload(acquisition)) {
     return {
       status: "already_open",
       ownershipId: acquisition.ownershipId,
