@@ -1,19 +1,21 @@
 import logoUrl from "@/assets/icon.png";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getVersion } from "@tauri-apps/api/app";
+import { getName, getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-shell";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export default function AboutTab() {
   const [appVersion, setAppVersion] = useState("unknown");
+  const [appName, setAppName] = useState("Project Graph E 1.5");
   const [logoClickCount, setLogoClickCount] = useState(0);
   const { t } = useTranslation("welcome");
 
   useEffect(() => {
     (async () => {
       setAppVersion(await getVersion());
+      setAppName(await getName());
     })();
   }, []);
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function AboutTab() {
       <header className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-semibold">
-            <span>Project Graph Custom</span>
+            <span>{appName}</span>
             {/* 把版本号调大一些，因为一些用户录屏反馈的时候会主动打开这个页面，展示版本号。如果字太小了，在手机上看用户录屏视频就看不清了 */}
             <a
               href="https://graphif.dev/docs/app/misc/history"
@@ -122,9 +124,12 @@ export default function AboutTab() {
 
 const versionHistory = [
   {
-    version: "PG1.5",
+    version: "Project Graph E 1.5",
     title: "布局、缩放控制与开发版",
     changes: [
+      "修复更新或切换启动方式后反复要求 ChatGPT 登录的问题：使用固定的当前用户加密凭据目录，首次启用时迁移最近使用的旧凭据，后续升级继续复用。官方授权过期或撤销后仍需重新授权。",
+      "读取 ChatGPT 登录状态时显示检查进度，临时网络故障提供重试入口，避免误显示为未登录。",
+      "本版开始统一命名为“Project Graph E 版本号”，例如 Project Graph E 1.5；程序内部标识和原有设置目录继续保留。",
       "2026-11-09 · 新增版本记录维护要求：每次增加功能或修复问题，都在当前版本下追加记录，可在“设置 → 关于 → 自定义版更新日志”查看。",
       "2026-11-09 · 大文件标签切换保留已经访问过的工程画布，减少重复挂载和画布像素缓冲区重建；关闭标签时仍释放其显示组件。",
       "2026-11-09 · CC 批量切割合并引用更新和历史记录，一次切割支持整次撤销、重做；预览按帧计算，松手时使用最终切割位置。千条连线的测试仍约需0.7秒，超大批量操作会有处理时间。",

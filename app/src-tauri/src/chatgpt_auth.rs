@@ -7,12 +7,14 @@ use tauri::{ipc::Channel, AppHandle, Manager, State};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::Mutex;
 use url::Url;
+#[path = "chatgpt_credential_store.rs"]
+mod credential_store;
 
 const AUTHORIZE_URL: &str = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_URL: &str = "https://auth.openai.com/api/accounts/oauth/token";
 const RESOURCE: &str = "https://api.openai.com/v1";
 const DISCOVERY_URL: &str = "https://auth.openai.com/.well-known/openid-configuration";
-const APP_NAME: &str = "Project Graph PG1.3";
+const APP_NAME: &str = "Project Graph E 1.5";
 
 #[derive(Default)]
 pub struct ChatGPTLock(pub Arc<Mutex<()>>);
@@ -721,9 +723,18 @@ fn new_host_id() -> String {
         value[0],value[1],value[2],value[3],value[4],value[5],value[6],value[7],value[8],value[9],value[10],value[11],value[12],value[13],value[14],value[15])
 }
 
-fn host_id(app: &AppHandle, previous: Option<&str>) -> Result<String, String> {
-    let directory = app.path().app_data_dir().map_err(|error| error.to_string())?;
+fn host_id(_app: &AppHandle, previous: Option<&str>) -> Result<String, String> {
+    let directory = credential_directory()?;
     let path = directory.join("chatgpt-host-id");
+    if let Some(value) = previous.filter(|value| value.starts_with("urn:uuid:") && value.len() == 45) {
+        fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+        if fs::read_to_string(&path).ok().as_deref() != Some(value) {
+            let temp = directory.join(format!(".host-{}.tmp", random_url_token(12)));
+            fs::write(&temp, value).map_err(|error| error.to_string())?;
+            fs::rename(&temp, &path).map_err(|error| error.to_string())?;
+        }
+        return Ok(value.to_owned());
+    }
     if path.exists() {
         let saved = fs::read_to_string(&path).map_err(|error| format!("无法读取本机 ChatGPT 主机 ID：{error}"))?;
         if saved.starts_with("urn:uuid:") && saved.len() == 45 { return Ok(saved); }
@@ -739,13 +750,32 @@ fn host_id(app: &AppHandle, previous: Option<&str>) -> Result<String, String> {
 
 fn now_seconds() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() }
 
-fn credential_path(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path().app_data_dir().map(|directory| directory.join("chatgpt-auth.dpapi")).map_err(|error| error.to_string())
+fn credential_path(_app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(credential_directory()?.join("chatgpt-auth.dpapi"))
+}
+
+fn credential_directory() -> Result<PathBuf, String> {
+    let home = dirs::home_dir().ok_or_else(|| "无法定位当前 Windows 用户目录，未更改 ChatGPT 登录信息。".to_string())?;
+    Ok(credential_store::directory(&home))
 }
 
 fn read_credential(app: &AppHandle) -> Result<Option<StoredCredential>, String> {
     let path = credential_path(app)?;
-    if !path.exists() { return Ok(None); }
+    if !path.exists() {
+        let home = dirs::home_dir().ok_or_else(|| "无法定位当前 Windows 用户目录。".to_string())?;
+        let app_data = app.path().app_data_dir().map_err(|error| error.to_string())?;
+        let candidates = credential_store::legacy_paths(&home, &app_data);
+        if let Some(legacy) = credential_store::newest_legacy(&candidates)
+            .map_err(|error| format!("无法检查旧版受保护的 ChatGPT 登录信息：{error}"))? {
+            let encrypted = fs::read(legacy).map_err(|error| format!("无法读取旧版加密登录信息：{error}"))?;
+            let plaintext = protect::unprotect(&encrypted)?;
+            let credential: StoredCredential = serde_json::from_slice(&plaintext)
+                .map_err(|_| "旧版受保护的 ChatGPT 登录信息格式无效，未覆盖现有数据。".to_string())?;
+            write_credential(app, &credential)?;
+            return Ok(Some(credential));
+        }
+        return Ok(None);
+    }
     let encrypted = fs::read(path).map_err(|error| format!("无法读取受保护的 ChatGPT 凭据：{error}"))?;
     let plaintext = protect::unprotect(&encrypted)?;
     serde_json::from_slice(&plaintext).map(Some).map_err(|error| format!("受保护的 ChatGPT 凭据格式无效：{error}"))
@@ -757,7 +787,7 @@ fn write_credential(app: &AppHandle, credential: &StoredCredential) -> Result<()
     fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     let plaintext = serde_json::to_vec(credential).map_err(|error| error.to_string())?;
     let encrypted = protect::protect(&plaintext)?;
-    let temp = path.with_extension("dpapi.tmp");
+    let temp = parent.join(format!(".chatgpt-{}.dpapi.tmp", random_url_token(12)));
     fs::write(&temp, encrypted).map_err(|error| format!("无法安全保存 ChatGPT 凭据：{error}"))?;
     fs::rename(&temp, &path).map_err(|error| format!("无法完成 ChatGPT 凭据保存：{error}"))
 }
