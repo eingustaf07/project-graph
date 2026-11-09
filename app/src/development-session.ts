@@ -72,7 +72,7 @@ async function sessionStore(mode: "readwrite" | "readonly", value?: Snapshot | n
 }
 
 let applying = false;
-export async function applyDevelopmentUpdate() {
+export async function applyDevelopmentUpdate(restartShell = false) {
   if (applying) return;
   applying = true;
   const projects = store.get(tabsAtom).filter((tab): tab is Project => tab instanceof Project);
@@ -95,7 +95,10 @@ export async function applyDevelopmentUpdate() {
     projects.forEach((p) => p.pause());
     await sessionStore("readwrite", captureSession());
     await Promise.all(projects.map((p) => p.dispose()));
-    location.reload();
+    if (restartShell) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("exit", { code: 0 });
+    } else location.reload();
   } catch (error) {
     projects.forEach((p) => p.loop());
     toast.error(`开发更新未应用：${String(error)}`);
