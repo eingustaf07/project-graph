@@ -254,12 +254,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
       // 判定为有效吸附的拖拽操作
       if (this.isMovingEntity) {
         // 这个时候可以触发对齐吸附事件
-        if (Settings.enableDragAutoAlign) {
-          this.project.autoAlign.alignAllSelected();
-        }
-        if (Settings.enableDragAlignToGrid) {
-          this.project.autoAlign.alignAllSelectedToGrid();
-        }
+        this.project.entityMoveManager.alignAfterPointerDrag();
 
         this.project.historyManager.recordStep(); // 记录一次历史
       }

@@ -140,11 +140,13 @@ it("commits repeated title edits and never replaces an externally updated title 
         Object.defineProperty(event, "pointerId", { value: 1 });
         await act(() => button.dispatchEvent(event));
       };
-      await dispatch("pointerdown", point);
-      await dispatch("pointermove", point.add(new Vector(dx, dy)));
+      const offsetPoint = point.add(new Vector(9, 9));
+      expect(button.className).toContain("size-6");
+      await dispatch("pointerdown", offsetPoint);
+      await dispatch("pointermove", offsetPoint.add(new Vector(dx, dy)));
       expect(shape.frame).toEqual(before);
       const calls = history.mock.calls.length;
-      await dispatch("pointerup", point.add(new Vector(dx, dy)));
+      await dispatch("pointerup", offsetPoint.add(new Vector(dx, dy)));
       expect(history).toHaveBeenCalledTimes(calls + 1);
       expect(shape.frame.width).toBe(before.width + Math.abs(dx));
       expect(shape.frame.height).toBe(before.height + Math.abs(dy));

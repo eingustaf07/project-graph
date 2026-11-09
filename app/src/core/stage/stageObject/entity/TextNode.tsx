@@ -342,10 +342,10 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     this.adjustSizeByText();
   }
 
-  public resolveOverlaps() {
+  public resolveOverlaps(updateParents = true) {
     // 构造和剪贴板反序列化时尚未加入舞台，不能挤动现有节点。
     if (!this.project.stage?.includes(this)) return;
-    this.updateFatherSectionByMove();
+    if (updateParents) this.updateFatherSectionByMove();
     this.updateOtherEntityLocationByMove();
   }
 
@@ -462,11 +462,13 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   private static readonly activeCollisions = new WeakSet<Project>();
 
   protected override updateOtherEntityLocationByMove(): void {
-    if (!Settings.isEnableEntityCollision || TextNode.activeCollisions.has(this.project)) return;
+    if (this.project.entityMoveManager?.trackTextMove(this)) return;
+    if (!this.shouldResolveEntityCollisions || TextNode.activeCollisions.has(this.project)) return;
     TextNode.activeCollisions.add(this.project);
     try {
       const boundary = boundedDoodleOf(this);
-      const entities = this.project.stageManager.getEntities();
+      const candidates = this.project.entityMoveManager?.collisionCandidates(this);
+      const entities = candidates ?? this.project.stageManager.getEntities();
       // Move groups first: moving a group can also move its text children.
       if (!boundary) {
         for (const other of entities) {
@@ -478,7 +480,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
         if (!(other instanceof TextNode) || other === this || other.nearestLockedAncestorSection) continue;
         if (!anchor.isCollideWith(other.rectangle) || boundedDoodleOf(other) !== boundary) continue;
         const obstacles: Rectangle[] = [];
-        for (const item of entities) {
+        for (const item of candidates ? this.project.stageManager.getEntities() : entities) {
           if (item === other || boundedDoodleOf(item) !== boundary) continue;
           if (item instanceof Section && (item.isDoodle || this.project.sectionMethods.isEntityInSection(other, item)))
             continue;

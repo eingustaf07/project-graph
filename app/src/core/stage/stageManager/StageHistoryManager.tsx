@@ -437,8 +437,28 @@ export class HistoryManager extends HistoryManagerAbs {
    * 记录一步骤
    */
   public recordStep(): void {
+    if (this.batchDepth) {
+      this.batchDirty = true;
+      return;
+    }
     this.currentManager.recordStep();
     this.project.emit("stage-commit");
+  }
+
+  private batchDepth = 0;
+  private batchDirty = false;
+
+  batch(action: () => void) {
+    this.batchDepth++;
+    try {
+      action();
+    } finally {
+      this.batchDepth--;
+      if (!this.batchDepth && this.batchDirty) {
+        this.batchDirty = false;
+        this.recordStep();
+      }
+    }
   }
 
   /**

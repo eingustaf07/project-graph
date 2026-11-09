@@ -390,6 +390,35 @@ export class Doodle extends Section {
   override get rectangle(): Rectangle {
     return this.frame ?? super.rectangle;
   }
+  private get pointerScale() {
+    const scale = this.project.camera?.currentScale ?? 1;
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  }
+  get frameHitTolerancePixels() {
+    const scale = this.pointerScale;
+    return Math.min(8, Math.max(3, 6 / Math.sqrt(scale)), (Math.min(this.frame.width, this.frame.height) * scale) / 4);
+  }
+  framePointerDistance(location: Vector): number {
+    if (this.shape === "circle") {
+      const radius = Math.min(this.frame.width, this.frame.height) / 2;
+      return Math.abs(location.subtract(this.frame.center).magnitude() - radius) * this.pointerScale;
+    }
+    const dx = Math.max(this.frame.left - location.x, 0, location.x - this.frame.right);
+    const dy = Math.max(this.frame.top - location.y, 0, location.y - this.frame.bottom);
+    const distance =
+      dx || dy
+        ? Math.hypot(dx, dy)
+        : Math.min(
+            location.x - this.frame.left,
+            this.frame.right - location.x,
+            location.y - this.frame.top,
+            this.frame.bottom - location.y,
+          );
+    return distance * this.pointerScale;
+  }
+  isFrameHit(location: Vector): boolean {
+    return this.framePointerDistance(location) <= this.frameHitTolerancePixels;
+  }
   override get collisionBox(): CollisionBox {
     if (!this.frame) return super.collisionBox;
     if (this.shape === "rectangle") return new CollisionBox(this.frame.getBoundingLines());

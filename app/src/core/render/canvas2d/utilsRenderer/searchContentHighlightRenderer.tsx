@@ -2,7 +2,8 @@ import { Color } from "@graphif/data-structures";
 import { Project, service } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { ConnectableAssociation } from "@/core/stage/stageObject/abstract/Association";
-import { collectConnectedNodeIds } from "@/core/algorithm/connectedNodeHighlight";
+import { collectChainNodeIds, collectConnectedNodeIds } from "@/core/algorithm/connectedNodeHighlight";
+import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { Settings } from "@/core/service/Settings";
 
 /**
@@ -14,7 +15,7 @@ export class SearchContentHighlightRenderer {
   private connectedNodes: ConnectableEntity[] = [];
   private cachedStage: Project["stage"] | undefined;
   private cachedStageLength = -1;
-  private cachedScope: "direct" | "all" | undefined;
+  private cachedScope?: typeof Settings.connectedNodeHighlightScope;
   private dirty = true;
   private readonly invalidate = () => {
     this.dirty = true;
@@ -61,12 +62,19 @@ export class SearchContentHighlightRenderer {
     const nodeIds = nodes.map((node) => node.uuid);
     const liveIds = new Set(nodeIds);
     this.roots = new Set([...this.roots].filter((id) => liveIds.has(id)));
-    const ids = collectConnectedNodeIds(
-      nodeIds,
-      associations.map((a) => a.associationList),
-      this.roots,
-      scope,
-    );
+    const ids =
+      scope === "chain"
+        ? collectChainNodeIds(
+            nodeIds,
+            associations.filter((a) => a instanceof Edge),
+            this.roots,
+          )
+        : collectConnectedNodeIds(
+            nodeIds,
+            associations.map((a) => a.associationList),
+            this.roots,
+            scope,
+          );
     this.connectedNodes = nodes.filter((node) => ids.has(node.uuid));
     if (!this.connectedNodes.length) this.roots.clear();
     this.cachedStage = this.project.stage;

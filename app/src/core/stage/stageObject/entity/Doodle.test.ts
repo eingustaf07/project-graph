@@ -52,6 +52,7 @@ import { getMultiLineTextSize } from "@/utils/font";
 function fixture() {
   const p: any = {
     stage: [],
+    renderer: { frameIndex: 0 },
     controller: { pressingKeySet: new Set<string>() },
     attachments: new Map(),
     emit: vi.fn(),
@@ -89,6 +90,42 @@ function cage(p: Project, shape: "rectangle" | "circle" = "rectangle", bounded =
   p.stageManager.add(d);
   return d;
 }
+
+describe("zoom-aware frame pointer targeting", () => {
+  it.each(["rectangle", "circle"] as const)(
+    "uses screen distance for %s borders without changing physical bounds",
+    (shape) => {
+      const p = fixture();
+      p.camera = { currentScale: 0.1 } as Project["camera"];
+      const frame = new Doodle(p, { shape, bounded: false, frame: new Rectangle(Vector.getZero(), Vector.same(1000)) });
+      p.stage.push(frame);
+      p.stageManager.updateReferences();
+      const near = new Vector(500, -70);
+      expect(frame.isFrameHit(near)).toBe(true);
+      expect(frame.collisionBox.isContainsPoint(near)).toBe(false);
+      expect(p.stageManager.findEntityByLocation(near)).toBe(frame);
+      expect(p.stageManager.findEntityByLocation(new Vector(500, -90))).toBeNull();
+      expect(frame.isFrameHit(frame.frame.center)).toBe(false);
+      p.camera.currentScale = 0.01;
+      expect(frame.frameHitTolerancePixels).toBe(2.5);
+      expect(frame.isFrameHit(new Vector(500, -240))).toBe(true);
+      expect(frame.isFrameHit(new Vector(500, -260))).toBe(false);
+    },
+  );
+  it("prefers a real node over a nearby border and refuses ambiguous neighboring borders", () => {
+    const p = fixture();
+    p.camera = { currentScale: 0.1 } as Project["camera"];
+    const first = new Doodle(p, { frame: new Rectangle(Vector.getZero(), Vector.same(1000)) });
+    const second = new Doodle(p, { frame: new Rectangle(new Vector(0, 40), Vector.same(1000)) });
+    p.stage = [first, second];
+    p.stageManager.updateReferences();
+    expect(p.stageManager.findEntityByLocation(new Vector(500, 20))).toBeNull();
+    const n = node(p, "node", new Vector(460, 5));
+    p.stage.unshift(n);
+    p.stageManager.updateReferences();
+    expect(p.stageManager.findEntityByLocation(n.rectangle.center)).toBe(n);
+  });
+});
 function inside(d: Doodle, rect: Rectangle) {
   const delta = fitDoodleBounds(d.frame, d.shape, rect);
   expect(delta).not.toBeNull();

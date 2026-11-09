@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { collectConnectedNodeIds } from "./connectedNodeHighlight";
+import { collectChainNodeIds, collectConnectedNodeIds } from "./connectedNodeHighlight";
 
 const edge = (...ids: string[]) => ids.map((uuid) => ({ uuid }));
 
 describe("connected node highlighting", () => {
+  it.each([
+    ["C", "ABCD"],
+    ["B", "AB"],
+    ["E", "ABEF"],
+  ])("follows the selected branch from %s", (root, expected) => {
+    const edges = ["AB", "BC", "CD", "BE", "EF"].map(([a, b]) => ({ source: { uuid: a }, target: { uuid: b } }));
+    expect(collectChainNodeIds("ABCDEF", edges, new Set([root]))).toEqual(new Set(expected));
+  });
   it("limits direct mode to the selected node and one-hop neighbors without traversing through them", () => {
     expect([...collectConnectedNodeIds(["a", "b", "c"], [edge("a", "b"), edge("b", "c")], ["a"], "direct")]).toEqual([
       "a",

@@ -15,6 +15,7 @@ const settings = vi.hoisted(() => ({
   isEnableSectionCollision: true,
   isEnableEntityCollision: false,
   enableDragAutoAlign: true,
+  enableDragAlignToGrid: false,
   textNodeMaxCharWidth: 15,
   defaultFontFamily: "sans-serif",
   sectionInitBorderStyle: "solid",
@@ -23,8 +24,20 @@ const settings = vi.hoisted(() => ({
   watch: () => () => {},
 }));
 vi.mock("@/core/service/Settings", () => ({ Settings: settings }));
+vi.mock("@/utils/platform", () => ({ isMac: false, isWeb: false, isDesktop: true }));
+vi.mock("@/core/service/controlService/MouseLocation", () => ({ MouseLocation: {} }));
+vi.mock("@/core/stage/stageObject/entity/ExtensionEntity", () => ({ ExtensionEntity: class {} }));
+vi.mock("@/core/stage/stageObject/entity/ReferenceBlockNode", () => ({ ReferenceBlockNode: class {} }));
+vi.mock("@/core/service/controlService/controller/ControllerClass", () => ({
+  ControllerClass: class {
+    constructor(public project: unknown) {}
+    dispose() {}
+  },
+}));
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
-vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: { play: { alignAndAttach: vi.fn() } } }));
+vi.mock("@/core/service/feedbackService/SoundService", () => ({
+  SoundService: { play: { alignAndAttach: vi.fn(), cuttingLineRelease: vi.fn() } },
+}));
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), warning: vi.fn() }) }));
 
@@ -42,10 +55,19 @@ import { getMultiLineTextSize } from "@/utils/font";
 import { HistoryManager } from "../StageHistoryManager";
 import { serialize, deserialize } from "@graphif/serializer";
 import { Encoder, decode } from "@msgpack/msgpack";
+import { Decoder } from "@msgpack/msgpack";
+import { readFileSync } from "node:fs";
+import { parseProjectFile } from "@/core/ProjectFile";
+import { GraphMethods } from "../basicMethods/GraphMethods";
+import { LineEdge } from "../../stageObject/association/LineEdge";
+import { DeleteManager } from "./StageDeleteManager";
+import { ControllerCuttingClass } from "@/core/service/controlService/controller/concrete/ControllerCutting";
 
 function fixture() {
   const p: any = {
     stage: [],
+    attachments: new Map(),
+    controller: { pressingKeySet: new Set<string>() },
     emit: vi.fn(),
     effects: { addEffect: vi.fn() },
     syncAssociationManager: { syncFrom: vi.fn() },
@@ -56,6 +78,7 @@ function fixture() {
     },
   };
   p.stageManager = new StageManager(p);
+  p.graphMethods = new GraphMethods(p);
   p.sectionMethods = new SectionMethods(p);
   p.sectionCollisionSolver = new SectionCollisionSolver(p);
   p.autoAlign = new AutoAlign(p);
@@ -114,6 +137,189 @@ describe("section collision with real PG objects", () => {
 });
 
 describe("text node collision with the user's collision and auto-align settings", () => {
+  it("cuts 1000 real PG edges with one reference rebuild and one undo transaction", () => {
+    vi.stubGlobal("window", { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    const { p } = fixture();
+    settings.isEnableEntityCollision = false;
+    p.renderer.transformView2World = (v: Vector) => v.multiply(10);
+    p.controller.setCursorName = vi.fn();
+    p.stageStyleManager = { currentStyle: { effects: { warningShadow: Vector.getZero() } } };
+    p.deleteManager = new DeleteManager(p);
+    const edges: LineEdge[] = [];
+    for (let i = 0; i < 1000; i++) {
+      const a = new TextNode(p, {
+        text: "a",
+        collisionBox: new CollisionBox([new Rectangle(new Vector(0, i * 100), Vector.getZero())]),
+      });
+      const b = new TextNode(p, {
+        text: "b",
+        collisionBox: new CollisionBox([new Rectangle(new Vector(1000, i * 100), Vector.getZero())]),
+      });
+      const edge = LineEdge.fromTwoEntity(p, a, b);
+      p.stage.push(a, b, edge);
+      edges.push(edge);
+    }
+    p.stageManager.updateReferences();
+    p.historyManager.recordStep();
+    const references = vi.spyOn(p.stageManager, "updateReferences");
+    p.emit.mockClear();
+    const cutter = new ControllerCuttingClass(p);
+    (cutter as any).cuttingStartLocation = new Vector(500, -100);
+    cutter.isUsing = true;
+    const started = performance.now();
+    cutter.mouseUpFunction(new Vector(50, 10000));
+    console.log(
+      JSON.stringify({
+        cutEdges: edges.length,
+        ms: performance.now() - started,
+        referenceRebuilds: references.mock.calls.length,
+      }),
+    );
+    expect(p.stageManager.getAssociations()).toHaveLength(0);
+    expect(p.stageManager.getEntities()).toHaveLength(2000);
+    expect(references).toHaveBeenCalledTimes(1);
+    expect(p.emit.mock.calls.filter(([name]: [string]) => name === "stage-commit")).toHaveLength(1);
+    p.historyManager.undo();
+    expect(p.stageManager.getAssociations()).toHaveLength(1000);
+    p.historyManager.redo();
+    expect(p.stageManager.getAssociations()).toHaveLength(0);
+    cutter.dispose();
+    references.mockRestore();
+  }, 30000);
+  it("coalesces 100 pointer moves into one preview and uses the final release position", () => {
+    vi.stubGlobal("window", { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    let frame: FrameRequestCallback = () => {};
+    const request = vi.fn((callback: FrameRequestCallback) => {
+      frame = callback;
+      return 17;
+    });
+    vi.stubGlobal("requestAnimationFrame", request);
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const { p, node } = fixture();
+    p.renderer.transformView2World = (v: Vector) => v.multiply(10);
+    p.controller.setCursorName = vi.fn();
+    p.controller.penStrokeControl = { isAdjusting: false };
+    p.stageStyleManager = { currentStyle: { effects: { warningShadow: Vector.getZero() } } };
+    p.deleteManager = new DeleteManager(p);
+    const a = node(0, 500),
+      b = node(1000, 500);
+    p.stage.push(LineEdge.fromTwoEntity(p, a, b));
+    p.historyManager.recordStep();
+    const cutter = new ControllerCuttingClass(p);
+    (cutter as any).cuttingStartLocation = new Vector(500, -100);
+    cutter.isUsing = true;
+    const preview = vi.spyOn(cutter as any, "updateWarningObjectByCuttingLine");
+    for (let i = 0; i < 100; i++) cutter.mousemove({ clientX: 50, clientY: 0 } as MouseEvent);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(preview).not.toHaveBeenCalled();
+    frame(16);
+    expect(preview).toHaveBeenCalledTimes(1);
+    cutter.mouseUpFunction(new Vector(50, 100));
+    expect(preview).toHaveBeenCalledTimes(2);
+    expect(p.stageManager.getAssociations()).toHaveLength(0);
+    cutter.dispose();
+  });
+  it("keeps a locked branch when bulk deleting a mixture of locked and unlocked edges", () => {
+    const { p, node } = fixture();
+    p.deleteManager = new DeleteManager(p);
+    const a = node(0),
+      b = node(500),
+      c = node(1000);
+    const protectedEdge = LineEdge.fromTwoEntity(p, a, b);
+    const freeEdge = LineEdge.fromTwoEntity(p, b, c);
+    const section = new Section(p, { children: [a], locked: true });
+    p.stage.push(section, protectedEdge, freeEdge);
+    p.stageManager.updateReferences();
+    p.historyManager.recordStep();
+    p.stageManager.deleteAssociations([protectedEdge, freeEdge, freeEdge]);
+    expect(p.stageManager.getAssociations()).toEqual([protectedEdge]);
+    p.historyManager.undo();
+    expect(p.stageManager.getAssociations()).toHaveLength(2);
+  });
+  it.skipIf(!process.env.PG_LARGE_TREE_FIXTURE)(
+    "profiles dragging a tree from a read-only copy of the user's project",
+    async () => {
+      const file = process.env.PG_LARGE_TREE_FIXTURE!;
+      const beforeFile = readFileSync(file);
+      const parsed = await parseProjectFile(beforeFile, new Decoder(), new Map());
+      const { p } = fixture();
+      p.stage = deserialize(parsed.serializedStageObjects, p);
+      p.stageManager.updateReferences();
+      const nodes = p.stageManager.getConnectableEntity();
+      const roots = nodes.filter((n: any) => p.graphMethods.nodeParentArray(n).length === 0);
+      const trees = roots.map((root: any) => p.graphMethods.getSuccessorSet(root));
+      const covered = new Set(trees.flat());
+      for (const n of nodes) {
+        if (covered.has(n)) continue;
+        const branch = p.graphMethods.getSuccessorSet(n);
+        trees.push(branch);
+        branch.forEach((n: any) => covered.add(n));
+      }
+      const tree = trees.sort((a: any[], b: any[]) => b.length - a.length)[0];
+      expect(tree.length).toBeGreaterThan(10);
+      p.stage.forEach((n: any) => (n.isSelected = false));
+      tree[0].isSelected = true;
+      const scans = vi.spyOn(p.stageManager, "getTreeEdges");
+      const durations: number[] = [];
+      for (let step = 0; step < 10; step++) {
+        const start = performance.now();
+        p.entityMoveManager.dragSelection(new Vector(1, 1), true);
+        durations.push(performance.now() - start);
+      }
+      console.log(
+        JSON.stringify({ objects: p.stage.length, tree: tree.length, durations, edgeScans: scans.mock.calls.length }),
+      );
+      expect(scans).toHaveBeenCalledTimes(10);
+      vi.restoreAllMocks();
+      expect(readFileSync(file)).toEqual(beforeFile);
+    },
+    60000,
+  );
+  it("moves a 1000-node cyclic chain once per node even when ancestors and descendants are selected", () => {
+    const { p } = fixture();
+    settings.isEnableEntityCollision = false;
+    const nodes = Array.from(
+      { length: 1000 },
+      (_, i) =>
+        new TextNode(p, {
+          text: "node",
+          collisionBox: new CollisionBox([new Rectangle(new Vector(i * 500, 0), new Vector(100, 50))]),
+        }),
+    );
+    const edges = nodes.map((n, i) => LineEdge.fromTwoEntity(p, n, nodes[(i + 1) % nodes.length]));
+    edges[500].lineType = "dashed";
+    p.stage = [...nodes, ...edges];
+    nodes[0].isSelected = true;
+    nodes[200].isSelected = true;
+    settings.isEnableEntityCollision = true;
+    const scans = vi.spyOn(p.stageManager, "getTreeEdges");
+    const before = nodes.map((n) => n.rectangle.location.clone());
+    p.entityMoveManager.dragSelection(new Vector(10, 5), true);
+    for (let i = 0; i < nodes.length; i++)
+      expect(nodes[i].rectangle.location).toEqual(i <= 500 ? before[i].add(new Vector(10, 5)) : before[i]);
+    expect(scans).toHaveBeenCalledTimes(1);
+    scans.mockRestore();
+  });
+  it("pushes an external neighbor after the group reaches its final position and restores it on undo", () => {
+    const { p, node } = fixture();
+    const a = node(0),
+      b = node(0, 200),
+      obstacle = node(500);
+    p.stage.push(LineEdge.fromTwoEntity(p, a, b));
+    a.isSelected = true;
+    p.historyManager.recordStep();
+    const before = serialize(p.stage);
+    p.entityMoveManager.dragSelection(new Vector(500, 0), true);
+    expect(overlap(a, obstacle)).toBe(false);
+    expect(a.rectangle.location).toEqual(new Vector(500, 0));
+    expect(b.rectangle.location).toEqual(new Vector(500, 200));
+    p.historyManager.recordStep();
+    const after = serialize(p.stage);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(after);
+  });
   it("restores the development session history with working undo and redo", () => {
     const { p, node } = fixture();
     const a = node(0);
@@ -231,6 +437,50 @@ describe("text node collision with the user's collision and auto-align settings"
       b = node(600);
     a.move(new Vector(600, 0));
     expect(overlap(a, b)).toBe(false);
+  });
+  it("passes through a neighbor with V and resumes pushing during the same drag when V is released", () => {
+    const { p, node } = fixture();
+    const dragged = node(0);
+    const neighbor = node(600);
+    const origin = neighbor.rectangle.location.clone();
+    dragged.isSelected = true;
+    p.entityMoveManager.beginPointerDrag(dragged);
+    p.controller.pressingKeySet.add("v");
+    p.entityMoveManager.dragSelection(new Vector(600, 0), false);
+    expect(overlap(dragged, neighbor)).toBe(true);
+    p.entityMoveManager.dragSelection(new Vector(400, 0), false);
+    expect(dragged.rectangle.left).toBeGreaterThan(neighbor.rectangle.right);
+    expect(neighbor.rectangle.location).toEqual(origin);
+    p.controller.pressingKeySet.delete("v");
+    p.entityMoveManager.dragSelection(new Vector(-400, 0), false);
+    expect(overlap(dragged, neighbor)).toBe(false);
+    expect(neighbor.rectangle.location).not.toEqual(origin);
+    p.entityMoveManager.endPointerDrag();
+  });
+  it("applies grid snapping on V-drop without pushing and keeps ordinary moves collidable while V stays down", () => {
+    const { p, node } = fixture();
+    const dragged = node(0);
+    const neighbor = node(600);
+    const origin = neighbor.rectangle.location.clone();
+    dragged.isSelected = true;
+    p.entityMoveManager.beginPointerDrag(dragged);
+    p.controller.pressingKeySet.add("v");
+    p.entityMoveManager.dragSelection(new Vector(603, 3), false);
+    const unsnapped = dragged.rectangle.location.clone();
+    const previous = settings.enableDragAlignToGrid;
+    settings.enableDragAlignToGrid = true;
+    try {
+      p.entityMoveManager.alignAfterPointerDrag();
+    } finally {
+      settings.enableDragAlignToGrid = previous;
+    }
+    expect(dragged.rectangle.location).not.toEqual(unsnapped);
+    expect(overlap(dragged, neighbor)).toBe(true);
+    expect(neighbor.rectangle.location).toEqual(origin);
+    p.entityMoveManager.endPointerDrag();
+    dragged.move(new Vector(1, 0));
+    expect(overlap(dragged, neighbor)).toBe(false);
+    expect(settings.isEnableEntityCollision).toBe(true);
   });
   it("applies collision when moving to absolute coordinates", () => {
     const { node } = fixture();

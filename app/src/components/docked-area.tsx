@@ -1,11 +1,30 @@
 import { ProjectTabs } from "@/ProjectTabs";
-import { Tab } from "@/core/Tab";
+import { Tab, isResourceTab } from "@/core/Tab";
 import { TabGroupNode } from "@/core/TabGroup";
 import { TabWorkspace } from "@/core/TabWorkspace";
 import { activeGroupIdAtom, tabDropTargetAtom, tabGroupRootAtom, tabsAtom } from "@/state";
 import { cn } from "@/utils/cn";
 import { useAtomValue } from "jotai";
-import React from "react";
+import React, { useEffect, useState } from "react";
+
+export function TabGroupContent({ tabs, activeTab }: { tabs: Tab[]; activeTab?: Tab }) {
+  const [visited, setVisited] = useState<string[]>([]);
+  useEffect(() => {
+    if (activeTab && isResourceTab(activeTab))
+      setVisited((ids) => (ids.includes(activeTab.id) ? ids : [...ids, activeTab.id]));
+  }, [activeTab]);
+  return (
+    <>
+      {tabs
+        .filter((tab) => !tab.closing && (tab === activeTab || (isResourceTab(tab) && visited.includes(tab.id))))
+        .map((tab) => (
+          <div key={tab.id} hidden={tab !== activeTab} className="absolute inset-0">
+            {React.createElement(tab.getComponent())}
+          </div>
+        ))}
+    </>
+  );
+}
 
 function SplitView({
   node,
@@ -126,7 +145,7 @@ export default function DockedArea({
           isClassroomMode={isClassroomMode}
         />
         <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-          {activeTab && React.createElement(activeTab.getComponent())}
+          <TabGroupContent tabs={groupTabs} activeTab={activeTab} />
         </div>
         <DropPreview groupId={node.id} />
       </section>

@@ -52,6 +52,7 @@ export class SectionCollisionSolver {
 
       // 直接平移 sibling 整棵子树，不触发父级更新或碰撞事件链
       this.rawShiftEntityTree(sibling, delta);
+      this.project.entityMoveManager?.invalidateCollisionIndex();
 
       // 向上更新包围盒，并在每一层继续检测新的同级碰撞
       this.updateAncestorsAfterShift(sibling, visited);

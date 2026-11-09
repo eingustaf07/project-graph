@@ -24,7 +24,7 @@ import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { creationGridGap, gridLocations } from "@/core/algorithm/creationGrid";
 import { translateClipboardEntities } from "@/core/service/dataManageService/copyEngine/clipboardPosition";
-import { boundedDoodleOf } from "@/core/stage/stageObject/entity/Doodle";
+import { boundedDoodleOf, Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { fitDoodleBounds } from "@/core/algorithm/doodleBounds";
 import { Direction } from "@/types/directions";
 // import { Serialized } from "@/types/node";
@@ -701,13 +701,37 @@ export class StageManager {
    * @returns
    */
   findEntityByLocation(location: Vector): Entity | null {
-    return this.findEntityInHierarchyByLocation(
+    const content = this.findEntityInHierarchyByLocation(
       this.topLevelEntities,
       location,
-      (entity): entity is Entity => entity instanceof Entity,
+      (entity): entity is Entity => entity instanceof Entity && !(entity instanceof Doodle),
       true,
       false,
     );
+    if (content) return content;
+    const frames = this.getSections()
+      .filter(
+        (entity): entity is Doodle =>
+          entity instanceof Doodle &&
+          !entity.isHiddenBySectionCollapse &&
+          !entity.nearestLockedAncestorSection &&
+          entity.isFrameHit(location) &&
+          !entity.isPointErased(location),
+      )
+      .map((entity) => ({ entity, distance: entity.framePointerDistance(location) }))
+      .sort((a, b) => a.distance - b.distance);
+    if (!frames.length || (frames.length > 1 && frames[1].distance - frames[0].distance < 2)) return null;
+    if (
+      frames[0].distance > 1.5 &&
+      this.getAssociations().some(
+        (edge) =>
+          edge.isPhysical &&
+          !("isHiddenBySectionCollapse" in edge && edge.isHiddenBySectionCollapse) &&
+          edge.collisionBox.isContainsPoint(location),
+      )
+    )
+      return null;
+    return frames[0].entity;
   }
 
   private findEntityInHierarchyByLocation<T extends Entity>(
@@ -945,6 +969,23 @@ export class StageManager {
     }
     toast.error("无法删除未知类型的关系");
     return false;
+  }
+
+  deleteAssociations(associations: Association[]) {
+    let changed = false;
+    try {
+      for (const edge of new Set(associations)) {
+        if (edge instanceof Edge) changed = this.project.deleteManager.deleteEdge(edge, false) || changed;
+        else if (edge instanceof MultiTargetUndirectedEdge)
+          changed = this.project.deleteManager.deleteMultiTargetUndirectedEdge(edge, false) || changed;
+        else this.deleteAssociation(edge);
+      }
+    } finally {
+      if (changed) {
+        this.updateReferences();
+        this.project.historyManager.recordStep();
+      }
+    }
   }
 
   deleteEdge(deleteEdge: Edge): boolean {

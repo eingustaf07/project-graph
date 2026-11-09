@@ -48,6 +48,7 @@ function ToolButton({ label, children, ...props }: ComponentProps<typeof Button>
 type Gesture = { start: Vector; end: Vector; pointerId: number };
 type Resize = {
   original: Rectangle;
+  pointerOffset: Vector;
   anchor: Vector;
   end: Vector;
   direction: Vector;
@@ -87,6 +88,7 @@ function frameFromPoints(start: Vector, end: Vector, shape: DoodleShape): Rectan
 }
 
 function frameFromResize(resize: Resize, point: Vector): Rectangle {
+  point = point.subtract(resize.pointerOffset);
   const { original, anchor, direction } = resize;
   if (resize.entity.shape === "circle" && (direction.x === 0 || direction.y === 0)) {
     const size = direction.x === 0 ? Math.abs(point.y - anchor.y) : Math.abs(point.x - anchor.x);
@@ -396,6 +398,7 @@ function DrawingTools({ project }: { project: Project }) {
         showFrame.size.multiply(project.camera.currentScale),
       )
     : undefined;
+  const resizeHitSize = viewFrame ? Math.min(24, viewFrame.width / 2, viewFrame.height / 2) : 24;
 
   const drawComplete = (event: PointerEvent<HTMLDivElement>) => {
     if (!gesture || !tool || event.pointerId !== gesture.pointerId) return;
@@ -676,10 +679,12 @@ function DrawingTools({ project }: { project: Project }) {
               }
               data-pg-doodle-handle
               type="button"
-              className="bg-background border-primary absolute z-40 size-3 rounded-sm border-2"
+              className="absolute z-40 flex size-6 items-center justify-center"
               style={{
-                left: viewFrame.left + (viewFrame.width * (dx + 1)) / 2 - 6,
-                top: viewFrame.top + (viewFrame.height * (dy + 1)) / 2 - 6,
+                width: resizeHitSize,
+                height: resizeHitSize,
+                left: viewFrame.left + (viewFrame.width * (dx + 1)) / 2 - resizeHitSize / 2,
+                top: viewFrame.top + (viewFrame.height * (dy + 1)) / 2 - resizeHitSize / 2,
                 cursor: dx === 0 ? "ns-resize" : dy === 0 ? "ew-resize" : dx === dy ? "nwse-resize" : "nesw-resize",
               }}
               onPointerDown={(event) => {
@@ -688,6 +693,12 @@ function DrawingTools({ project }: { project: Project }) {
                 event.currentTarget.setPointerCapture(event.pointerId);
                 setResize({
                   original: rect.clone(),
+                  pointerOffset: world(event).subtract(
+                    new Vector(
+                      dx < 0 ? rect.left : dx > 0 ? rect.right : rect.center.x,
+                      dy < 0 ? rect.top : dy > 0 ? rect.bottom : rect.center.y,
+                    ),
+                  ),
                   anchor,
                   end: world(event),
                   direction: new Vector(dx, dy),
@@ -700,7 +711,13 @@ function DrawingTools({ project }: { project: Project }) {
               }}
               onPointerUp={finishResize}
               onPointerCancel={() => setResize(undefined)}
-            />
+            >
+              <span
+                aria-hidden
+                className="bg-background border-primary pointer-events-none size-3 rounded-sm border-2"
+                style={{ width: Math.min(12, resizeHitSize), height: Math.min(12, resizeHitSize) }}
+              />
+            </button>
           );
         })}
       {legacy ? (

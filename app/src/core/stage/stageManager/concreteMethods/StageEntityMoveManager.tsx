@@ -9,6 +9,9 @@ import { ContainerNodeDrag } from "./ContainerNodeDrag";
 import type { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import type { Rectangle } from "@graphif/shapes";
 import { Vector } from "@graphif/data-structures";
+import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { DragCollisionIndex } from "./DragCollisionIndex";
+import type { Section } from "@/core/stage/stageObject/entity/Section";
 
 /**
  * 管理节点的位置移动
@@ -21,15 +24,94 @@ export class EntityMoveManager {
   public isMovingWithinContainer = false;
   private containerDrag?: ContainerNodeDrag;
   private pointerMoving = false;
+  private collisionIndex?: DragCollisionIndex;
+  private collisionIndexDirty = false;
+  private translatingBatch = false;
+  private pendingParents = new Set<Section>();
 
-  dragSelection(delta: Vector, withTree: boolean) {
+  deferParentUpdate(entity: Entity) {
+    if (!this.translatingBatch) return false;
+    for (let parent = entity.parentSection; parent; parent = parent.parentSection) this.pendingParents.add(parent);
+    return true;
+  }
+
+  trackTextMove(node: TextNode) {
+    this.collisionIndex?.update(node);
+    return this.translatingBatch;
+  }
+
+  collisionCandidates(node: TextNode) {
+    if (this.collisionIndex && this.collisionIndexDirty) {
+      this.collisionIndex = new DragCollisionIndex(this.project.stageManager.getEntities());
+      this.collisionIndexDirty = false;
+    }
+    return this.collisionIndex?.query(node);
+  }
+
+  invalidateCollisionIndex() {
+    this.collisionIndexDirty = true;
+  }
+
+  private moveBatch(entities: Entity[], delta: Vector, adjustSections = true) {
+    if (entities.length <= 1) {
+      for (const entity of entities) this.moveEntityUtils(entity, delta, adjustSections);
+      return;
+    }
+    try {
+      this.translatingBatch = true;
+      for (const entity of entities) this.moveEntityUtils(entity, delta, adjustSections);
+      this.translatingBatch = false;
+      const wasMoving = this.isMovingWithinContainer;
+      this.isMovingWithinContainer = true;
+      try {
+        const parents = [...this.pendingParents].sort((a, b) => b.sectionDepth - a.sectionDepth);
+        for (const parent of parents) {
+          parent.adjustLocationAndSize();
+          let fixed = parent.parentSection;
+          while (fixed && !fixed.constrainChild) fixed = fixed.parentSection;
+          if (!parent.constrainChild && !fixed) this.project.sectionCollisionSolver.solveOverlaps(parent);
+        }
+      } finally {
+        this.isMovingWithinContainer = wasMoving;
+      }
+      if (Settings.isEnableEntityCollision && !this.ignoresDragCollisions) {
+        this.collisionIndex = new DragCollisionIndex(this.project.stageManager.getEntities());
+        this.collisionIndexDirty = false;
+        for (const entity of entities) if (entity instanceof TextNode) entity.resolveOverlaps(false);
+      }
+    } finally {
+      this.translatingBatch = false;
+      this.collisionIndex = undefined;
+      this.collisionIndexDirty = false;
+      this.pendingParents.clear();
+    }
+  }
+
+  get ignoresDragCollisions() {
+    return this.pointerMoving && this.project.controller.pressingKeySet.has("v");
+  }
+
+  private duringPointerMovement(move: () => void) {
     this.pointerMoving = true;
     try {
-      if (withTree) this.moveEntitiesWithChildren(delta);
-      else this.moveSelectedEntities(delta);
+      move();
     } finally {
       this.pointerMoving = false;
     }
+  }
+
+  dragSelection(delta: Vector, withTree: boolean) {
+    this.duringPointerMovement(() => {
+      if (withTree) this.moveEntitiesWithChildren(delta);
+      else this.moveSelectedEntities(delta);
+    });
+  }
+
+  alignAfterPointerDrag() {
+    this.duringPointerMovement(() => {
+      if (Settings.enableDragAutoAlign) this.project.autoAlign.alignAllSelected();
+      if (Settings.enableDragAlignToGrid) this.project.autoAlign.alignAllSelectedToGrid();
+    });
   }
 
   beginPointerDrag(clicked: Entity) {
@@ -167,7 +249,7 @@ export class EntityMoveManager {
       this.isMovingWithinContainer = wasMoving;
     }
 
-    if (isAutoAdjustSection) {
+    if (isAutoAdjustSection && !this.translatingBatch) {
       let current = entity.parentSection;
       while (current) {
         const wasMoving = this.isMovingWithinContainer;
@@ -258,11 +340,10 @@ export class EntityMoveManager {
    * @param isAutoAdjustSection
    */
   moveSelectedEntities(delta: Vector, isAutoAdjustSection: boolean = true) {
-    for (const node of this.project.stageManager.getEntities()) {
-      if (node.isSelected && !this.hasSelectedDoodleAncestor(node)) {
-        this.moveEntityUtils(node, delta, isAutoAdjustSection);
-      }
-    }
+    const nodes = this.project.stageManager
+      .getEntities()
+      .filter((node) => node.isSelected && !this.hasSelectedDoodleAncestor(node));
+    this.moveBatch(nodes, delta, isAutoAdjustSection);
   }
 
   /**
@@ -284,15 +365,10 @@ export class EntityMoveManager {
    * @param skipDashed 是否跳过虚线边（树形格式化时传 true，避免带动虚线连接的节点）
    */
   moveEntitiesWithChildren(delta: Vector, skipDashed = true) {
-    for (const node of this.project.stageManager.getEntities()) {
-      if (node.isSelected && !this.hasSelectedDoodleAncestor(node)) {
-        if (node instanceof ConnectableEntity) {
-          this.moveWithChildren(node, delta, skipDashed);
-        } else {
-          this.moveEntityUtils(node, delta);
-        }
-      }
-    }
+    const roots = this.project.stageManager
+      .getEntities()
+      .filter((node) => node.isSelected && !this.hasSelectedDoodleAncestor(node));
+    this.moveBatch(this.collectMoveTargets(roots, skipDashed), delta);
   }
   /**
    * 树形移动传入的可连接实体
@@ -301,10 +377,30 @@ export class EntityMoveManager {
    * @param skipDashed 是否跳过虚线边（树形格式化时传 true，避免带动虚线连接的节点）
    */
   moveWithChildren(node: ConnectableEntity, delta: Vector, skipDashed = false) {
-    const successorSet = this.project.graphMethods.getSuccessorSet(node, true, skipDashed);
-    for (const successor of successorSet) {
-      if (!this.hasSelectedDoodleAncestor(successor)) this.moveEntityUtils(successor, delta);
+    this.moveBatch(this.collectMoveTargets([node], skipDashed), delta);
+  }
+
+  private collectMoveTargets(roots: Entity[], skipDashed: boolean): Entity[] {
+    const children = new Map<ConnectableEntity, ConnectableEntity[]>();
+    for (const edge of this.project.stageManager.getTreeEdges()) {
+      if (skipDashed && edge.lineType === "dashed") continue;
+      if (!children.has(edge.source)) children.set(edge.source, []);
+      children.get(edge.source)!.push(edge.target);
     }
+    const visited = new Set<Entity>();
+    const result: Entity[] = [];
+    const pending = [...roots].reverse();
+    while (pending.length) {
+      const node = pending.pop()!;
+      if (visited.has(node)) continue;
+      visited.add(node);
+      if (!this.hasSelectedDoodleAncestor(node)) result.push(node);
+      if (node instanceof ConnectableEntity) {
+        const next = children.get(node) ?? [];
+        for (let i = next.length - 1; i >= 0; i--) pending.push(next[i]);
+      }
+    }
+    return result;
   }
 
   private hasSelectedDoodleAncestor(entity: Entity): boolean {

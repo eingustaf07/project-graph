@@ -56,6 +56,14 @@ export class Renderer {
    */
   resizeWindow(newW: number, newH: number) {
     const scale = window.devicePixelRatio;
+    if (newW <= 0 || newH <= 0) return;
+    if (
+      this.w === newW &&
+      this.h === newH &&
+      this.project.canvas.element.width === Math.trunc(newW * scale) &&
+      this.project.canvas.element.height === Math.trunc(newH * scale)
+    )
+      return;
     this.w = newW;
     this.h = newH;
     this.project.canvas.element.width = newW * scale;

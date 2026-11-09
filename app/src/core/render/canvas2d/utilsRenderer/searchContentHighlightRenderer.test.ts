@@ -5,10 +5,16 @@ import { parse } from "yaml";
 vi.mock("@/core/Project", () => ({ Project: class {}, service: () => (target: unknown) => target }));
 vi.mock("@/core/stage/stageObject/abstract/ConnectableEntity", () => ({ ConnectableEntity: class {} }));
 vi.mock("@/core/stage/stageObject/abstract/Association", () => ({ ConnectableAssociation: class {} }));
-const highlightSettings = vi.hoisted(() => ({ connectedNodeHighlightScope: "all" as "direct" | "all" }));
+vi.mock("@/core/stage/stageObject/association/Edge", async () => {
+  const { ConnectableAssociation } = await import("@/core/stage/stageObject/abstract/Association");
+  abstract class MockEdge extends ConnectableAssociation {}
+  return { Edge: MockEdge };
+});
+const highlightSettings = vi.hoisted(() => ({ connectedNodeHighlightScope: "all" as "direct" | "all" | "chain" }));
 vi.mock("@/core/service/Settings", () => ({ Settings: highlightSettings }));
 
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
+import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { ConnectableAssociation } from "@/core/stage/stageObject/abstract/Association";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { Rectangle } from "@graphif/shapes";
@@ -75,6 +81,16 @@ describe("connected highlight overlay", () => {
     highlightSettings.connectedNodeHighlightScope = "all";
     renderer.render(1);
     expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(3);
+  });
+  it("switches a live highlight to the directed chain and ignores undirected associations", () => {
+    const { a, other, project, renderer } = fixture();
+    project.stage.push(
+      Object.assign(Object.create(Edge.prototype), { source: a, target: other, associationList: [a, other] }),
+    );
+    expect(renderer.toggleConnectedHighlight()).toBe(4);
+    highlightSettings.connectedNodeHighlightScope = "chain";
+    renderer.render(0);
+    expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(2);
   });
   it("toggles persistent outlines without changing selection, colors, geometry or recording history", () => {
     const { a, b, c, other, project, renderer } = fixture();
