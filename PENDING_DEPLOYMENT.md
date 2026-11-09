@@ -1,6 +1,6 @@
 # Project Graph E 1.5 account persistence and naming
 
-User authorized deployment to the local developer version on 2026-11-09. Native tests, compilation and runtime checks are in progress; this document does not by itself certify deployment.
+Deployed to the local developer version on 2026-11-09 after explicit user authorization. Evidence is in `C:/Users/gustaf/Documents/PG-E15-Deployment-20261109`.
 
 Native Windows metadata confirmed that ordinary and Codex-packaged launch contexts contain distinct encrypted ChatGPT credentials and distinct host IDs. The credentials remain encrypted with Windows DPAPI. The fix stores future credentials under the same user home at `.project-graph/credentials/chatgpt`, independent of version names and AppData virtualization.
 
@@ -8,6 +8,10 @@ On first use, when the canonical credential file is absent, read the latest lega
 
 The settings UI now distinguishes pending status reads and transient failures from a disconnected account. Retrying status does not call login or logout. Product and current-version log names use `Project Graph E 1.5` with spaces. Application identifier and main binary name remain stable to preserve profiles and entry points.
 
-Validation completed locally: settings UI tests for pending-status restoration and transient-error retry. TypeScript type-check passes. Rust unit tests were added for the fixed directory and latest legacy selection, including signed-out precedence among legacy candidates. This machine has no Rust compiler/Cargo available, so these native tests and native compilation are still required on Windows before deployment. Do not claim that credential migration has already been run or that login across restart has been verified.
+GitHub Actions run 42635890712 compiled the Windows developer shell from 1d055e26a0806598532d1d0f8da5a0b95766b38c. Both Rust credential-directory/migration-selection tests and both settings UI tests passed, together with type-check. The later frontend checkpoint change was type-checked locally. The downloaded ZIP matched GitHub's SHA-256 digest; the deployed EXE SHA-256 is D55A5CF7D43AFD08C8EEE93F77072DEDC36236F5ACA40884167020BBB2EB4D57. Native source is unchanged since the CI revision.
 
-Before deployment, run native credential-store unit tests and the existing auth tests, then verify DPAPI persistence across normal Windows and packaged launch contexts without printing tokens. A revoked or expired authorization may still require official login. Preserve settings, shortcuts and projects, then verify .prg and Alt/Win+numpad4 entry points.
+Real WebView inspection confirmed the canvas, window title `Project Graph E 1.5 开发版`, and About heading `Project Graph E 1.5 / v1.5.0`. Credential migration produced the canonical encrypted file. The native status command returned connected=true and hasPlanAccess=true before and after a full native restart without signing in again. One initial token-refresh request hit a transient network error; retry succeeded. No tokens or account identifiers were printed. The temporary debugging endpoint was removed by restarting normally after verification.
+
+The existing settings and shortcuts were compared semantically against pre-deployment backups: settings.json and keybinds2.json have no differing values. Other profile JSON file hashes were unchanged. Original credential files, source changes and projects were retained. Native AssocQueryString, launcher registry and the shared Start menu shortcut all resolve to the deployed physical executable. Actual Alt/Win key injection and visual taskbar grouping were not tested because desktop automation was unavailable.
+
+The current empty draft restored with matching object count and camera across the native restart. This is not a new large-project performance or complete feature regression test. No new AI generation request or new authorization flow was exercised. Officially expired or revoked authorization can still require login. Old EXE/profile backups are retained in the evidence directory.

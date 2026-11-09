@@ -122,7 +122,7 @@ Rust 主要负责本地文件等系统能力；绝大部分业务逻辑在前端
 ## Windows upgrades and launchers
 
 - Product names from now on follow `Project Graph E <version>`, including the space between E and the version. Preserve the existing app identifier, executable basename and settings storage identity when changing product names.
-- The user authorized deploying this branch's ChatGPT credential persistence and naming repairs on 2026-11-09. See `PENDING_DEPLOYMENT.md`; native compilation and native migration tests are required before completion.
+- This branch's ChatGPT credential persistence and naming repairs were deployed on 2026-11-09 after authorization. See `PENDING_DEPLOYMENT.md` and `C:/Users/gustaf/Documents/PG-E15-Deployment-20261109`: native compilation, credential tests, real migration/status across restart, naming and native entry-point verification passed. Settings and shortcuts are semantically unchanged.
 
 - The large-file tab switching and zoomed-out CC bulk-cutting fixes from `../PG1.1-ai-tree-tab-switch` were authorized and deployed on 2026-11-09 together with the current-version log entries. This work is no longer pending source deployment. Real-project desktop responsiveness remains a separate acceptance check.
 
