@@ -1,6 +1,6 @@
 # Project Graph E 1.5 account persistence and naming
 
-User explicitly requested source repair only on 2026-11-09. Do not deploy.
+User authorized deployment to the local developer version on 2026-11-09. Native tests, compilation and runtime checks are in progress; this document does not by itself certify deployment.
 
 Native Windows metadata confirmed that ordinary and Codex-packaged launch contexts contain distinct encrypted ChatGPT credentials and distinct host IDs. The credentials remain encrypted with Windows DPAPI. The fix stores future credentials under the same user home at `.project-graph/credentials/chatgpt`, independent of version names and AppData virtualization.
 

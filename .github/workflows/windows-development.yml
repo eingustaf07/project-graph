@@ -1,7 +1,7 @@
 name: Windows development shell
 on:
   push:
-    branches: [pg15-nn-growth-20261106]
+    branches: [pg15-nn-growth-20261106, e15-auth-persistence]
     paths:
       - app/src-tauri/**
       - .github/workflows/windows-development.yml
@@ -32,6 +32,15 @@ jobs:
           cache-on-failure: true
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @graphif/project-graph type-check
+      - name: Test credential storage and login status
+        shell: pwsh
+        run: |
+          rustc --edition 2021 --test app/src-tauri/src/chatgpt_credential_store.rs -o credential-store-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Credential test compilation failed' }
+          ./credential-store-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Credential tests failed' }
+          pnpm exec vitest run app/src/sub/SettingsWindow/ChatGPTConnectionSettings.test.tsx
+          if ($LASTEXITCODE -ne 0) { throw 'Login status tests failed' }
       - name: Compile development desktop shell
         shell: pwsh
         run: |
