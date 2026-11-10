@@ -14,6 +14,8 @@ fn read_clipboard_image_paths() -> Result<Vec<String>, String> {
 mod chatgpt_auth;
 mod project_ownership;
 pub mod project_reference_store;
+#[cfg(target_os = "windows")]
+mod custom_drag_drop;
 mod project_runtime_bridge;
 
 pub mod ownership_helper {
@@ -115,6 +117,8 @@ pub fn run() {
                 app.handle()
                     .plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
             }
+            #[cfg(target_os = "windows")]
+            custom_drag_drop::install(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
