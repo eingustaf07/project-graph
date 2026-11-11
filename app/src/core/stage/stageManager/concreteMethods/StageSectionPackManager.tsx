@@ -4,7 +4,7 @@ import { Project, service } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
-import { Section } from "@/core/stage/stageObject/entity/Section";
+import { boundedDoodleOf, Doodle, Section } from "@/core/stage/stageObject/entity/Section";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
@@ -320,7 +320,7 @@ export class SectionPackManager {
   }
 
   /** 将多个实体打包成一个section，并添加到舞台中 */
-  async packEntityToSection(addEntities: Entity[]): Promise<Section | undefined> {
+  async packEntityToSection(addEntities: Entity[], asContainer = false): Promise<Section | undefined> {
     if (addEntities.length === 0) {
       return;
     }
@@ -343,10 +343,23 @@ export class SectionPackManager {
         return;
       }
     }
-    if (firstParent) {
+    if (firstParent && !asContainer) {
       this.project.stageManager.goOutSection(addEntities, firstParent);
     }
-    const section = Section.fromEntities(this.project, addEntities);
+    let section = Section.fromEntities(this.project, addEntities);
+    if (asContainer) {
+      const container = new Doodle(this.project, {
+        frame: section.rectangle.clone(),
+        shape: "rectangle",
+        bounded: true,
+        children: [],
+        borderStyle: Settings.sectionInitBorderStyle,
+      });
+      const boundary = firstParent instanceof Doodle ? firstParent : firstParent && boundedDoodleOf(firstParent);
+      if (firstParent) boundary?.validateNewChild?.(firstParent, container);
+      for (const entity of addEntities) container.adopt(entity);
+      section = container;
+    }
     let smartTitle = this.getSmartSectionTitle(addEntities);
     if (smartTitle.length > 10) {
       smartTitle = smartTitle.slice(0, 10) + "...";
@@ -366,12 +379,29 @@ export class SectionPackManager {
   /**
    * 从框选区域创建Section，并在左上角和右下角添加质点
    */
-  createSectionFromSelectionRectangle(): Section | undefined {
+  createSectionFromSelectionRectangle(asContainer = false): Section | undefined {
     const rectangleSelect = this.project.rectangleSelect;
     const selectionRectangle = rectangleSelect.getRectangle();
 
     if (!selectionRectangle) {
       return undefined;
+    }
+
+    if (asContainer) {
+      const section = new Doodle(this.project, {
+        frame: new Rectangle(
+          selectionRectangle.location.clone(),
+          new Vector(Math.max(40, selectionRectangle.width), Math.max(40, selectionRectangle.height)),
+        ),
+        shape: "rectangle",
+        bounded: true,
+        text: "",
+        borderStyle: Settings.sectionInitBorderStyle,
+      });
+      this.project.stageManager.add(section);
+      rectangleSelect.shutDown();
+      this.project.historyManager.recordStep();
+      return section;
     }
 
     // 创建空的Section
@@ -431,10 +461,11 @@ export class SectionPackManager {
   /**
    * 将选中的实体打包成Section
    */
-  async packSelectedEntitiesToSection(): Promise<Section | undefined> {
+  async packSelectedEntitiesToSection(asContainer = false): Promise<Section | undefined> {
     const selectedEntities = this.project.stageManager.getEntities().filter((entity) => entity.isSelected);
     if (selectedEntities.length > 0) {
-      const section = await this.packEntityToSection(selectedEntities);
+      const section = await this.packEntityToSection(selectedEntities, asContainer);
+      if (section && asContainer) this.project.historyManager.recordStep();
       SoundService.play.packEntityToSectionSoundFile();
       return section;
     }

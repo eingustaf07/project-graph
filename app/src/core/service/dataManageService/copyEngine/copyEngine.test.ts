@@ -48,6 +48,7 @@ import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageManager } from "@/core/stage/stageManager/StageManager";
 import { SectionMethods } from "@/core/stage/stageManager/basicMethods/SectionMethods";
@@ -150,6 +151,29 @@ afterEach(() => {
 });
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
+  it.each([1, 3, 4])("retains surviving multi-target branches when deleting %s members", (count) => {
+    const p = fixture();
+    const nodes = Array.from({ length: 5 }, (_, i) => new TextNode(p, { text: `member ${i}` }));
+    const rates = nodes.map((_, i) => new Vector(i / 5, i / 10));
+    const relation = new MultiTargetUndirectedEdge(p, { associationList: nodes, rectRates: rates, text: "keep relation" });
+    p.stage.push(...nodes, relation);
+    p.stageManager.updateReferences();
+    p.historyManager = new HistoryManager(p);
+    nodes.slice(1, count + 1).forEach((node) => { node.isSelected = true; });
+    p.stageManager.deleteSelectedStageObjects();
+    expect(p.stageManager.getEntities()).toHaveLength(5 - count);
+    if (count < 4) {
+      expect(p.stageManager.getAssociations()).toContain(relation);
+      expect(relation.associationList).toEqual(nodes.filter((_, i) => i === 0 || i > count));
+      expect(relation.rectRates).toEqual(rates.filter((_, i) => i === 0 || i > count));
+    } else expect(p.stageManager.getAssociations()).toHaveLength(0);
+    expect(relation.text).toBe("keep relation");
+    p.historyManager.undo();
+    expect(p.stageManager.getAssociations()[0].associationList).toHaveLength(5);
+    p.historyManager.redo();
+    if (count < 4) expect(p.stageManager.getAssociations()[0].associationList).toHaveLength(5 - count);
+    else expect(p.stageManager.getAssociations()).toHaveLength(0);
+  });
   it("deletes one child while retaining its parent, siblings and their directed edges through undo and redo", () => {
     const p = fixture();
     const parent = new TextNode(p, { text: "parent" });

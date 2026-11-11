@@ -204,7 +204,12 @@ export class DeleteManager {
         }
       } else if (edge instanceof MultiTargetUndirectedEdge) {
         if (edge.associationList.includes(entity) && visitedAssociations.has(edge.uuid) === false) {
-          prepareDeleteAssociation.push(edge);
+          // A multi-target relation shares one object across all its branches.
+          // Remove the deleted endpoint, not the surviving nodes' entire relation.
+          const keep = edge.associationList.map((node) => node !== entity);
+          edge.associationList = edge.associationList.filter((_, index) => keep[index]);
+          edge.rectRates = edge.rectRates.filter((_, index) => keep[index]);
+          if (edge.associationList.length < 2) prepareDeleteAssociation.push(edge);
           visitedAssociations.add(edge.uuid);
         }
       }

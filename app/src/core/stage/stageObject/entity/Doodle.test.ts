@@ -24,7 +24,9 @@ vi.mock("@/core/service/Settings", () => ({
   },
 }));
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
-vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: {} }));
+vi.mock("@/core/service/feedbackService/SoundService", () => ({
+  SoundService: { play: { packEntityToSectionSoundFile: vi.fn() } },
+}));
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), info: vi.fn(), success: vi.fn(), warning: vi.fn() }),
@@ -35,6 +37,7 @@ import { StageManager } from "@/core/stage/stageManager/StageManager";
 import { SectionMethods } from "@/core/stage/stageManager/basicMethods/SectionMethods";
 import { GraphMethods } from "@/core/stage/stageManager/basicMethods/GraphMethods";
 import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/StageSectionInOutManager";
+import { SectionPackManager } from "@/core/stage/stageManager/concreteMethods/StageSectionPackManager";
 import { EntityMoveManager } from "@/core/stage/stageManager/concreteMethods/StageEntityMoveManager";
 import { HistoryManager } from "@/core/stage/stageManager/StageHistoryManager";
 import { TextNode } from "./TextNode";
@@ -64,6 +67,7 @@ function fixture() {
     effects: { addEffect: vi.fn() },
     sectionCollisionSolver: { solveOverlaps: vi.fn() },
     syncAssociationManager: { syncFrom: vi.fn() },
+    stageUtils: { replaceAutoNameTemplate: () => "容器" },
     textRenderer: {
       measureMultiLineTextSize: (text: string, size: number, width: number, height: number) =>
         getMultiLineTextSize(text, size, height, width),
@@ -73,6 +77,7 @@ function fixture() {
   p.graphMethods = new GraphMethods(p);
   p.sectionMethods = new SectionMethods(p);
   p.sectionInOutManager = new SectionInOutManager(p);
+  p.sectionPackManager = new SectionPackManager(p);
   p.entityMoveManager = new EntityMoveManager(p);
   p.historyManager = new HistoryManager(p);
   return p as Project;
@@ -197,6 +202,78 @@ beforeEach(() => {
   Settings.containerNBoundary = false;
 });
 describe("real PG doodles and fixed containers", () => {
+  it("packs selected real nodes into a bounded Ctrl+G container, preserves edges and supports undo/redo and reload", async () => {
+    const p = fixture();
+    const a = node(p, "a", new Vector(200, 200)), b = node(p, "b", new Vector(350, 250));
+    const edge = new LineEdge(p, { associationList: [a, b] });
+    p.stage.push(a, b, edge);
+    p.stageManager.updateReferences();
+    p.historyManager.recordStep();
+    a.isSelected = b.isSelected = true;
+    const container = await p.sectionPackManager.packSelectedEntitiesToSection(true) as Doodle;
+    expect(container).toBeInstanceOf(Doodle);
+    expect(container.bounded).toBe(true);
+    expect(container.children).toEqual([a, b]);
+    expect(a.parentSection).toBe(container);
+    expect(b.parentSection).toBe(container);
+    expect(p.stageManager.getAssociations()).toEqual([edge]);
+    p.historyManager.undo();
+    expect(p.stageManager.getSections()).toHaveLength(0);
+    p.historyManager.redo();
+    const restored = p.stageManager.getSections()[0] as Doodle;
+    expect(restored.bounded).toBe(true);
+    expect(restored.children).toHaveLength(2);
+    const reloaded = deserialize(structuredClone(serialize(restored)), p) as Doodle;
+    expect(reloaded).toBeInstanceOf(Doodle);
+    expect(reloaded.bounded).toBe(true);
+    expect(reloaded.children).toHaveLength(2);
+  });
+  it("creates an empty rectangular Ctrl+G container without artificial anchor nodes", () => {
+    const p = fixture();
+    const rect = new Rectangle(new Vector(100, 100), new Vector(600, 400));
+    p.rectangleSelect = { getRectangle: () => rect, shutDown: vi.fn() } as unknown as Project["rectangleSelect"];
+    const container = p.sectionPackManager.createSectionFromSelectionRectangle(true) as Doodle;
+    expect(container.bounded).toBe(true);
+    expect(container.frame).toEqual(rect);
+    expect(p.stageManager.getEntities()).toEqual([container]);
+    expect(container.children).toHaveLength(0);
+    expect(p.rectangleSelect.shutDown).toHaveBeenCalledOnce();
+    p.historyManager.undo();
+    expect(p.stage).toHaveLength(0);
+    p.historyManager.redo();
+    expect(p.stageManager.getSections()[0]).toBeInstanceOf(Doodle);
+  });
+  it("applies normal container drag, V transfer, nested movement and resizing to Ctrl+G containers", async () => {
+    Settings.containerNBoundary = true;
+    const p = fixture();
+    const outer = cage(p);
+    const a = node(p, "inside", new Vector(200, 200));
+    p.stageManager.add(a);
+    outer.adopt(a);
+    a.isSelected = true;
+    const inner = await p.sectionPackManager.packSelectedEntitiesToSection(true) as Doodle;
+    expect(inner.parentSection).toBe(outer);
+    expect(outer.children).toEqual([inner]);
+    expect(a.parentSection).toBe(inner);
+    const initial = a.rectangle.location.clone();
+    outer.move(new Vector(100, 100));
+    expect(a.rectangle.location).toEqual(initial.add(new Vector(100, 100)));
+    inner.resizeFrame(new Rectangle(inner.frame.location, inner.frame.size.add(new Vector(100, 100))));
+    inside(inner, a.rectangle);
+    p.stageManager.clearSelectAll();
+    a.isSelected = true;
+    const originalFrame = serialize(inner.frame);
+    p.entityMoveManager.beginPointerDrag(a);
+    p.entityMoveManager.dragSelection(new Vector(1200, 0), false);
+    expect(a.parentSection).toBe(inner);
+    expect(serialize(inner.frame)).toEqual(originalFrame);
+    p.controller.pressingKeySet.add("v");
+    p.entityMoveManager.dragSelection(new Vector(1200, 0), false);
+    expect(a.parentSection).toBeNull();
+    p.entityMoveManager.dragSelection(inner.frame.center.subtract(a.rectangle.center), false);
+    expect(a.parentSection).toBe(inner);
+    inside(inner, a.rectangle);
+  });
   it("undoes, redoes and reloads independently resized images without resetting their dimensions", async () => {
     vi.stubGlobal(
       "createImageBitmap",

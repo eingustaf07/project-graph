@@ -1937,8 +1937,8 @@ keyBinds:
     title: 選取的實體之間建立無向連線
     description: 按下後，選取的兩個或多個實體之間會建立一條無向連線
   packEntityToSection:
-    title: 將選取的實體打包到分组框中
-    description: 按下後，選取的實體會自動包裹到新 分组框中
+    title: 將選取的實體放入容器框
+    description: 將選取內容放入矩形容器。按 V 拖曳可進出邊界；空白框選區域可建立空容器。
   unpackEntityFromSection:
     title: 分组框拆包，轉換為文字節點
     description: '按下後，選取的分组框中的實體會被拆解，自身轉換成一個文字節點

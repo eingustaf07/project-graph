@@ -1723,9 +1723,9 @@ keyBinds:
     description: |
       Default shortcut note: U, T, E. U=Undirected, T=To (convert to), E=Edge (directed)
   packEntityToSection:
-    title: Pack Selected Entities into Section Box
+    title: Pack Selected Entities into Container
     description: |
-      When pressed, the selected entities will be automatically wrapped into a new Section box.
+      Wrap selected entities in a rectangular container. Hold V while dragging to enter or leave its boundary; an empty selection rectangle creates an empty container.
   unpackEntityFromSection:
     title: Unpack Section Box and Convert to Text Node
     description: |

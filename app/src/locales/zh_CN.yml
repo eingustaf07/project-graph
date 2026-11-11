@@ -1737,9 +1737,9 @@ keyBinds:
     description: |
       按下后，选中的两个或者多个实体之间会创建一条无向连线
   packEntityToSection:
-    title: 将选中的实体打包到分组框中
+    title: 将选中的实体放入容器框
     description: |
-      按下后，选中的实体会自动包裹到新分组框中
+      按下后，将选中内容放入矩形容器。按 V 拖动可进出边界；空白框选区域可创建空容器。
   unpackEntityFromSection:
     title: 分组框拆包，转换为文本节点
     description: |

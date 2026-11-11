@@ -728,7 +728,7 @@ export const allKeyBinds: KeyBindItem[] = [
       const hasSelectedEntities = project!.stageManager.getEntities().some((entity) => entity.isSelected);
       const hasSelectedEdges = project!.stageManager.getAssociations().some((edge) => edge.isSelected);
       if (hasActiveRectangle && !hasSelectedEntities && !hasSelectedEdges) {
-        const section = project!.sectionPackManager.createSectionFromSelectionRectangle();
+        const section = project!.sectionPackManager.createSectionFromSelectionRectangle(true);
         if (section) {
           project!.stageManager.clearSelectAll();
           for (const edge of project!.stageManager.getAssociations()) {
@@ -741,7 +741,7 @@ export const allKeyBinds: KeyBindItem[] = [
         }
       } else {
         // 否则执行原来的打包功能，并自动进入编辑状态
-        const section = await project!.sectionPackManager.packSelectedEntitiesToSection();
+        const section = await project!.sectionPackManager.packSelectedEntitiesToSection(true);
         if (section) {
           project!.stageManager.clearSelectAll();
           for (const edge of project!.stageManager.getAssociations()) {

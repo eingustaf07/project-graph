@@ -1997,9 +1997,9 @@ keyBinds:
     description: |
       Setelah ditekan, akan dibuat garis tak berarah antara dua atau lebih entitas yang dipilih
   packEntityToSection:
-    title: Kemas Entitas yang Dipilih ke dalam Kotak Section
+    title: Kemas Entitas yang Dipilih ke dalam Kontainer
     description: |
-      Setelah ditekan, entitas yang dipilih akan otomatis dibungkus ke kotak Section baru
+      Bungkus entitas terpilih dalam kontainer persegi panjang. Tahan V saat menyeret untuk masuk atau keluar; area seleksi kosong membuat kontainer kosong.
   unpackEntityFromSection:
     title: Buka Kemas Kotak Section, Konversi ke Node Teks
     description: |
