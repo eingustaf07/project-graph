@@ -45,7 +45,13 @@ export namespace ExtensionKeyBindManager {
       fullId,
       key,
       isEnabled,
-      options.onPress,
+      extensionId === "com.mingliang.insert-node" && options.id === "edge-split-q"
+        ? async (project) => {
+            if (!project) return;
+            const { splitSelectedExtensionEdge } = await import("./edgeSplit");
+            await splitSelectedExtensionEdge(project);
+          }
+        : options.onPress,
       options.onRelease,
       options.isContinuous,
       undefined,

@@ -48,6 +48,9 @@ import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { ArcEdge } from "@/core/stage/stageObject/association/ArcEdge";
+import { splitSelectedExtensionEdge } from "@/core/extension/edgeSplit";
+import { NodeAdder } from "@/core/stage/stageManager/concreteMethods/StageNodeAdder";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageManager } from "@/core/stage/stageManager/StageManager";
@@ -88,6 +91,8 @@ function fixture() {
         getMultiLineTextSize(text, size, height, width),
     },
     controller: { pressingKeySet: new Set(), resetCountdownTimer: vi.fn() },
+    controllerUtils: { textNodeInEditModeByUUID: vi.fn() },
+    stageUtils: { replaceAutoNameTemplate: () => "Node_new" },
     loop: vi.fn(),
     addAttachment(blob: Blob) {
       const id = crypto.randomUUID();
@@ -101,6 +106,7 @@ function fixture() {
   p.sectionInOutManager = new SectionInOutManager(p);
   p.deleteManager = new DeleteManager(p);
   p.copyEngine = new CopyEngine(p);
+  p.nodeAdder = new NodeAdder(p);
   p.searchContentHighlightRenderer = new SearchContentHighlightRenderer(p);
   return p as Project;
 }
@@ -151,6 +157,82 @@ afterEach(() => {
 });
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
+  it.each(["line", -240, 240, 0] as const)("splits %s with real node creation, style preservation, one-step undo and reload", async (kind) => {
+    const p = fixture();
+    const a = new TextNode(p, { text: "source", collisionBox: new CollisionBox([
+      new Rectangle(new Vector(0, 0), new Vector(100, 60)),
+    ]) });
+    const b = new TextNode(p, { text: "target", collisionBox: new CollisionBox([
+      new Rectangle(new Vector(800, 0), new Vector(100, 60)),
+    ]) });
+    const options = { associationList: [a, b], text: "keep label", lineType: "dashed", arrowType: "none",
+      sourceRectangleRate: new Vector(0.99, 0.5), targetRectangleRate: new Vector(0.01, 0.5) };
+    const edge = kind === "line" ? new LineEdge(p, options) : new ArcEdge(p, { ...options, offset: kind });
+    p.stage.push(a, b, edge);
+    p.stageManager.updateReferences();
+    p.historyManager = new HistoryManager(p);
+    const original = serialize(p.stage);
+    const middle = edge instanceof ArcEdge && kind !== 0 ? (() => {
+      const geo = edge.arcGeometry;
+      const angle = (geo.startAngle + geo.endAngle) / 2;
+      return geo.center.add(new Vector(Math.cos(angle), Math.sin(angle)).multiply(geo.radius));
+    })() : Vector.average(a.geometryCenter, b.geometryCenter);
+    edge.isSelected = true;
+    const uuid = await splitSelectedExtensionEdge(p);
+    const node = p.stageManager.getTextNodeByUUID(uuid!);
+    expect(node).toBeDefined();
+    expectPoint(node!.geometryCenter, middle);
+    expect(node!.isSelected).toBe(true);
+    expect(p.controllerUtils.textNodeInEditModeByUUID).toHaveBeenCalledWith(uuid);
+    const edges = p.stageManager.getAssociations() as (LineEdge | ArcEdge)[];
+    expect(edges).toHaveLength(2);
+    expect(edges[0].source).toBe(a);
+    expect(edges[0].target).toBe(node);
+    expect(edges[1].source).toBe(node);
+    expect(edges[1].target).toBe(b);
+    expect(edges.map((e) => e.text)).toEqual(["keep label", ""]);
+    expect(edges.every((e) => e.lineType === "dashed" && e.arrowType === "none")).toBe(true);
+    expect(edges[0].sourceRectangleRate).toEqual(options.sourceRectangleRate);
+    expect(edges[1].targetRectangleRate).toEqual(options.targetRectangleRate);
+    if (edge instanceof ArcEdge && typeof kind === "number" && kind !== 0) {
+      expect(edges[1]).toBeInstanceOf(ArcEdge);
+      for (const part of edges as ArcEdge[]) expect(part.arcGeometry.radius).toBeCloseTo(
+        (kind * kind + a.geometryCenter.distance(b.geometryCenter) ** 2 / 4) / (2 * Math.abs(kind as number)), 4,
+      );
+    }
+    const saved = serialize(p.stage);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(original);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(saved);
+    p.stage = deserialize(structuredClone(saved), p);
+    p.stageManager.updateReferences();
+    expect(p.stageManager.getAssociations()).toHaveLength(2);
+  });
+  it("restores the original graph when node creation fails midway through a split", async () => {
+    const p = fixture();
+    const { edge } = addTree(p);
+    edge.isSelected = true;
+    const before = serialize(p.stage);
+    vi.spyOn(p.nodeAdder, "addTextNodeByClick").mockImplementation(async () => {
+      p.stage.push(new TextNode(p, { text: "partial node" }));
+      throw new Error("test creation failure");
+    });
+    await expect(splitSelectedExtensionEdge(p)).rejects.toThrow("test creation failure");
+    expect(serialize(p.stage)).toEqual(before);
+    expect(p.stageManager.getAssociations()[0].isSelected).toBe(true);
+  });
+  it("does not create a node or modify a locked edge", async () => {
+    const p = fixture();
+    const { edge } = addTree(p);
+    edge.isSelected = true;
+    vi.spyOn(p.sectionMethods, "isObjectBeLockedBySection").mockReturnValue(true);
+    const creation = vi.spyOn(p.nodeAdder, "addTextNodeByClick");
+    const before = serialize(p.stage);
+    expect(await splitSelectedExtensionEdge(p)).toBeUndefined();
+    expect(creation).not.toHaveBeenCalled();
+    expect(serialize(p.stage)).toEqual(before);
+  });
   it.each([1, 3, 4])("retains surviving multi-target branches when deleting %s members", (count) => {
     const p = fixture();
     const nodes = Array.from({ length: 5 }, (_, i) => new TextNode(p, { text: `member ${i}` }));
