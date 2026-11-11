@@ -63,7 +63,8 @@ import { Color, Vector } from "@graphif/data-structures";
 import { serialize } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
 import { Encoder } from "@msgpack/msgpack";
-import { appCacheDir, appDataDir, dataDir, join, tempDir } from "@tauri-apps/api/path";
+import { appCacheDir, dataDir, join, tempDir } from "@tauri-apps/api/path";
+import { extensionsPath } from "@/utils/developmentProfile";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
@@ -1259,7 +1260,6 @@ export const allKeyBinds: KeyBindItem[] = [
     icon: Network,
     when: (project) =>
       !!project &&
-      !Settings.connectedNodeHighlightLocked &&
       (whenHasSelectedConnectableEntities(project) || project.searchContentHighlightRenderer.hasConnectedHighlight),
     onPress: (project) => {
       const count = project!.searchContentHighlightRenderer.toggleConnectedHighlight();
@@ -4003,7 +4003,7 @@ export const allKeyBinds: KeyBindItem[] = [
     icon: FolderOpen,
     when: whenAlways,
     onPress: async () => {
-      const extensionsDir = await join(await appDataDir(), "extensions");
+      const extensionsDir = await extensionsPath();
       if (!(await exists(extensionsDir))) {
         await mkdir(extensionsDir, { recursive: true });
       }

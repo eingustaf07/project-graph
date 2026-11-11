@@ -73,6 +73,16 @@ function fixture() {
 }
 
 describe("connected highlight overlay", () => {
+  it("refreshes the selected roots on a manual command while keeping the lock", () => {
+    const { a, other, renderer } = fixture();
+    highlightSettings.connectedNodeHighlightLocked = true;
+    expect(renderer.toggleConnectedHighlight()).toBe(3);
+    a.isSelected = false;
+    other.isSelected = true;
+    expect(renderer.toggleConnectedHighlight()).toBe(1);
+    expect(renderer.getConnectedHighlightedNodes()).toEqual([other]);
+    expect(highlightSettings.connectedNodeHighlightLocked).toBe(true);
+  });
   it("can read the current locked highlight for copying before the next render", () => {
     const { a, b, c, other, renderer } = fixture();
     highlightSettings.connectedNodeHighlightLocked = true;

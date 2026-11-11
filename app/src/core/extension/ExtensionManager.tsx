@@ -1,4 +1,5 @@
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { join } from "@tauri-apps/api/path";
+import { extensionsPath } from "@/utils/developmentProfile";
 import { exists, mkdir, readDir } from "@tauri-apps/plugin-fs";
 import { URI } from "vscode-uri";
 import { FileSystemProviderFile } from "../fileSystemProvider/FileSystemProviderFile";
@@ -11,8 +12,7 @@ export namespace ExtensionManager {
   const runtimes: Map<string, ExtensionRuntime> = new Map();
 
   export async function getExtensionsDir() {
-    console.log(await appDataDir());
-    return await join(await appDataDir(), "extensions");
+    return extensionsPath();
   }
   export async function getExtensions() {
     const extensionsDir = await getExtensionsDir();

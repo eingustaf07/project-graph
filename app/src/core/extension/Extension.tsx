@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Themes } from "@/core/service/Themes";
 import { PrgMetadata } from "@/types/metadata";
 import { Decoder, Encoder } from "@msgpack/msgpack";
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { join } from "@tauri-apps/api/path";
 import { mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { Uint8ArrayReader, Uint8ArrayWriter, ZipReader } from "@zip.js/zip.js";
 import {
@@ -211,7 +211,7 @@ export class Extension extends Tab {
                         ExtensionKeyBindManager.unregisterAll(extId);
                         // 终止 Worker 并清除缓存，使重新安装时能创建新 Runtime
                         ExtensionManager.unload(extId);
-                        await self.fs.remove(URI.file(await join(await appDataDir(), "extensions", extId)));
+                        await self.fs.remove(URI.file(await join(await ExtensionManager.getExtensionsDir(), extId)));
                         setDisabledExtensions(disabledExtensions.filter((id) => id !== extId));
                         setInstalled(false);
                         toast.success("扩展已卸载");
@@ -257,7 +257,7 @@ export class Extension extends Tab {
                       if (s === "cancel") return;
                       await Tutorials.finish("thirdPartyExtensionsWarning");
                     }
-                    const base = await join(await appDataDir(), "extensions", self.metadata.extension?.id || "unknown");
+                    const base = await join(await ExtensionManager.getExtensionsDir(), self.metadata.extension?.id || "unknown");
                     await mkdir(base);
                     await writeFile(
                       await join(base, "metadata.msgpack"),

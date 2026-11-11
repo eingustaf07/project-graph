@@ -1,11 +1,12 @@
 import { load, Store } from "@tauri-apps/plugin-store";
 import { isWeb } from "@/utils/platform";
+import { preferencePath } from "./developmentProfile";
 
 export async function createStore(name: string): Promise<Store> {
   if (isWeb) {
     return new WebStore(name) as unknown as Store;
   } else {
-    return load(name);
+    return load(["keybinds2.json", "quick-settings.json", "colors.json"].includes(name) ? await preferencePath(name) : name);
   }
 }
 

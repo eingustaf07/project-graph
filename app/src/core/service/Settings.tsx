@@ -7,6 +7,7 @@ import {
 import { DEFAULT_SUB_WINDOW_OPEN_MODES, subWindowOpenModesSchema } from "@/core/subWindowOpenModes";
 import { isMac } from "@/utils/platform";
 import { LazyStore } from "@tauri-apps/plugin-store";
+import { preferencePath } from "@/utils/developmentProfile";
 import i18next from "i18next";
 import { useEffect, useState } from "react";
 import z from "zod";
@@ -960,7 +961,7 @@ export type Settings = z.infer<typeof settingsSchema>;
 
 const listeners: Partial<Record<string, ((value: any) => void)[]>> = {};
 
-const store = new LazyStore("settings.json");
+const store = new LazyStore(await preferencePath("settings.json"));
 console.log("pre store.init");
 await store.init();
 console.log("post store.init");

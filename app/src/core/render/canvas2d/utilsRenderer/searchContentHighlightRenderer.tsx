@@ -53,6 +53,11 @@ export class SearchContentHighlightRenderer {
 
   public toggleConnectedHighlight(): number {
     invalidateCrossFileHighlight();
+    if (Settings.connectedNodeHighlightLocked) {
+      this.selectionDirty = true;
+      const nodes = this.getConnectedHighlightedNodes();
+      return crossFileHighlighted(this.project) ? crossFileHighlightCount() : nodes.length;
+    }
     if (this.followingSelection && !Settings.connectedNodeHighlightLocked) {
       this.followingSelection = false;
       this.roots.clear();
