@@ -37,9 +37,12 @@ export default function FindWindow({ tabId }: { tabId: string }) {
   // 是否开启快速瞭望模式
   const [isMouseEnterCameraMovable, setIsMouseEnterCameraMovable] = useState(false);
   // 搜索范围
-  const [searchScope, setSearchScope] = useState<SearchScope>(SearchScope.ALL);
   const [tab] = useAtom(activeResourceTabAtom);
   const project = tab instanceof Project ? tab : undefined;
+  const defaultScope = project?.stageManager.getSelectedEntities().length ? SearchScope.SELECTED : SearchScope.ALL;
+  const [scopeChoice, setScopeChoice] = useState({ project, scope: defaultScope });
+  const searchScope = scopeChoice.project === project ? scopeChoice.scope : defaultScope;
+  const setSearchScope = (scope: SearchScope) => setScopeChoice({ project, scope });
 
   const selectAllResult = () => {
     for (const result of searchResults) {
