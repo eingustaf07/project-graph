@@ -78,6 +78,8 @@ function Connections() {
   projectsRef.current = projects;
   const active = useAtomValue(activeResourceTabAtom);
   const [showList, setShowList] = useState(false);
+  const [lineStyle, setLineStyle] = useState(Settings.lineStyle);
+  useEffect(() => Settings.watch("lineStyle", setLineStyle), []);
   const [mode, setMode] = useState(Settings.mouseLeftMode);
   const [viewer, setViewer] = useState(Settings.viewerMode);
   const [rows, setRows] = useState<Row[]>([]);
@@ -379,7 +381,9 @@ function Connections() {
             end = link.direction === "reverse" ? a : b;
           const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
           const off = link.curve ? Math.min(48, Math.hypot(end.x - start.x, end.y - start.y) / 8) : 0;
-          const path = ["M", start.x, start.y, ...(off ? ["Q", mid.x, mid.y - off] : ["L"]), end.x, end.y].join(" ");
+          const path = lineStyle === "vertical"
+            ? ["M", start.x, start.y, "L", mid.x, start.y, "L", mid.x, end.y, "L", end.x, end.y].join(" ")
+            : ["M", start.x, start.y, ...(off ? ["Q", mid.x, mid.y - off] : ["L"]), end.x, end.y].join(" ");
           const color = link.color ?? "currentColor";
           const marker = "cross-arrow-" + (source.project.id + link.id).replace(/[^a-zA-Z0-9_-]/g, "_");
           return (

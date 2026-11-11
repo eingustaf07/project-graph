@@ -29,6 +29,7 @@ export class EdgeRenderer {
    */
   constructor(private readonly project: Project) {
     this.currentRenderer = this.project.symmetryCurveEdgeRenderer;
+    this.checkRendererBySettings(Settings.lineStyle);
     Settings.watch("lineStyle", this.updateRenderer.bind(this));
   }
 
@@ -37,6 +38,8 @@ export class EdgeRenderer {
       this.currentRenderer = this.project.straightEdgeRenderer;
     } else if (lineStyle === "bezier") {
       this.currentRenderer = this.project.symmetryCurveEdgeRenderer;
+    } else if (lineStyle === "vertical") {
+      this.currentRenderer = this.project.verticalPolyEdgeRenderer;
     }
   }
 

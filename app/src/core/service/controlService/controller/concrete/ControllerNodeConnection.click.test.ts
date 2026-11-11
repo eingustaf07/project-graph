@@ -24,6 +24,7 @@ vi.mock("@/core/service/feedbackService/SoundService", () => ({
 }));
 const settings = vi.hoisted(() => ({
   enableRightClickConnect: true,
+  lineStyle: "straight",
   rightClickConnectEdgeType: "arc",
   mouseLeftMode: "selectAndMove",
   autoAdjustLineEndpointsByMouseTrack: false,
@@ -76,7 +77,7 @@ function fixture() {
     if (jitter) controller.mousemove({ ...event, clientX: event.clientX + jitter });
     controller.mouseup({ ...event, clientX: event.clientX + jitter });
   };
-  return { nodes, calls, select, click };
+  return { nodes, calls, select, click, project: p };
 }
 it.each([0, 2, 6, 12])("connects A→B then B→C on the first attempt, including %s units of jitter", (jitter) => {
   const f = fixture();
@@ -108,4 +109,18 @@ it("keeps right-click connection disabled when the existing setting is off", () 
   f.select(0);
   f.click(1);
   expect(f.calls).toEqual([]);
+});
+
+it("gives vertical line style priority over the right-click arc default", () => {
+  const f = fixture();
+  const connect = vi.spyOn(f.project.stageManager, "connectMultipleEntities");
+  settings.lineStyle = "vertical";
+  try {
+    f.select(0);
+    f.click(1);
+    expect(connect).toHaveBeenCalledWith([f.nodes[0]], f.nodes[1], false, undefined, undefined, false);
+    expect(f.calls).toEqual(["a→b"]);
+  } finally {
+    settings.lineStyle = "straight";
+  }
 });

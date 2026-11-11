@@ -599,7 +599,7 @@ export class ControllerNodeConnectionClass extends ControllerClass {
     if (!selectedEntities.length) return;
     // 还要保证当前舞台有节点被选中
     // 连线
-    const isArcEdge = Settings.rightClickConnectEdgeType === "arc";
+    const isArcEdge = Settings.lineStyle !== "vertical" && Settings.rightClickConnectEdgeType === "arc";
     this.project.stageManager.connectMultipleEntities(
       selectedEntities,
       releaseTargetEntity,

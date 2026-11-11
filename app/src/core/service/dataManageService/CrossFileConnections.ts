@@ -36,7 +36,7 @@ export function addCrossFileConnection(source: NodeEndpoint, target: NodeEndpoin
   if (from.crossFileLinks?.some((link) => fileKey(link.targetFile) === targetFile && link.targetNode === to.uuid))
     throw new Error("这两个节点之间已存在相同方向的跨文件连接");
   const link = {
-    curve: Settings.rightClickConnectEdgeType === "arc",
+    curve: Settings.lineStyle !== "vertical" && Settings.rightClickConnectEdgeType === "arc",
     id: crypto.randomUUID(),
     targetFile: target.project.uri.toString(),
     targetNode: to.uuid,

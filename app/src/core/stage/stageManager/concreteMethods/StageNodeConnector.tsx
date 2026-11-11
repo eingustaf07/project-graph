@@ -79,6 +79,10 @@ export class NodeConnector {
   }
 
   addCrEdge(fromNode: ConnectableEntity, toNode: ConnectableEntity): void {
+    if (Settings.lineStyle === "vertical") {
+      this.connectConnectableEntity(fromNode, toNode);
+      return;
+    }
     if (!this.isConnectable(fromNode, toNode)) {
       return;
     }
@@ -87,6 +91,10 @@ export class NodeConnector {
   }
 
   addArcEdge(fromNode: ConnectableEntity, toNode: ConnectableEntity): void {
+    if (Settings.lineStyle === "vertical") {
+      this.connectConnectableEntity(fromNode, toNode);
+      return;
+    }
     if (!this.isConnectable(fromNode, toNode)) {
       return;
     }

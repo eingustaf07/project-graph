@@ -1,3 +1,4 @@
+import { EdgeRenderer } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRenderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.hoisted(() =>
   vi.stubGlobal("document", {
@@ -12,6 +13,7 @@ vi.mock("@/core/Project", () => ({
   service: () => (target: unknown) => target,
 }));
 const settings = vi.hoisted(() => ({
+  lineStyle: "straight",
   isEnableSectionCollision: true,
   isEnableEntityCollision: false,
   enableDragAutoAlign: true,
@@ -59,6 +61,7 @@ import { Decoder } from "@msgpack/msgpack";
 import { readFileSync } from "node:fs";
 import { parseProjectFile } from "@/core/ProjectFile";
 import { GraphMethods } from "../basicMethods/GraphMethods";
+import { NodeConnector } from "./StageNodeConnector";
 import { LineEdge } from "../../stageObject/association/LineEdge";
 import { DeleteManager } from "./StageDeleteManager";
 import { ControllerCuttingClass } from "@/core/service/controlService/controller/concrete/ControllerCutting";
@@ -108,6 +111,32 @@ beforeEach(() => {
   settings.isEnableSectionCollision = true;
   settings.isEnableEntityCollision = false;
 });
+describe("vertical connection defaults with real PG objects", () => {
+  it("restores the saved vertical renderer on construction", () => {
+    const previous = settings.lineStyle;
+    settings.lineStyle = "vertical";
+    const renderer = {};
+    try {
+      const edgeRenderer = new EdgeRenderer({ verticalPolyEdgeRenderer: renderer } as any);
+      expect((edgeRenderer as any).currentRenderer).toBe(renderer);
+    } finally { settings.lineStyle = previous; }
+  });
+  it.each(["connectConnectableEntity", "connectEntityFast", "addArcEdge", "addCrEdge"] as const)(
+    "uses the global vertical route for %s", (method) => {
+      const { p, node } = fixture();
+      const a = node(0), b = node(600);
+      const previous = settings.lineStyle;
+      settings.lineStyle = "vertical";
+      try {
+        new NodeConnector(p)[method](a, b);
+        const edges = p.stageManager.getAssociations();
+        expect(edges).toHaveLength(1);
+        expect(edges[0]).toBeInstanceOf(LineEdge);
+      } finally { settings.lineStyle = previous; }
+    },
+  );
+});
+
 describe("section collision with real PG objects", () => {
   it("separates root sections after direct drag movement", () => {
     const { group } = fixture();
