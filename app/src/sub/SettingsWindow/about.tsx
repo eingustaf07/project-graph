@@ -125,6 +125,14 @@ export default function AboutTab() {
 
 const versionHistory = [
   {
+    version: "2.1",
+    title: "删除安全修复",
+    changes: [
+      "修复普通删除与已安装的桥接删除扩展绑定同一个快捷键时，一次按键触发两次删除、继而误删相邻节点的问题。保留桥接删除功能和原有快捷键配置；扩展禁用或条件不满足时仍使用普通删除。",
+      "修正新窗口视图恢复标记的访问声明，使相关源码通过类型检查。",
+    ],
+  },
+  {
     version: "2.0",
     title: "十字准星滚轮",
     changes: [

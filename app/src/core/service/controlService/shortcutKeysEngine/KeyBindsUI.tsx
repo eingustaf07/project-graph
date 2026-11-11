@@ -580,10 +580,26 @@ export namespace KeyBindsUI {
     // 按序列长度降序排列，优先尝试最长匹配
     matched.sort((a, b) => b.seqLength - a.seqLength);
 
+    const bridgeDelete = matched.find(
+      ({ uiKeyBind, seqLength }) =>
+        uiKeyBind.id === "ext:com.mingliang.insert-node:bridge-delete" &&
+        seqLength === matched[0]?.seqLength,
+    );
+    // This extension calls the native deletion method itself. Running both callbacks
+    // deletes the node, then deletes its newly selected parent in the same keypress.
+    const bridgeReplacesDelete =
+      !!bridgeDelete &&
+      matched.some(
+        ({ uiKeyBind, seqLength }) =>
+          uiKeyBind.id === "deleteSelectedStageObjects" && seqLength === bridgeDelete.seqLength,
+      ) &&
+      (await bridgeDelete.uiKeyBind.when(activeProject));
+
     let maxExecutedLength = -1;
     let executedCopy: UIKeyBind | undefined;
     for (const { uiKeyBind, seqLength } of matched) {
       if (maxExecutedLength >= 0 && seqLength < maxExecutedLength) break;
+      if (bridgeReplacesDelete && uiKeyBind.id === "deleteSelectedStageObjects") continue;
       if (!(await uiKeyBind.when(activeProject))) continue;
       if (
         (uiKeyBind.id === "copy" || uiKeyBind.id === "copyText") &&

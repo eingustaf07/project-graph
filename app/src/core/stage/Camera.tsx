@@ -125,7 +125,7 @@ export class Camera {
   }
 
   private tickIndex = -1;
-  private hasResetOnOpen = false;
+  public hasResetOnOpen = false;
 
   tick() {
     // --- 初次打开文件的时候，重制视野

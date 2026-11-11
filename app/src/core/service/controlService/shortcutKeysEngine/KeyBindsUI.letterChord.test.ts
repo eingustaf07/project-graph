@@ -60,6 +60,59 @@ beforeEach(async () => {
   KeyBindsUI.uiStartListen();
 });
 
+describe("native and installed bridge deletion sharing a key", () => {
+  function setupDeletion(options: { bridgeFirst?: boolean; enabled?: boolean; eligible?: boolean; bridgeKey?: string } = {}) {
+    const remaining = new Set(["parent", "target", "child"]);
+    let selected = "target";
+    const removeSelected = vi.fn(() => {
+      remaining.delete(selected);
+      selected = "parent";
+    });
+    const bridge = vi.fn(async () => {
+      await Promise.resolve();
+      removeSelected();
+    });
+    const registerCore = () => KeyBindsUI.registerOneUIKeyBind(
+      "deleteSelectedStageObjects", "backspace", true, removeSelected, undefined, false, () => true,
+    );
+    const registerBridge = () => KeyBindsUI.registerOneUIKeyBind(
+      "ext:com.mingliang.insert-node:bridge-delete", options.bridgeKey ?? "backspace",
+      options.enabled ?? true, bridge, undefined, false, () => options.eligible ?? true,
+    );
+    if (options.bridgeFirst) { registerBridge(); registerCore(); }
+    else { registerCore(); registerBridge(); }
+    return { remaining, removeSelected, bridge };
+  }
+
+  it.each([false, true])("deletes the target once and retains both neighbours, extension registered first = %s", async (bridgeFirst) => {
+    const { remaining, removeSelected, bridge } = setupDeletion({ bridgeFirst });
+    await down("Backspace");
+    await up("Backspace");
+    expect(bridge).toHaveBeenCalledOnce();
+    expect(removeSelected).toHaveBeenCalledOnce();
+    expect([...remaining]).toEqual(["parent", "child"]);
+  });
+
+  it.each([{ enabled: false }, { eligible: false }])("keeps native deletion available when the bridge cannot run: %j", async (options) => {
+    const { remaining, removeSelected, bridge } = setupDeletion(options);
+    await down("Backspace");
+    expect(bridge).not.toHaveBeenCalled();
+    expect(removeSelected).toHaveBeenCalledOnce();
+    expect([...remaining]).toEqual(["parent", "child"]);
+  });
+
+  it("keeps separately assigned deletion shortcuts independent", async () => {
+    const { removeSelected, bridge } = setupDeletion({ bridgeKey: "delete" });
+    await down("Backspace");
+    await up("Backspace");
+    expect(removeSelected).toHaveBeenCalledOnce();
+    expect(bridge).not.toHaveBeenCalled();
+    await down("Delete");
+    expect(bridge).toHaveBeenCalledOnce();
+    expect(removeSelected).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("PG1.4 copy shortcuts", () => {
   it("copies nodes immediately, then text on a second physical C press", async () => {
     await down("Control", { ctrlKey: true });
