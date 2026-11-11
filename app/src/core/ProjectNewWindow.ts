@@ -19,6 +19,7 @@ function restoreView(project: Project, session: DetachedProjectSession) {
   project.historyManager.restoreDevelopmentSnapshot(session.history);
   project.camera.location = new Vector(session.camera.x, session.camera.y);
   project.camera.currentScale = project.camera.targetScale = session.camera.scale;
+  project.camera.hasResetOnOpen = true;
   const selected = new Set(session.selection);
   project.stage.forEach((object) => { object.isSelected = selected.has(object.uuid); });
 }
@@ -51,8 +52,8 @@ export async function showProjectInNewWindow(project: Project) {
       camera: { x: project.camera.location.x, y: project.camera.location.y, scale: project.camera.currentScale },
       selection: project.stage.filter((object) => object.isSelected).map((object) => object.uuid),
     };
-    await TabWorkspace.close(project.id);
     closed = true;
+    await TabWorkspace.close(project.id);
     await invoke("open_project_in_new_window", { session });
   } catch (error) {
     if (closed && session) {
