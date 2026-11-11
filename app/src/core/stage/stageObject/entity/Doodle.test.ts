@@ -531,6 +531,21 @@ describe("real PG doodles and fixed containers", () => {
     p.historyManager.redo();
     expect((p.stageManager.get(frame.uuid) as Doodle).frame.right).toBe(632);
   });
+  it("allows V dragging a selection spanning a container boundary", () => {
+    Settings.containerNBoundary = true;
+    const p = fixture(), frame = cage(p);
+    const a = node(p, "inside", new Vector(210, 215)), b = node(p, "outside", new Vector(900, 215));
+    for (const n of [a, b]) { p.stageManager.add(n); n.isSelected = true; }
+    expect(a.parentSection).toBe(frame);
+    expect(b.parentSection).toBeNull();
+    const before = [a, b].map(n => n.rectangle.center.clone());
+    p.entityMoveManager.beginPointerDrag(a, before[0]);
+    p.controller.pressingKeySet.add("v");
+    const delta = new Vector(12, 0);
+    p.entityMoveManager.dragSelection(delta, false);
+    for (const [i, n] of [a, b].entries()) expect(n.rectangle.center).toEqual(before[i].add(delta));
+  });
+
   it("requires V at the inner wall and returns an exiting node to the outer container", () => {
     Settings.containerNBoundary = true;
     const p = fixture();

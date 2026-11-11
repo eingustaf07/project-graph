@@ -26,7 +26,7 @@ export class SectionCollisionSolver {
    * @param visited      本次求解链中已处理过的 Section uuid（防止循环）
    */
   solveOverlaps(grownSection: Section, visited: Set<string> = new Set()): void {
-    if (!Settings.isEnableSectionCollision) return;
+    if (!Settings.isEnableSectionCollision || this.project.entityMoveManager?.ignoresDragCollisions) return;
     if (visited.has(grownSection.uuid)) return;
     visited.add(grownSection.uuid);
 

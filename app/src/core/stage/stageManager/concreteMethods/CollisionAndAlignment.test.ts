@@ -116,6 +116,20 @@ describe("section collision with real PG objects", () => {
     a.section.move(new Vector(550, 0));
     expect(overlap(a.section, b.section)).toBe(false);
   });
+  it("bypasses sibling section pushes for a V multi-drag until V is released", () => {
+    const { p, group, node } = fixture();
+    const a = group(0), b = group(900), extra = node(0, 600);
+    a.child.isSelected = extra.isSelected = true;
+    p.entityMoveManager.beginPointerDrag(a.child);
+    const original = b.child.rectangle.location.clone();
+    p.controller.pressingKeySet.add("v");
+    p.entityMoveManager.dragSelection(new Vector(900, 0), false);
+    expect(b.child.rectangle.location).toEqual(original);
+    expect(extra.rectangle.left).toBeCloseTo(900);
+    p.controller.pressingKeySet.delete("v");
+    p.entityMoveManager.dragSelection(new Vector(1, 0), false);
+    expect(overlap(a.section, b.section)).toBe(false);
+  });
   it("does not push a sibling into a third section", () => {
     const { p, group } = fixture();
     const groups = [group(0), group(100), group(300)];
@@ -437,6 +451,23 @@ describe("text node collision with the user's collision and auto-align settings"
       b = node(600);
     a.move(new Vector(600, 0));
     expect(overlap(a, b)).toBe(false);
+  });
+  it("moves multiple selected text nodes through an unselected node without moving it", () => {
+    const { p, node } = fixture();
+    settings.isEnableEntityCollision = true;
+    const a = node(0), b = node(0, 300), obstacle = node(600);
+    a.isSelected = b.isSelected = true;
+    const initial = obstacle.rectangle.location.clone();
+    p.entityMoveManager.beginPointerDrag(a);
+    p.controller.pressingKeySet.add("v");
+    p.entityMoveManager.dragSelection(new Vector(600, 0), false);
+    expect(overlap(a, obstacle)).toBe(true);
+    expect(obstacle.rectangle.location).toEqual(initial);
+    expect(b.rectangle.left).toBeCloseTo(a.rectangle.left);
+    p.controller.pressingKeySet.delete("v");
+    p.entityMoveManager.dragSelection(new Vector(1, 0), false);
+    expect(overlap(a, obstacle)).toBe(false);
+    p.entityMoveManager.endPointerDrag();
   });
   it("passes through a neighbor with V and resumes pushing during the same drag when V is released", () => {
     const { p, node } = fixture();

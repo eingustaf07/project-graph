@@ -166,9 +166,12 @@ describe("find/replace in the current Project", () => {
     const selected = Object.assign(node("Node7"), { isSelected: true });
     const literal = node("内容中提及 Node_123");
     const queryText = node("内容中提及 /空");
-    const { search, recordStep } = createProject(empty, whitespace, numbered, alternate, selected, literal, queryText);
+    const section = Object.assign(new fixtureClasses.Section(), { text: "Section_12" });
+    const mixed = node(" SECTION-8 ");
+    const named = Object.assign(new fixtureClasses.Section(), { text: "Section_12 工作计划" });
+    const { search, recordStep } = createProject(empty, whitespace, numbered, alternate, selected, literal, queryText, section, mixed, named);
     search.startSearch("/空", false);
-    expect(search.searchResultNodes).toEqual([empty, whitespace, numbered, alternate, selected]);
+    expect(search.searchResultNodes).toEqual([empty, whitespace, numbered, alternate, selected, section, mixed]);
     expect(search.getReplacementStatus("/空").hasCurrent).toBe(false);
     expect(search.replaceText("/空", "更改", true).count).toBe(0);
     expect(queryText.text).toBe("内容中提及 /空");

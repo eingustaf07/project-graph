@@ -178,7 +178,7 @@ export class ContentSearch {
     const filter = taskFilter(searchString);
     for (const node of objectsToSearch) {
       if (searchString === "/空") {
-        if (node instanceof TextNode && /^(?:\s*|\s*node[_\s-]?\d+\s*)$/i.test(node.text)) {
+        if ((node instanceof TextNode || node instanceof Section) && /^(?:(?:node|section)[_\s-]?\d+)?$/i.test(node.text.trim())) {
           this.searchResultNodes.push(node);
         }
         continue;

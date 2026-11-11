@@ -41,8 +41,9 @@ export class ContainerNodeDrag {
     if (!transfer && !this.batchActive) return;
     if (entities.some((entity) => entity instanceof Section)) return;
     const owner = boundedDoodleOf(this.clicked);
-    if (entities.some((entity) => entity.nearestLockedAncestorSection || boundedDoodleOf(entity) !== owner))
-      return { delta: Vector.getZero() };
+    // Nodes with different owners must cross their own walls independently.
+    if (entities.some((entity) => boundedDoodleOf(entity) !== owner)) return;
+    if (entities.some((entity) => entity.nearestLockedAncestorSection)) return { delta: Vector.getZero() };
     this.batchActive = true;
     const box = Rectangle.getBoundingRectangle(entities.map((entity) => entity.collisionBox.getRectangle()));
     let desired = delta;
