@@ -5,7 +5,9 @@ import { URI } from "vscode-uri";
 
 const calls = vi.hoisted(() => ({
   invoke: vi.fn(), close: vi.fn(), open: vi.fn(), error: vi.fn(),
+  runtime: vi.fn(), compare: vi.fn(),
 }));
+vi.mock("@/development-runtime", () => ({ captureWindowRuntime: calls.runtime, compareWindowRuntimes: calls.compare }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: calls.invoke }));
 vi.mock("./TabWorkspace", () => ({ TabWorkspace: { close: calls.close } }));
 vi.mock("./service/GlobalMenu", () => ({ onOpenFile: calls.open }));
@@ -31,6 +33,7 @@ beforeEach(() => {
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
   calls.invoke.mockResolvedValue(undefined);
   calls.close.mockResolvedValue(undefined);
+  calls.runtime.mockResolvedValue({ revision: "source-revision-1", commands: [], extensions: [] });
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 it("saves before releasing the source tab and transfers view, selection and history", async () => {
@@ -83,4 +86,22 @@ it("reports child-load failure to the parent instead of acknowledging success", 
     camera: { x: 0, y: 0, scale: 1 }, selection: [],
   })).rejects.toThrow("新窗口未能打开工程");
   expect(calls.invoke).toHaveBeenCalledWith("finish_detached_project_window", { error: expect.any(String) });
+});
+it("rejects a child with different code or extensions before opening the transferred project", async () => {
+  const p = project();
+  calls.compare.mockReturnValue("新窗口与原窗口加载的代码批次不同");
+  await expect(restoreDetachedProject({ path: p.uri.fsPath,
+    history: p.historyManager.developmentSnapshot(), camera: { x: 0, y: 0, scale: 1 }, selection: [],
+    runtime: { revision: "old-source", commands: [], extensions: [] },
+  })).rejects.toThrow("代码批次不同");
+  expect(calls.open).not.toHaveBeenCalled();
+  expect(calls.invoke).toHaveBeenCalledWith("finish_detached_project_window", { error: expect.stringContaining("代码批次不同") });
+});
+it("does not close or save the source tab while its runtime revision is stale", async () => {
+  const p = project();
+  calls.runtime.mockRejectedValue(new Error("当前窗口尚未加载最新开发更新"));
+  await showProjectInNewWindow(p);
+  expect(p.save).not.toHaveBeenCalled();
+  expect(calls.close).not.toHaveBeenCalled();
+  expect(calls.invoke).not.toHaveBeenCalled();
 });

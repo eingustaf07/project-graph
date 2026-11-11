@@ -21,7 +21,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["app/src/**/*.test.{ts,tsx}", "packages/*/tests/**/*.test.{ts,tsx}"],
+    include: ["app/src/**/*.test.{ts,tsx}", "app/vite-plugins/**/*.test.ts", "packages/*/tests/**/*.test.{ts,tsx}"],
     maxWorkers: 4,
   },
 });

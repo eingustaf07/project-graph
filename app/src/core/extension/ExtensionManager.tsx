@@ -70,6 +70,23 @@ export namespace ExtensionManager {
     }
   }
 
+  export async function waitUntilReady() {
+    // Each failed runtime displays its own error; keep the core editor usable.
+    return Promise.allSettled([...runtimes.values()].map((runtime) => runtime.ready));
+  }
+
+  export async function runtimeSignatures() {
+    const signatures = await Promise.all([...runtimes.values()].map(async (runtime) => {
+      await runtime.ready;
+      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(runtime.extension.code));
+      return {
+        id: runtime.extension.metadata.extension?.id ?? runtime.extension.uri.toString(),
+        hash: [...new Uint8Array(hash)].map((value) => value.toString(16).padStart(2, "0")).join(""),
+      };
+    }));
+    return signatures.sort((a, b) => a.id.localeCompare(b.id));
+  }
+
   export async function reload() {
     // 终止所有扩展的 Worker
     for (const runtime of runtimes.values()) {

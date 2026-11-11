@@ -18,7 +18,7 @@ export const viteLogger = createLogger("info", { prefix: "[project-graph]" });
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    ...(process.env.LR_PG_DEVELOPMENT_SESSION === "1" ? [developmentSession(path.resolve(__dirname, ".."))] : []),
+    developmentSession(path.resolve(__dirname, "..")),
     tailwindcss(),
     originalClassName({
       staticMethodName: "className",

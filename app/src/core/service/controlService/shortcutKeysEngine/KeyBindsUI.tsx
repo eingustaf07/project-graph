@@ -229,7 +229,12 @@ export namespace KeyBindsUI {
    * 会先检查是否已经存下来了，如果已经存下来了，先注册存下来的
    * 否则再注册默认快捷键
    */
-  export async function registerAllUIKeyBinds() {
+  let registering: Promise<void> | undefined;
+  export function registerAllUIKeyBinds(): Promise<void> {
+    registering ??= registerStoredUIKeyBinds().finally(() => { registering = undefined; });
+    return registering;
+  }
+  async function registerStoredUIKeyBinds() {
     const store = await createStore("keybinds2.json");
     for (const keybind of allKeyBinds.filter((keybindItem) => !keybindItem.isGlobal)) {
       const savedData = await store.get<any>(keybind.id);

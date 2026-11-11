@@ -89,6 +89,7 @@ setTimeout(() => {
       await runProjectGraphCliDesktopAcceptanceHost();
       return;
     }
+    await ExtensionManager.waitUntilReady();
     const projectWindows = isWeb ? undefined : await import("./core/ProjectNewWindow");
     const detachedSession = await projectWindows?.getDetachedProjectSession();
     if (!detachedSession && import.meta.env.DEV && import.meta.env.LR_PG_DEVELOPMENT_SESSION === "1") {
@@ -102,6 +103,8 @@ setTimeout(() => {
     }
     if (import.meta.env.DEV && import.meta.env.LR_PG_DEVELOPMENT_SESSION === "1") {
       const development = await import("./development-session");
+      const { ensureCurrentDevelopmentRevision } = await import("./development-runtime");
+      await ensureCurrentDevelopmentRevision();
       const title = `${await getName()} 开发版`;
       document.title = title;
       if (!isWeb) await getCurrentWindow().setTitle(title);

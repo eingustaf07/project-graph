@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Project } from "./Project";
 import { TabWorkspace } from "./TabWorkspace";
 import { onOpenFile } from "./service/GlobalMenu";
+import { captureWindowRuntime, compareWindowRuntimes, type WindowRuntime } from "@/development-runtime";
 
 type DetachedProjectSession = {
   windowId?: string;
@@ -11,6 +12,7 @@ type DetachedProjectSession = {
   history: ReturnType<Project["historyManager"]["developmentSnapshot"]>;
   camera: { x: number; y: number; scale: number };
   selection: string[];
+  runtime?: WindowRuntime;
 };
 
 const moving = new Set<string>();
@@ -43,6 +45,7 @@ export async function showProjectInNewWindow(project: Project) {
   try {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const runtime = await captureWindowRuntime();
     document.body.append(overlay);
     window.addEventListener("keydown", blockInput, true);
     await project.save({ includeThumbnail: false });
@@ -51,6 +54,7 @@ export async function showProjectInNewWindow(project: Project) {
       history: project.historyManager.developmentSnapshot(),
       camera: { x: project.camera.location.x, y: project.camera.location.y, scale: project.camera.currentScale },
       selection: project.stage.filter((object) => object.isSelected).map((object) => object.uuid),
+      runtime,
     };
     closed = true;
     await TabWorkspace.close(project.id);
@@ -77,6 +81,13 @@ export async function getDetachedProjectSession() {
 
 export async function restoreDetachedProject(session: DetachedProjectSession) {
   try {
+    const runtime = await captureWindowRuntime();
+    if (import.meta.env.DEV && import.meta.env.LR_PG_DEVELOPMENT_SESSION === "1" && !session.runtime)
+      throw new Error("原窗口尚未加载新窗口一致性校验，请先应用开发更新；原文件已保留");
+    if (session.runtime) {
+      const difference = compareWindowRuntimes(session.runtime, runtime);
+      if (difference) throw new Error(difference + "，已保留已保存的文件并恢复原标签");
+    }
     const project = await onOpenFile((await import("vscode-uri")).URI.file(session.path), "在新窗口中显示");
     if (!project) throw new Error("新窗口未能打开工程");
     restoreView(project, session);

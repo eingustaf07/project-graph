@@ -172,6 +172,7 @@ export async function markDevelopmentReady() {
 }
 
 if (import.meta.hot) {
-  import.meta.hot.on("pg:apply-development", applyDevelopmentUpdate);
-  import.meta.hot.dispose(() => import.meta.hot?.off("pg:apply-development", applyDevelopmentUpdate));
+  const onApply = (message?: { restartShell?: boolean }) => void applyDevelopmentUpdate(message?.restartShell === true);
+  import.meta.hot.on("pg:apply-development", onApply);
+  import.meta.hot.dispose(() => import.meta.hot?.off("pg:apply-development", onApply));
 }
