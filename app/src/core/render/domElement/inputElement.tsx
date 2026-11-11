@@ -44,15 +44,13 @@ export class InputElement {
       document.body.appendChild(inputElement);
       inputElement.focus();
       inputElement.select();
-      const removeElement = () => {
-        if (document.body.contains(inputElement)) {
-          try {
-            // 暂时关闭频繁弹窗报错。
-            document.body.removeChild(inputElement);
-          } catch (error) {
-            console.error(error);
-          }
-        }
+      const listeners = new AbortController();
+      const finish = () => {
+        if (listeners.signal.aborted) return;
+        listeners.abort();
+        resolve(inputElement.value);
+        onChange(inputElement.value);
+        inputElement.remove();
       };
       const adjustSize = () => {
         // inputElement.style.width = `${inputElement.scrollWidth + 2}px`;
@@ -60,24 +58,16 @@ export class InputElement {
 
       const onOutsideClick = (event: Event) => {
         if (!inputElement.contains(event.target as Node)) {
-          resolve(inputElement.value);
-          onChange(inputElement.value);
-          document.body.removeEventListener("mousedown", onOutsideClick);
-          removeElement();
+          finish();
         }
-      };
-      const onOutsideWheel = () => {
-        resolve(inputElement.value);
-        onChange(inputElement.value);
-        document.body.removeEventListener("mousedown", onOutsideClick);
-        removeElement();
       };
 
       // 初始化
       setTimeout(() => {
-        document.body.addEventListener("mousedown", onOutsideClick);
-        document.body.addEventListener("touchstart", onOutsideClick);
-        document.body.addEventListener("wheel", onOutsideWheel);
+        const options = { signal: listeners.signal };
+        document.body.addEventListener("mousedown", onOutsideClick, options);
+        document.body.addEventListener("touchstart", onOutsideClick, options);
+        document.body.addEventListener("wheel", finish, options);
         adjustSize(); // 初始化时调整大小
       }, 10);
 
@@ -95,13 +85,10 @@ export class InputElement {
               inputElement.focus();
             }
           };
-          window.addEventListener("focus", onWindowFocus);
+          window.addEventListener("focus", onWindowFocus, { signal: listeners.signal });
           return;
         }
-        resolve(inputElement.value);
-        onChange(inputElement.value);
-        document.body.removeEventListener("mousedown", onOutsideClick);
-        removeElement();
+        finish();
       });
       let isComposing = false;
       inputElement.addEventListener("compositionstart", () => {
@@ -116,12 +103,10 @@ export class InputElement {
       inputElement.addEventListener("keydown", (event) => {
         event.stopPropagation();
 
-        if (event.key === "Enter") {
+        if (event.key === "Enter" || event.key === "Escape") {
           if (!(event.isComposing || isComposing)) {
-            resolve(inputElement.value);
-            onChange(inputElement.value);
-            document.body.removeEventListener("mousedown", onOutsideClick);
-            removeElement();
+            event.preventDefault();
+            finish();
           }
         }
         if (event.key === "Tab") {
