@@ -1,3 +1,5 @@
+vi.mock("@/sub/FindWindow", () => ({ default: { open: vi.fn() } }));
+import FindWindow from "@/sub/FindWindow";
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -144,6 +146,10 @@ it("connects across split canvases, tracks scaled positions, respects floating o
     await act(() => fixture.watchers.get("enableCrossFileConnections")?.(false));
     expect(document.querySelector("[data-cross-file-controls]")).toBeNull();
     expect(a.node.crossFileLinks).toHaveLength(1);
+    const query = document.querySelector<HTMLButtonElement>('[aria-label="查询"]');
+    expect(query).not.toBeNull();
+    await act(async () => { query!.click(); await new Promise(resolve => setTimeout(resolve, 20)); });
+    expect(FindWindow.open).toHaveBeenCalledTimes(1);
   } finally {
     await act(() => root.unmount());
     host.remove();

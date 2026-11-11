@@ -23,7 +23,7 @@ import {
 } from "@/core/service/dataManageService/CrossFileConnections";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
-import { PanelsTopLeft, X } from "lucide-react";
+import { PanelsTopLeft, Search, X } from "lucide-react";
 
 type Point = { x: number; y: number };
 type Row = {
@@ -65,10 +65,28 @@ export function endpointAtPoint(projects: readonly Project[], x: number, y: numb
   return node ? { project, nodeId: node.uuid } : undefined;
 }
 
+function SearchButton() {
+  return <Button size="icon" variant="ghost" aria-label="查询" title="查询节点和框"
+    onClick={() => void import("@/sub/FindWindow").then(({ default: FindWindow }) => FindWindow.open())
+      .catch((error) => toast.error(String(error)))}>
+    <Search />
+  </Button>;
+}
+
+function SearchOnlyToolbar() {
+  const active = useAtomValue(activeResourceTabAtom);
+  const [mode, setMode] = useState(Settings.mouseLeftMode);
+  useEffect(() => Settings.watch("mouseLeftMode", setMode), []);
+  return isSelectionMode(mode) && active instanceof Project ? createPortal(
+    <div className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border">
+      <SearchButton />
+    </div>, document.body) : null;
+}
+
 export default function CrossFileConnections() {
   const [enabled, setEnabled] = useState(Settings.enableCrossFileConnections);
   useEffect(() => Settings.watch("enableCrossFileConnections", setEnabled), []);
-  return enabled ? <Connections /> : null;
+  return enabled ? <Connections /> : <SearchOnlyToolbar />;
 }
 
 function Connections() {
@@ -508,6 +526,7 @@ function Connections() {
           data-cross-file-controls=""
           className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border"
         >
+          <SearchButton />
           {showList && (
             <div className="max-h-56 max-w-lg overflow-auto p-2">
               {related.size === 0 && <p>此文件暂无已知的跨文件连线。</p>}

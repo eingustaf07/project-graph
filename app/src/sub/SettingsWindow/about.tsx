@@ -125,6 +125,14 @@ export default function AboutTab() {
 
 const versionHistory = [
   {
+    version: "2.2",
+    title: "直线涂鸦、快捷容器与查询",
+    changes: [
+      "ZZ 模式底栏新增查询按钮，打开现有查找面板。",
+      "BB 默认进入涂鸦和直线模式；空白处右键单击不弹菜单，双击创建矩形容器。在已有容器内双击时，新容器居中且尺寸受父容器限制。",
+    ],
+  },
+  {
     version: "2.1",
     title: "删除安全、高亮选择与容器",
     changes: [

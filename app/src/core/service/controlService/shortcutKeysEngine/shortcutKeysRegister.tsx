@@ -1818,10 +1818,10 @@ export const allKeyBinds: KeyBindItem[] = [
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       Settings.penStrokeEraser = false;
-      Settings.penStrokeStraightLine = false;
+      Settings.penStrokeStraightLine = true;
       Settings.mouseLeftMode = "draw";
-      project!.emit(doodleCommandEvent, "containerRectangle");
-      toast("当前鼠标左键已经切换为矩形容器模式");
+      project!.emit(doodleCommandEvent, "decorationLine");
+      toast("当前鼠标左键已经切换为直线涂鸦模式");
     },
   },
   {

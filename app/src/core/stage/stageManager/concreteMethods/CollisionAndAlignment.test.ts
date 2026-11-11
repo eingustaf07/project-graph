@@ -1,3 +1,5 @@
+import { ControllerContextMenuClass } from "@/core/service/controlService/controller/concrete/ControllerContextMenu";
+import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { EdgeRenderer } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRenderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.hoisted(() =>
@@ -38,7 +40,7 @@ vi.mock("@/core/service/controlService/controller/ControllerClass", () => ({
 }));
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
 vi.mock("@/core/service/feedbackService/SoundService", () => ({
-  SoundService: { play: { alignAndAttach: vi.fn(), cuttingLineRelease: vi.fn() } },
+  SoundService: { playDoodleCreated: vi.fn(), play: { alignAndAttach: vi.fn(), cuttingLineRelease: vi.fn() } },
 }));
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), warning: vi.fn() }) }));
@@ -673,5 +675,67 @@ describe("text node collision with the user's collision and auto-align settings"
     expect(settings.isEnableEntityCollision).toBe(true);
     expect(settings.isEnableSectionCollision).toBe(true);
     expect(settings.enableDragAutoAlign).toBe(true);
+  });
+});
+
+describe("blank right click container gestures", () => {
+  function setup() {
+    const { p, node } = fixture();
+    p.controllerUtils = { getClickedStageObject: (point: Vector) => p.stageManager.findEntityByLocation(point) };
+    p.canvas = { viewToClient: (v: Vector) => v };
+    p.renderer.transformView2World = (v: Vector) => v;
+    p.controller.resetCountdownTimer = vi.fn();
+    p.loop = vi.fn();
+    const controller = new ControllerContextMenuClass(p);
+    const event = (x: number, y = 0) => ({ button: 2, clientX: x, clientY: y } as MouseEvent);
+    const click = (x: number, y = 0) => { controller.mousedown(event(x,y)); controller.mouseup(event(x,y)); };
+    return { p, node, controller, event, click };
+  }
+  it("suppresses the blank single click and creates one undoable container on double click", () => {
+    const { p, click } = setup();
+    const record = vi.spyOn(p.historyManager, "recordStep");
+    click(1000);
+    expect(p.stageManager.getSections()).toHaveLength(0);
+    expect(p.emit).not.toHaveBeenCalledWith("contextmenu", expect.anything());
+    click(1000);
+    const frame = p.stageManager.getSections()[0] as Doodle;
+    expect(frame.bounded).toBe(true);
+    expect(frame.frame.center).toEqual(new Vector(1000, 0));
+    expect(record).toHaveBeenCalledTimes(1);
+    p.historyManager.undo();
+    expect(p.stageManager.getSections()).toHaveLength(0);
+    p.historyManager.redo();
+    expect(p.stageManager.getSections()).toHaveLength(1);
+  });
+  it.each(["rectangle", "circle"] as const)("centers the child and fits inside a %s parent", shape => {
+    const { p, click } = setup();
+    const parent = new Doodle(p, { bounded: true, shape, frame: new Rectangle(new Vector(0,0), new Vector(500,400)) });
+    p.stageManager.add(parent);
+    const original = parent.frame.clone();
+    click(210,190); click(210,190);
+    const child = p.stageManager.getSections().find((s: Doodle) => s !== parent) as Doodle;
+    expect(child.parentSection).toBe(parent);
+    expect(child.frame.center).toEqual(parent.frame.center);
+    expect(child.frame.width).toBeLessThan(parent.frame.width);
+    expect(child.frame.height).toBeLessThan(parent.frame.height);
+    expect(parent.frame).toEqual(original);
+  });
+  it("does not treat a right-button pan as a blank click", () => {
+    const { p, click, controller, event } = setup();
+    click(1000);
+    controller.mousedown(event(1000));
+    controller.mousemove(event(1100));
+    controller.mouseup(event(1000));
+    expect(p.stageManager.getSections()).toHaveLength(0);
+    click(1000);
+    expect(p.stageManager.getSections()).toHaveLength(0);
+  });
+  it("keeps an object's context menu and never creates a frame on its body", () => {
+    const { p, node, click } = setup();
+    const n = node(0);
+    click(n.rectangle.center.x,n.rectangle.center.y);
+    click(n.rectangle.center.x,n.rectangle.center.y);
+    expect(p.stageManager.getSections()).toHaveLength(0);
+    expect(p.emit).toHaveBeenCalledWith("contextmenu",expect.anything());
   });
 });

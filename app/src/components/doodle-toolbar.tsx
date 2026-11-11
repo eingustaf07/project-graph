@@ -129,8 +129,8 @@ function DrawingTools({ project, drawing, showToolbar }: { project: Project; dra
   );
   useEffect(() => Settings.watch("drawingToolbarPosition", setDock), []);
   const vertical = dock === "left" || dock === "right";
-  const [tool, setTool] = useState<DoodleShape | null>(drawing ? "rectangle" : null);
-  const [bounded, setBounded] = useState(drawing);
+  const [tool, setTool] = useState<DoodleShape | null>(null);
+  const [bounded, setBounded] = useState(false);
   const [name, setName] = useState("");
   const titleDraftChanged = useRef(false);
   const [color, setColor] = useState("#16a085");
@@ -565,9 +565,14 @@ function DrawingTools({ project, drawing, showToolbar }: { project: Project; dra
     if (!drawing || !showToolbar) return;
     const run = (command: DoodleCommand) => {
       if (viewer || Settings.mouseLeftMode !== "draw") return;
-      if (command === "containerRectangle") {
-        startTool("rectangle");
-        setBounded(true);
+      if (command === "decorationLine") {
+        if (editing && !fixBoundary()) return;
+        setTool(null);
+        setSelected(undefined);
+        setEditingId(undefined);
+        setBounded(false);
+        setLegacy(false);
+        setOptionsOpen(false);
         return;
       }
       if (command === "rectangle" || command === "circle") {

@@ -221,12 +221,12 @@ it("only activates drawing tools in draw mode and removes pending shapes when le
       .slice(1, 8)
       .map((b) => b.getAttribute("aria-label")),
   ).toEqual(["橡皮模式", "涂鸦参数", "容器模式", "涂鸦模式", "直线涂鸦", "长方形", "圆形"]);
-  expect(panel.querySelector('[aria-label="容器模式"]')?.getAttribute("aria-pressed")).toBe("true");
+  expect(panel.querySelector('[aria-label="容器模式"]')?.getAttribute("aria-pressed")).toBe("false");
   await act(() => listeners.get(doodleCommandEvent)?.("decoration"));
   expect(panel.querySelector('[aria-label="容器模式"]')?.getAttribute("aria-pressed")).toBe("false");
-  await act(() => listeners.get(doodleCommandEvent)?.("containerRectangle"));
-  expect(panel.querySelector('[aria-label="容器模式"]')?.getAttribute("aria-pressed")).toBe("true");
-  expect(host.querySelector("[data-pg-doodle-layer]")).not.toBeNull();
+  await act(() => listeners.get(doodleCommandEvent)?.("decorationLine"));
+  expect(panel.querySelector('[aria-label="容器模式"]')?.getAttribute("aria-pressed")).toBe("false");
+  expect(host.querySelector("[data-pg-doodle-layer]")).toBeNull();
   host.getBoundingClientRect = () => new DOMRect(100, 50, 800, 600);
   const handle = panel.querySelector("button")!;
   handle.setPointerCapture = vi.fn();
@@ -259,7 +259,7 @@ it("only activates drawing tools in draw mode and removes pending shapes when le
   expect(host.querySelector("[data-pg-doodle-layer]")).toBeNull();
   expect(listeners.has(doodleCommandEvent)).toBe(false);
   await mode("draw");
-  expect(host.querySelector("[data-pg-doodle-layer]")).not.toBeNull();
+  expect(host.querySelector("[data-pg-doodle-layer]")).toBeNull();
   await mode("connectAndCut");
   expect(host.querySelector("aside")).toBeNull();
 });

@@ -1,10 +1,15 @@
 import { Settings } from "@/core/service/Settings";
 import { Vector } from "@graphif/data-structures";
 import { ControllerClass } from "../ControllerClass";
+import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
+import { Rectangle } from "@graphif/shapes";
+import { SoundService } from "@/core/service/feedbackService/SoundService";
 
 export class ControllerContextMenuClass extends ControllerClass {
   /** view */
   private mouseDownLocation: Vector = new Vector(0, 0);
+  private blankClick?: { at: number; location: Vector };
+  private dragged = false;
 
   public mousedown = (event: MouseEvent) => {
     if (event.button !== 2) {
@@ -12,6 +17,13 @@ export class ControllerContextMenuClass extends ControllerClass {
     }
 
     this.mouseDownLocation = new Vector(event.clientX, event.clientY);
+    this.dragged = false;
+  };
+  public mousemove = (event: MouseEvent) => {
+    if (this.mouseDownLocation.distance(new Vector(event.clientX, event.clientY)) >= 5) {
+      this.dragged = true;
+      this.blankClick = undefined;
+    }
   };
   public mouseup = (event: MouseEvent) => {
     if (event.button !== 2) {
@@ -28,6 +40,22 @@ export class ControllerContextMenuClass extends ControllerClass {
 
     // 转换鼠标位置到世界坐标系
     const worldLocation = this.project.renderer.transformView2World(mouseUpLocation);
+    const clicked = this.project.controllerUtils.getClickedStageObject(worldLocation);
+    if (!clicked) {
+      if (this.dragged || distance >= 5 || Settings.viewerMode) {
+        this.blankClick = undefined;
+        return;
+      }
+      const now = Date.now();
+      const previous = this.blankClick;
+      this.blankClick = { at: now, location: mouseUpLocation };
+      if (previous && now - previous.at < 300 && previous.location.distance(mouseUpLocation) < 5) {
+        this.blankClick = undefined;
+        this.createContainer(worldLocation);
+      }
+      return;
+    }
+    this.blankClick = undefined;
 
     // 检查点击位置是否在可连接对象上
     const clickedConnectableEntity = this.project.stageManager.findConnectableEntityByLocation(worldLocation);
@@ -43,4 +71,36 @@ export class ControllerContextMenuClass extends ControllerClass {
       this.project.emit("contextmenu", this.project.canvas.viewToClient(mouseUpLocation));
     }
   };
+
+  private createContainer(location: Vector) {
+    const parent = this.project.stageManager.getSections()
+      .filter((section): section is Doodle =>
+        section instanceof Doodle && section.bounded && !section.isHiddenBySectionCollapse &&
+        section.containsContentPoint(location))
+      .sort((a, b) => a.frame.width * a.frame.height - b.frame.width * b.frame.height)[0];
+    if (parent && (parent.locked || parent.nearestLockedAncestorSection)) return;
+    const center = parent?.frame.center ?? location;
+    const maxSide = parent && Math.min(parent.frame.width, parent.frame.height) * 0.6;
+    const size = parent
+      ? new Vector(Math.min(400, parent.shape === "circle" ? maxSide! : parent.frame.width * 0.6),
+          Math.min(300, parent.shape === "circle" ? maxSide! : parent.frame.height * 0.6))
+      : new Vector(400, 300);
+    if (size.x < 16 || size.y < 16) return;
+    const container = new Doodle(this.project, {
+      frame: new Rectangle(center.subtract(size.multiply(0.5)), size),
+      shape: "rectangle",
+      bounded: true,
+      text: "",
+      borderStyle: Settings.sectionInitBorderStyle,
+    });
+    parent?.adopt(container);
+    container.captureEnclosed();
+    this.project.stageManager.add(container);
+    this.project.stageManager.clearSelectAll();
+    container.isSelected = true;
+    this.project.historyManager.recordStep();
+    SoundService.playDoodleCreated();
+    this.project.controller.resetCountdownTimer();
+    this.project.loop();
+  }
 }
