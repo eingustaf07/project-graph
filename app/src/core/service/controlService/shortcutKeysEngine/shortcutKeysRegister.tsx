@@ -1817,8 +1817,11 @@ export const allKeyBinds: KeyBindItem[] = [
     when: whenKeyboardOnlyOpen,
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
+      Settings.penStrokeEraser = false;
+      Settings.penStrokeStraightLine = false;
       Settings.mouseLeftMode = "draw";
-      toast("当前鼠标左键已经切换为画笔模式");
+      project!.emit(doodleCommandEvent, "containerRectangle");
+      toast("当前鼠标左键已经切换为矩形容器模式");
     },
   },
   {

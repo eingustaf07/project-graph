@@ -9,4 +9,4 @@ export const doodleCommands = [
   { id: "doodleCircle", key: "c y", action: "circle" },
   { id: "doodleLegacySettings", key: "", action: "legacy" },
 ] as const;
-export type DoodleCommand = (typeof doodleCommands)[number]["action"];
+export type DoodleCommand = (typeof doodleCommands)[number]["action"] | "containerRectangle";
