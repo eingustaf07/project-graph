@@ -16,6 +16,23 @@ vi.mock("../../eraserMask", () => ({
 import { SectionRenderer } from "./SectionRenderer";
 import { Settings } from "@/core/service/Settings";
 import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
+it("renders transparent Ctrl+G containers using the theme border without changing stored colors", () => {
+  const ctx: any = {save() {}, restore() {}, setLineDash() {}, beginPath() {}, rect() {}, stroke: vi.fn(), fillText: vi.fn()};
+  const border = Color.White;
+  const p: any = {
+    canvas: {ctx}, camera: {currentScale: 1},
+    renderer: {w: 1000, h: 800, transformWorld2View: (v: Vector) => v},
+    stageStyleManager: {currentStyle: {StageObjectBorder: border}},
+  };
+  const d = Object.assign(new Doodle({} as any), {
+    text: "", shape: "rectangle", color: Color.Transparent,
+    frame: new Rectangle(new Vector(10, 10), new Vector(400, 250)),
+  });
+  new SectionRenderer(p).render(d);
+  expect(ctx.stroke).toHaveBeenCalledOnce();
+  expect(ctx.strokeStyle).toBe(border.toString());
+  expect(d.color.a).toBe(0);
+});
 import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 

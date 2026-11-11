@@ -282,6 +282,9 @@ export class SectionRenderer {
     }
     if (section instanceof Doodle) {
       const title = this.doodleTitleMetrics(section);
+      const color = section.color.a === 0
+        ? this.project.stageStyleManager.currentStyle.StageObjectBorder
+        : section.color;
       paintWithErasures(
         this.project,
         section,
@@ -291,7 +294,7 @@ export class SectionRenderer {
             section.frame.size.multiply(this.project.camera.currentScale),
           );
           ctx.save();
-          ctx.strokeStyle = section.color.toString();
+          ctx.strokeStyle = color.toString();
           ctx.lineWidth = Math.max(1, 2 * this.project.camera.currentScale);
           ctx.setLineDash([]);
           ctx.beginPath();
@@ -306,12 +309,12 @@ export class SectionRenderer {
               const size = new Vector(side, side);
               titleRect = new Rectangle(rect.center.subtract(size.multiply(0.5)), size);
             }
-            this.project.textRenderer.renderTextInRectangle(section.text, titleRect, section.color);
+            this.project.textRenderer.renderTextInRectangle(section.text, titleRect, color);
           } else if (section.text) {
             ctx.font = `${title.fontSize}px ${Settings.defaultFontFamily}`;
             ctx.textAlign = "left";
             ctx.textBaseline = "alphabetic";
-            ctx.fillStyle = section.color.toString();
+            ctx.fillStyle = color.toString();
             ctx.fillText(section.text, rect.left + 8, rect.top - 8);
           }
           ctx.restore();
