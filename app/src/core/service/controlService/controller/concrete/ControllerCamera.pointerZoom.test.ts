@@ -11,6 +11,7 @@ vi.mock("@/core/service/feedbackService/SoundService", () => ({
 import type { Project } from "@/core/Project";
 import { Camera } from "@/core/stage/Camera";
 import { ControllerCameraClass } from "./ControllerCamera";
+import { ControllerClass } from "../ControllerClass";
 import { Settings } from "@/core/service/Settings";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
@@ -72,6 +73,19 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("Ctrl-wheel pointer zoom on empty canvas", () => {
+  it("leaves the real pointer coordinates available to image and other wheel controllers", () => {
+    const { p } = fixture();
+    const probe = new ControllerClass(p);
+    let received: WheelEvent | undefined;
+    probe.mousewheel = (event) => { received = event; };
+    vi.advanceTimersByTime(10);
+    const event = new WheelEvent("wheel", { ctrlKey: true, clientX: 780, clientY: 180, deltaY: -120 });
+    p.canvas.element.dispatchEvent(event);
+    expect(received?.clientX).toBe(725);
+    expect(received?.clientY).toBe(100);
+    expect([event.clientX, event.clientY]).toEqual([780, 180]);
+    probe.dispose();
+  });
   it.each([-120, 120, -3])("keeps the cursor world point fixed through every animation tick for delta %s", (deltaY) => {
     const { p, control } = fixture();
     const view = new Vector(500, 350),

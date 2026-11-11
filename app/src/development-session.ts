@@ -46,13 +46,8 @@ function captureSession() {
 type Snapshot = ReturnType<typeof captureSession>;
 
 function windowSessionKey() {
-  const marker = "pg-development-window-session";
-  let id = sessionStorage.getItem(marker);
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem(marker, id);
-  }
-  return "pending:" + id;
+  const id = sessionStorage.getItem("pg-development-window-session");
+  return id ? "pending:" + id : "pending";
 }
 
 async function sessionStore(mode: "readwrite" | "readonly", value?: Snapshot | null, key = windowSessionKey()): Promise<Snapshot | undefined> {
@@ -119,8 +114,7 @@ export async function applyDevelopmentUpdate(restartShell = false) {
 }
 
 export async function restoreDevelopmentSession(): Promise<boolean> {
-  const currentSnapshot = await sessionStore("readonly");
-  const snapshot = currentSnapshot ?? await sessionStore("readonly", undefined, "pending");
+  const snapshot = await sessionStore("readonly");
   if (!snapshot) return false;
   const ids = new Map<string, string>();
   for (const saved of snapshot.projects) {
@@ -169,7 +163,6 @@ export async function restoreDevelopmentSession(): Promise<boolean> {
     store.set(activeResourceTabAtom, active);
   }
   await sessionStore("readwrite", null);
-  if (!currentSnapshot) await sessionStore("readwrite", null, "pending");
   return true;
 }
 

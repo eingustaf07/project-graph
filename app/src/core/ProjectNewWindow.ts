@@ -6,6 +6,7 @@ import { TabWorkspace } from "./TabWorkspace";
 import { onOpenFile } from "./service/GlobalMenu";
 
 type DetachedProjectSession = {
+  windowId?: string;
   path: string;
   history: ReturnType<Project["historyManager"]["developmentSnapshot"]>;
   camera: { x: number; y: number; scale: number };
@@ -68,7 +69,9 @@ export async function showProjectInNewWindow(project: Project) {
 }
 
 export async function getDetachedProjectSession() {
-  return invoke<DetachedProjectSession | null>("get_detached_project_session");
+  const session = await invoke<DetachedProjectSession | null>("get_detached_project_session");
+  if (session?.windowId) sessionStorage.setItem("pg-development-window-session", session.windowId);
+  return session;
 }
 
 export async function restoreDetachedProject(session: DetachedProjectSession) {

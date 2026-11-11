@@ -7,7 +7,7 @@ use std::os::windows::process::CommandExt;
 const SESSION_ENV: &str = "PG_E_DETACHED_PROJECT_SESSION";
 
 #[tauri::command]
-pub(crate) async fn open_project_in_new_window(app: tauri::AppHandle, session: Value) -> Result<(), String> {
+pub(crate) async fn open_project_in_new_window(app: tauri::AppHandle, mut session: Value) -> Result<(), String> {
     let path = session.get("path").and_then(Value::as_str).ok_or("缺少工程路径")?;
     if !std::path::Path::new(path).is_file() || !path.to_lowercase().ends_with(".prg") {
         return Err("请选择已保存的 prg 文件".into());
@@ -15,6 +15,7 @@ pub(crate) async fn open_project_in_new_window(app: tauri::AppHandle, session: V
     let directory = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("window-transfers");
     fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
+    session["windowId"] = Value::String(format!("{}-{stamp}", std::process::id()));
     let session_path = directory.join(format!("{}-{stamp}.json", std::process::id()));
     fs::write(&session_path, serde_json::to_vec(&session).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
