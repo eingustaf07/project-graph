@@ -10,6 +10,16 @@ const baseline = (): WindowRuntime => ({
   commands: [{ id: "copy", key: "C-c", enabled: true }],
   extensions: [{ id: "extension", hash: "code-a" }],
 });
+it("accepts the native JSON handoff when Rust reorders object fields", () => {
+  const transferred = {
+    commands: [{ enabled: true, id: "copy", key: "C-c" }],
+    extensions: [{ hash: "code-a", id: "extension" }],
+    revision: "source-a",
+  };
+  expect(compareWindowRuntimes(transferred, baseline())).toBeUndefined();
+  transferred.commands[0].enabled = false;
+  expect(compareWindowRuntimes(transferred, baseline())).toMatch("快捷键");
+});
 it("distinguishes stale source, missing commands and outdated extension code", () => {
   const original = baseline();
   expect(compareWindowRuntimes(original, baseline())).toBeUndefined();

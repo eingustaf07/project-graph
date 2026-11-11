@@ -8,8 +8,14 @@ export type WindowRuntime = {
 
 export function compareWindowRuntimes(expected: WindowRuntime, actual: WindowRuntime): string | undefined {
   if (expected.revision !== actual.revision) return "新窗口与原窗口加载的代码批次不同";
-  if (JSON.stringify(expected.extensions) !== JSON.stringify(actual.extensions)) return "新窗口的扩展与原窗口不一致";
-  if (JSON.stringify(expected.commands) !== JSON.stringify(actual.commands))
+  if (expected.extensions.length !== actual.extensions.length || expected.extensions.some((extension, i) => {
+    const other = actual.extensions[i];
+    return extension.id !== other.id || extension.hash !== other.hash;
+  })) return "新窗口的扩展与原窗口不一致";
+  if (expected.commands.length !== actual.commands.length || expected.commands.some((command, i) => {
+    const other = actual.commands[i];
+    return command.id !== other.id || command.key !== other.key || command.enabled !== other.enabled;
+  }))
     return "新窗口的功能命令或快捷键配置与原窗口不一致";
 }
 

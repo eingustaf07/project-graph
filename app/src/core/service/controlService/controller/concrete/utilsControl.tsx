@@ -399,6 +399,7 @@ export class ControllerUtils {
     this.project.controller.isCameraLocked = true;
     this.project.camera.stopImmediately();
     section.isEditingTitle = true;
+    const originalTitle = section.text;
     const inputViewLocation = this.project.renderer
       .transformWorld2View(section.rectangle.location.subtract(new Vector(0, section.text === "" ? 50 : 0)))
       .add(Vector.same(Renderer.NODE_PADDING).multiply(this.project.camera.currentScale));
@@ -424,7 +425,7 @@ export class ControllerUtils {
       .then(() => {
         section.isEditingTitle = false;
         this.project.controller.isCameraLocked = false;
-        this.project.historyManager.recordStep();
+        if (section.text !== originalTitle) this.project.historyManager.recordStep();
       });
   }
 }
