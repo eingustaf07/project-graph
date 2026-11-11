@@ -203,7 +203,7 @@ export class ControllerCameraClass extends ControllerClass {
     if (Settings.mouseLeftMode === "draw" && this.project.controller.pressingKeySet.has("shift")) {
       return;
     }
-    if (this.project.controller.imageScale?.canScaleAt(event)) return;
+    if (!Settings.viewerMode && this.project.controller.imageScale?.canScaleAt(event)) return;
     if (this.zoomBlankCanvasAtPointer(event)) return;
     // 禁用触控板在这里的滚动
     const isUsingTouchPad = !this.isMouseWheel(event);

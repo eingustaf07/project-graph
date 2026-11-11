@@ -150,6 +150,13 @@ describe("Ctrl-wheel pointer zoom on empty canvas", () => {
     wheel(control);
     expect(p.camera.targetScale).toBe(0.65);
   });
+  it("allows camera zoom over selected images in viewer mode where image resizing is disabled", () => {
+    const { p, control } = fixture();
+    Settings.viewerMode = true;
+    vi.mocked(p.controller.imageScale.canScaleAt).mockReturnValue(true);
+    wheel(control);
+    expect(p.camera.targetScale).toBeCloseTo(0.65 * 1.2);
+  });
   it("handles high-resolution wheels with slight horizontal drift and stale cached modifiers", () => {
     const { p, control } = fixture();
     p.controller.pressingKeySet.add("shift");
