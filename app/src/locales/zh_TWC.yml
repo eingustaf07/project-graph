@@ -931,6 +931,7 @@ settings:
   mouseLeftMode:
     title: 左鍵模式切換
     options:
+      accumulateSelection: 累加選取節點
       selectAndMove: 選擇並移動
       draw: 畫圖
       connectAndCut: 連線與劈砍
@@ -2344,6 +2345,8 @@ keyBinds:
     description: 需要持續按下，然後一小段時間鬆開才感覺到效果的快捷鍵。並且不像序列型快捷鍵那樣長度可以是一個按鍵序列。
   resetToDefault:
     title: 重置為默認
+  accumulateNodeSelection:
+    title: 累加選取節點
   checkoutLeftMouseToSelectAndMove:
     title: 設定左鍵為“選取/移動”模式
     description: 也就是滑鼠左鍵切換為正常模式

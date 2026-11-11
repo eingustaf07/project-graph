@@ -644,6 +644,7 @@ settings:
   mouseLeftMode:
     title: Mouse Left Button Mode
     options:
+      accumulateSelection: Add nodes to selection
       selectAndMove: select and move
       draw: draw
       connectAndCut: connect and cut
@@ -2027,6 +2028,8 @@ keyBinds:
     title: Open/Close start file panel
     description: "When this key is pressed, change the state(Open/Close) of Start
       File Panel without mouse\n"
+  accumulateNodeSelection:
+    title: Add nodes to selection
   checkoutLeftMouseToSelectAndMove:
     title: Set the left mouse button to "Select/Move" mode
     description: "That is to say, the left mouse button switches to normal mode\n"

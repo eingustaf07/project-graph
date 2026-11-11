@@ -277,7 +277,7 @@ export const settingsSchema = z.object({
   enableCollision: z.boolean().default(true),
   enableDragAlignToGrid: z.boolean().default(false),
   mouseLeftMode: z
-    .union([z.literal("selectAndMove"), z.literal("draw"), z.literal("connectAndCut")])
+    .union([z.literal("selectAndMove"), z.literal("accumulateSelection"), z.literal("draw"), z.literal("connectAndCut")])
     .default("selectAndMove"),
   doubleClickEmptySpaceAction: z.union([z.literal("createTextNode"), z.literal("none")]).default("createTextNode"),
   soundEnabled: z.boolean().default(true),

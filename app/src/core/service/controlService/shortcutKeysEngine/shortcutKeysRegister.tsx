@@ -1790,6 +1790,16 @@ export const allKeyBinds: KeyBindItem[] = [
     },
   })),
   {
+    id: "accumulateNodeSelection",
+    defaultKey: "m m",
+    icon: MousePointer,
+    when: whenKeyboardOnlyOpen,
+    onPress: () => {
+      Settings.mouseLeftMode = "accumulateSelection";
+      toast(i18next.t("accumulateNodeSelection.title", { ns: "keyBinds" }));
+    },
+  },
+  {
     id: "checkoutLeftMouseToSelectAndMove",
     defaultKey: "v v v",
     icon: MousePointer,

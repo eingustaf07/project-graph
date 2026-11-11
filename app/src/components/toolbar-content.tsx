@@ -1,3 +1,4 @@
+import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import { Settings } from "@/core/service/Settings";
 import { Button } from "./ui/button";
 import { Toolbar } from "./ui/toolbar";
@@ -35,7 +36,7 @@ export default function ToolbarContent() {
         <Tooltip>
           <TooltipTrigger>
             <Button
-              className={cn("opacity-50", leftMouseMode === "selectAndMove" && "opacity-100")}
+              className={cn("opacity-50", isSelectionMode(leftMouseMode) && "opacity-100")}
               variant="ghost"
               size="icon"
               onClick={() => {

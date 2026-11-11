@@ -1,3 +1,4 @@
+import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import { ControllerClass } from "@/core/service/controlService/controller/ControllerClass";
 import { ShakeDetector } from "@/core/service/controlService/controller/utils/ShakeDetector";
 import { ConnectNodeSmartTools } from "@/core/service/dataManageService/connectNodeSmartTools";
@@ -35,7 +36,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
       return;
     }
     this.project.entityMoveManager.endPointerDrag();
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       return;
     }
     if (this.project.controller.camera.isPreGrabbingWhenSpace) {
@@ -59,9 +60,11 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
         const outermostLockedAncestor =
           this.project.sectionMethods.getOutermostLockedAncestorSection(clickedStageObject);
         if (outermostLockedAncestor) {
-          this.project.stageManager.getStageObjects().forEach((obj) => {
-            obj.isSelected = false;
-          });
+          if (Settings.mouseLeftMode !== "accumulateSelection") {
+            this.project.stageManager.getStageObjects().forEach((obj) => {
+              obj.isSelected = false;
+            });
+          }
           outermostLockedAncestor.isSelected = true;
           this.isMovingEntity = !Settings.viewerMode;
           return;
@@ -72,9 +75,11 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
           const outermostLockedSection =
             this.project.sectionMethods.getOutermostLockedAncestorSection(clickedStageObject);
           if (outermostLockedSection) {
-            this.project.stageManager.getStageObjects().forEach((obj) => {
-              obj.isSelected = false;
-            });
+            if (Settings.mouseLeftMode !== "accumulateSelection") {
+              this.project.stageManager.getStageObjects().forEach((obj) => {
+                obj.isSelected = false;
+              });
+            }
             outermostLockedSection.isSelected = true;
             this.isMovingEntity = !Settings.viewerMode;
           }
@@ -130,7 +135,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
         clickedStageObject.isSelected = true;
       } else {
         // 直接点击
-        if (!clickedStageObject.isSelected) {
+        if (!clickedStageObject.isSelected && !(Settings.mouseLeftMode === "accumulateSelection" && clickedStageObject instanceof Entity)) {
           // 清空所有其他节点的选中状态
           this.project.stageManager.getStageObjects().forEach((stageObject) => {
             if (stageObject === clickedStageObject) {
@@ -160,7 +165,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
     ) {
       return;
     }
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       return;
     }
     if (!this.isMovingEntity) {
@@ -243,7 +248,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
       this.shiftAccumulatedDelta = Vector.getZero();
       return;
     }
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       this.project.entityMoveManager.endPointerDrag();
       return;
     }

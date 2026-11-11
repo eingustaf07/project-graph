@@ -1,3 +1,4 @@
+import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAtomValue } from "jotai";
@@ -218,7 +219,7 @@ function Connections() {
         event.button !== 2 ||
         Settings.viewerMode ||
         !Settings.enableRightClickConnect ||
-        Settings.mouseLeftMode !== "selectAndMove"
+        !isSelectionMode(Settings.mouseLeftMode)
       )
         return;
       const source = store.get(activeResourceTabAtom);
@@ -498,7 +499,7 @@ function Connections() {
           </Button>
         </div>
       )}
-      {mode === "selectAndMove" && active instanceof Project && (
+      {isSelectionMode(mode) && active instanceof Project && (
         <div
           data-cross-file-controls=""
           className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border"

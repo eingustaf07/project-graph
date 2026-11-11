@@ -1,3 +1,4 @@
+import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import { Settings } from "@/core/service/Settings";
 import { ControllerClass } from "@/core/service/controlService/controller/ControllerClass";
 import { Vector } from "@graphif/data-structures";
@@ -33,7 +34,7 @@ export class ControllerPenStrokeControlClass extends ControllerClass {
   };
 
   public mousemove: (event: MouseEvent) => void = (event) => {
-    if (Settings.mouseLeftMode === "selectAndMove") {
+    if (isSelectionMode(Settings.mouseLeftMode)) {
       // 检查鼠标是否悬浮在笔迹上
       const location = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
       for (const node of this.project.stageManager.getPenStrokes()) {

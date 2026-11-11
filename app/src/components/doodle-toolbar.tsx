@@ -1,3 +1,4 @@
+import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import type { Project } from "@/core/Project";
 import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
@@ -110,7 +111,7 @@ function frameFromResize(resize: Resize, point: Vector): Rectangle {
 export default function DoodleToolbar({ project, showToolbar = true }: { project: Project; showToolbar?: boolean }) {
   const [mode, setMode] = useState(Settings.mouseLeftMode);
   useEffect(() => Settings.watch("mouseLeftMode", setMode), []);
-  if (mode !== "draw" && mode !== "selectAndMove") return null;
+  if (mode !== "draw" && !isSelectionMode(mode)) return null;
   return (
     <DrawingTools
       key={mode + String(showToolbar)}

@@ -1,3 +1,4 @@
+import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import { Settings } from "@/core/service/Settings";
 import { ControllerClass } from "@/core/service/controlService/controller/ControllerClass";
 import { Vector } from "@graphif/data-structures";
@@ -36,7 +37,7 @@ export class ControllerRectangleSelectClass extends ControllerClass {
       // layer moving mode
       return;
     }
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       return;
     }
     const button = event.button;
@@ -69,7 +70,7 @@ export class ControllerRectangleSelectClass extends ControllerClass {
   };
 
   public mousemove: (event: MouseEvent) => void = (event) => {
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       return;
     }
     if (!this._isUsing) {
@@ -103,7 +104,7 @@ export class ControllerRectangleSelectClass extends ControllerClass {
     if (event.button !== 0) {
       return;
     }
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       return;
     }
     // 左键松开

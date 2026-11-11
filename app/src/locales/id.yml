@@ -892,6 +892,7 @@ settings:
   mouseLeftMode:
     title: Alihkan Mode Klik Kiri
     options:
+      accumulateSelection: Tambahkan simpul ke pilihan
       selectAndMove: Pilih dan Gerakkan
       draw: Gambar
       connectAndCut: Hubungkan dan Potong
@@ -2377,6 +2378,8 @@ keyBinds:
     title: Perluas Pilihan Node Terbalik (Pertahankan Status Pilihan Node Saat Ini)
     description: |
       Setelah ditekan, status pilihan entitas akan dipindahkan ke node induk, sambil mempertahankan status pilihan node saat ini
+  accumulateNodeSelection:
+    title: Tambahkan simpul ke pilihan
   checkoutLeftMouseToSelectAndMove:
     title: Atur Klik Kiri ke Mode "Pilih/Gerakkan"
     description: |

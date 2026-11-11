@@ -794,6 +794,7 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
     title: "leftMouseModeCheckout",
     icon: <MousePointer />,
     keys: [
+      "accumulateNodeSelection",
       "checkoutLeftMouseToSelectAndMove",
       "checkoutLeftMouseToDrawing",
       "checkoutLeftMouseToConnectAndCutting",

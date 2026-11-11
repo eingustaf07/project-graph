@@ -1,3 +1,4 @@
+import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import type { Project } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
@@ -37,7 +38,7 @@ export class HyperedgeCenterDrag {
   };
 
   private down = (event: PointerEvent) => {
-    if (event.button !== 2 || Settings.viewerMode || Settings.mouseLeftMode !== "selectAndMove" || this.drag) return;
+    if (event.button !== 2 || Settings.viewerMode || !isSelectionMode(Settings.mouseLeftMode) || this.drag) return;
     const start = this.view(event);
     const world = this.project.renderer.transformView2World(start);
     const radius = 7 / this.project.camera.currentScale;

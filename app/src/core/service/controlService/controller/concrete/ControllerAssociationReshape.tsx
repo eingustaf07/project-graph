@@ -1,3 +1,4 @@
+import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import { Settings } from "@/core/service/Settings";
 import { ControllerClass } from "@/core/service/controlService/controller/ControllerClass";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
@@ -43,7 +44,7 @@ export class ControllerAssociationReshapeClass extends ControllerClass {
   public lastMoveLocation: Vector = Vector.getZero();
 
   public mousedown: (event: MouseEvent) => void = (event: MouseEvent) => {
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       return;
     }
     if (event.button !== 0) {
@@ -104,7 +105,7 @@ export class ControllerAssociationReshapeClass extends ControllerClass {
   };
 
   public mousemove: (event: MouseEvent) => void = (event: MouseEvent) => {
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       return;
     }
     if (this.project.controller.rectangleSelect.isUsing || this.project.controller.cutting.isUsing) {
@@ -176,7 +177,7 @@ export class ControllerAssociationReshapeClass extends ControllerClass {
   };
 
   public mouseup: (event: MouseEvent) => void = (event: MouseEvent) => {
-    if (Settings.mouseLeftMode !== "selectAndMove") {
+    if (!isSelectionMode(Settings.mouseLeftMode)) {
       return;
     }
     if (event.button !== 0) {
