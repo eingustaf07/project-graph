@@ -121,6 +121,8 @@ Rust 主要负责本地文件等系统能力；绝大部分业务逻辑在前端
 
 ## Windows upgrades and launchers
 
+- Regression #1 (Windows daily developer profile): compare the effective command IDs, assigned keys, enabled states, and loaded extensions in the Explorer/normal-launch main and detached windows against the user's known-good configuration. An equal runtime count, source fingerprint or reported Roaming path can conceal different physical profile contents. Confirm Ctrl+H opens Find and locked HH follows the selection. This user's provisioned settings, bindings, colors, quick settings and extensions live under the Windows home directory in .project-graph-e/preferences. Preserve that directory across deployments.
+
 - Deployment from `../PG1.1-ai-tree-auth-persistence`, branch `e15-auth-persistence`, completed on 2026-11-09 after authorization. Product name is `Project Graph E 1.5`. Windows compilation and credential tests passed; real canvas/About naming, encrypted credential migration and connected account status across native restart were verified. Native .prg association, shared shortcut and launcher registry point to the current physical EXE. Settings and shortcuts are semantically unchanged. See `C:/Users/gustaf/Documents/PG-E15-Deployment-20261109`; actual key injection and visual taskbar grouping were not tested.
 - Product names from now on follow `Project Graph E <version>`, including the space between E and the version. Preserve the existing app identifier, executable basename and settings storage identity when changing product names.
 
