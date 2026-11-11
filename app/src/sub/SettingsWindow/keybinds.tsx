@@ -21,6 +21,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { KeyBindsUI } from "@/core/service/controlService/shortcutKeysEngine/KeyBindsUI";
+import { doublePressShortcutPairs } from "@/core/service/controlService/shortcutKeysEngine/doublePressShortcuts";
 import { allKeyBinds, getKeyBindTypeById } from "@/core/service/controlService/shortcutKeysEngine/shortcutKeysRegister";
 import Fuse from "fuse.js";
 import { AlertCircle, AlignStartVertical, Focus, LineSquiggle, TextCursorInput } from "lucide-react";
@@ -170,9 +171,12 @@ export default function KeyBindsPage() {
       const itemIsContinuous = itemKeyBind?.isContinuous ?? false;
       // 不同类型不冲突
       if (targetIsContinuous !== itemIsContinuous) return false;
-      if ((targetId === "copy" && item.id === "copyText") || (targetId === "copyText" && item.id === "copy")) {
-        const nodeKey = targetId === "copy" ? targetKey : item.key;
-        const textKey = targetId === "copyText" ? targetKey : item.key;
+      const copyPair = doublePressShortcutPairs.find(
+        ([nodes, text]) => (targetId === nodes && item.id === text) || (targetId === text && item.id === nodes),
+      );
+      if (copyPair) {
+        const nodeKey = targetId === copyPair[0] ? targetKey : item.key;
+        const textKey = targetId === copyPair[1] ? targetKey : item.key;
         // Copy keeps this prefix briefly so the second command can replace it with text.
         if (nodeKey && textKey.startsWith(nodeKey + " ")) return false;
       }
@@ -597,6 +601,8 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
       "copy",
       "cut",
       "copyText",
+      "selectHighlighted",
+      "copyHighlightedText",
       "paste",
       "pasteWithOriginLocation",
       "deleteSelectedStageObjects",

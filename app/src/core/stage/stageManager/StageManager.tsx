@@ -1380,6 +1380,17 @@ export class StageManager {
       entity.isSelected = true;
     }
   }
+  selectHighlightedNodes(): number {
+    if (!Settings.connectedNodeHighlightLocked) return 0;
+    const nodes = this.project.searchContentHighlightRenderer.getConnectedHighlightedNodes()
+      .filter((node) => !node.isHiddenBySectionCollapse);
+    if (!nodes.length) return 0;
+    this.clearSelectAll();
+    for (const node of nodes) node.isSelected = true;
+    this.project.controller.resetCountdownTimer();
+    return nodes.length;
+  }
+
   clearSelectAll() {
     for (const entity of this.project.stage) {
       entity.isSelected = false;

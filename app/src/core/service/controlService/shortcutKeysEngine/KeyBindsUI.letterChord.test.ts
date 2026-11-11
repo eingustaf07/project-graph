@@ -8,6 +8,9 @@ const fixture = vi.hoisted(() => ({
   nodes: vi.fn(),
   text: vi.fn(),
   save: vi.fn(),
+  highlightSelect: vi.fn(),
+  highlightText: vi.fn(),
+  highlightLocked: true,
 }));
 vi.mock("@/core/Project", () => ({ Project: class Project {} }));
 vi.mock("@/state", () => ({
@@ -29,6 +32,8 @@ vi.mock("./shortcutKeysRegister", () => ({
     { id: "normalShortcut", defaultKey: "C-f", when: () => true, onPress: () => fixture.normal() },
     { id: "copy", defaultKey: "C-c", when: (project: unknown) => !!project, onPress: () => fixture.nodes() },
     { id: "copyText", defaultKey: "C-c C-c", when: (project: unknown) => !!project, onPress: () => fixture.text() },
+    { id: "selectHighlighted", defaultKey: "S-c", when: (project: unknown) => !!project && fixture.highlightLocked, onPress: () => fixture.highlightSelect() },
+    { id: "copyHighlightedText", defaultKey: "S-c S-c", when: (project: unknown) => !!project && fixture.highlightLocked, onPress: () => fixture.highlightText() },
   ],
 }));
 import { Project } from "@/core/Project";
@@ -54,6 +59,9 @@ beforeEach(async () => {
   fixture.nodes.mockClear();
   fixture.text.mockClear();
   fixture.save.mockClear();
+  fixture.highlightSelect.mockClear();
+  fixture.highlightText.mockClear();
+  fixture.highlightLocked = true;
   fixture.active = new Project(URI.parse("draft://shortcut-test"));
   document.body.innerHTML = "";
   await KeyBindsUI.registerAllUIKeyBinds();
@@ -114,6 +122,54 @@ describe("native and installed bridge deletion sharing a key", () => {
 });
 
 describe("PG1.4 copy shortcuts", () => {
+  it("selects highlighted nodes and copies their text on the second physical Shift+C", async () => {
+    await down("C", { shiftKey: true });
+    expect(fixture.highlightSelect).toHaveBeenCalledOnce();
+    expect(fixture.highlightText).not.toHaveBeenCalled();
+    await up("C");
+    await down("C", { shiftKey: true });
+    expect(fixture.highlightSelect).toHaveBeenCalledOnce();
+    expect(fixture.highlightText).toHaveBeenCalledOnce();
+    expect(fixture.nodes).not.toHaveBeenCalled();
+    expect(fixture.text).not.toHaveBeenCalled();
+  });
+  it("does not treat a held Shift+C as a second physical press", async () => {
+    await down("C", { shiftKey: true });
+    await down("C", { shiftKey: true, repeat: true });
+    expect(fixture.highlightSelect).toHaveBeenCalledOnce();
+    expect(fixture.highlightText).not.toHaveBeenCalled();
+  });
+  it("requires highlight lock while retaining normal Ctrl+C", async () => {
+    fixture.highlightLocked = false;
+    await down("C", { shiftKey: true });
+    await up("C");
+    await down("C", { shiftKey: true });
+    expect(fixture.highlightSelect).not.toHaveBeenCalled();
+    expect(fixture.highlightText).not.toHaveBeenCalled();
+    await down("c", { ctrlKey: true });
+    expect(fixture.nodes).toHaveBeenCalledOnce();
+  });
+  it("keeps the Ctrl and Shift copy sequences independent", async () => {
+    await down("C", { shiftKey: true });
+    await up("C");
+    await down("c", { ctrlKey: true });
+    await up("c");
+    await down("C", { shiftKey: true });
+    expect(fixture.highlightSelect).toHaveBeenCalledTimes(2);
+    expect(fixture.nodes).toHaveBeenCalledOnce();
+    expect(fixture.highlightText).not.toHaveBeenCalled();
+    expect(fixture.text).not.toHaveBeenCalled();
+  });
+  it("leaves text entry alone for Shift+C", async () => {
+    const input = document.createElement("textarea");
+    document.body.append(input);
+    input.focus();
+    await down("C", { shiftKey: true });
+    await up("C");
+    await down("C", { shiftKey: true });
+    expect(fixture.highlightSelect).not.toHaveBeenCalled();
+    expect(fixture.highlightText).not.toHaveBeenCalled();
+  });
   it("copies nodes immediately, then text on a second physical C press", async () => {
     await down("Control", { ctrlKey: true });
     await down("c", { ctrlKey: true });

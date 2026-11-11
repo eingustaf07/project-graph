@@ -2277,6 +2277,12 @@ keyBinds:
   copyText:
     title: 複製文字
     description: 只複製選取節點的文字。預設按住 Ctrl，在350毫秒內連按兩次 C；文字輸入框保留一般複製操作。
+  selectHighlighted:
+    title: 選取全部高亮節點
+    description: 開啟高亮鎖定後，按 Shift+C 選取目前檔案中全部高亮節點。
+  copyHighlightedText:
+    title: 複製高亮節點的文字
+    description: 開啟高亮鎖定後，按住 Shift 並在350毫秒內連按兩次 C，複製目前檔案中高亮節點的文字。
   paste:
     title: 粘贴
     description: 按下后，粘贴剪贴板内容

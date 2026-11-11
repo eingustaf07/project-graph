@@ -73,6 +73,18 @@ function fixture() {
 }
 
 describe("connected highlight overlay", () => {
+  it("can read the current locked highlight for copying before the next render", () => {
+    const { a, b, c, other, renderer } = fixture();
+    highlightSettings.connectedNodeHighlightLocked = true;
+    expect(renderer.getConnectedHighlightedNodes()).toEqual([a, b, c]);
+    a.isSelected = false;
+    other.isSelected = true;
+    renderer.invalidateSelection();
+    expect(renderer.getConnectedHighlightedNodes()).toEqual([other]);
+    expect(a.isSelected).toBe(false);
+    expect(b.isSelected).toBe(false);
+    expect(c.isSelected).toBe(false);
+  });
   beforeEach(() => {
     highlightSettings.connectedNodeHighlightLocked = false;
     highlightSettings.connectedNodeHighlightScope = "all";

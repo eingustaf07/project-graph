@@ -15,6 +15,7 @@ import type { LucideProps } from "lucide-react";
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
 import { useEffect, useState } from "react";
 import { allKeyBinds, type KeyBindWhen } from "./shortcutKeysRegister";
+import { doublePressShortcutPairs, isDoublePressShortcut } from "./doublePressShortcuts";
 
 export type KeyBindIcon = ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
 
@@ -46,13 +47,13 @@ export namespace KeyBindsUI {
 
   function enqueue(event: MouseEvent | KeyboardEvent | WheelEvent) {
     if (copySequence) {
-      const textBinding = getUIKeyBind("copyText");
+      const textBinding = getUIKeyBind(copySequence.textId);
       const next = copySequence.key.split(/\s+/)[userEventQueue.length];
       if (
         copySequence.project !== getFocusedProject() ||
         !textBinding?.isEnabled ||
         textBinding.key !== copySequence.key ||
-        getUIKeyBind("copy")?.key !== copySequence.prefixKey ||
+        getUIKeyBind(copySequence.nodeId)?.key !== copySequence.prefixKey ||
         !next ||
         !matchEmacsKeyPress(next, [event])
       ) {
@@ -483,7 +484,7 @@ export namespace KeyBindsUI {
   const heldLetterKeys = new Set<string>();
   let pendingTab: { project: Project | undefined; prefix: (KeyboardEvent | MouseEvent | WheelEvent)[] } | undefined;
   let copySequence:
-    | { key: string; prefixKey: string; project: Project; timer?: ReturnType<typeof setTimeout> }
+    | { key: string; prefixKey: string; nodeId: string; textId: string; project: Project; timer?: ReturnType<typeof setTimeout> }
     | undefined;
   function clearCopySequence() {
     if (!copySequence) return;
@@ -596,13 +597,13 @@ export namespace KeyBindsUI {
       (await bridgeDelete.uiKeyBind.when(activeProject));
 
     let maxExecutedLength = -1;
-    let executedCopy: UIKeyBind | undefined;
+    let executedPrefix: UIKeyBind | undefined;
     for (const { uiKeyBind, seqLength } of matched) {
       if (maxExecutedLength >= 0 && seqLength < maxExecutedLength) break;
       if (bridgeReplacesDelete && uiKeyBind.id === "deleteSelectedStageObjects") continue;
       if (!(await uiKeyBind.when(activeProject))) continue;
       if (
-        (uiKeyBind.id === "copy" || uiKeyBind.id === "copyText") &&
+        isDoublePressShortcut(uiKeyBind.id) &&
         (isCopyInputFocused() || userEventQueue.arrayList.at(-1)?.defaultPrevented)
       )
         continue;
@@ -641,21 +642,26 @@ export namespace KeyBindsUI {
         pressedSingleKeyBinds.add(uiKeyBind.key);
       }
       maxExecutedLength = seqLength;
-      if (uiKeyBind.id === "copy") executedCopy = uiKeyBind;
+      if (doublePressShortcutPairs.some(([first]) => first === uiKeyBind.id)) executedPrefix = uiKeyBind;
     }
     if (maxExecutedLength >= 0) {
-      const textBinding = getUIKeyBind("copyText");
+      const textId = doublePressShortcutPairs.find(([first]) => first === executedPrefix?.id)?.[1];
+      const textBinding = textId ? getUIKeyBind(textId) : undefined;
       if (
-        executedCopy &&
+        executedPrefix &&
+        textId &&
         activeProject &&
         textBinding?.isEnabled &&
-        textBinding.key.startsWith(executedCopy.key + " ") &&
+        textBinding.key.startsWith(executedPrefix.key + " ") &&
         (await textBinding.when(activeProject))
       ) {
         const events = userEventQueue.arrayList.slice(-maxExecutedLength);
         userEventQueue.clear();
         events.forEach((event) => userEventQueue.enqueue(event));
-        copySequence = { key: textBinding.key, prefixKey: executedCopy.key, project: activeProject };
+        copySequence = {
+          key: textBinding.key, prefixKey: executedPrefix.key,
+          nodeId: executedPrefix.id, textId, project: activeProject,
+        };
         restartCopySequenceTimer();
         return true;
       }
@@ -714,7 +720,7 @@ export namespace KeyBindsUI {
         return;
       for (const binding of allUIKeyBinds) {
         if (
-          (binding.id === "copy" || binding.id === "copyText") &&
+          isDoublePressShortcut(binding.id) &&
           binding.isEnabled &&
           matchEmacsKeyPress(binding.key.split(/\s+/)[0], [event]) &&
           (await binding.when(activeProject))

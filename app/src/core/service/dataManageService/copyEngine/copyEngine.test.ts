@@ -51,6 +51,7 @@ import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageManager } from "@/core/stage/stageManager/StageManager";
 import { SectionMethods } from "@/core/stage/stageManager/basicMethods/SectionMethods";
+import { GraphMethods } from "@/core/stage/stageManager/basicMethods/GraphMethods";
 import { HistoryManager } from "@/core/stage/stageManager/StageHistoryManager";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { Vector } from "@graphif/data-structures";
@@ -65,13 +66,19 @@ import { ClipboardImageUnavailable, CopyEngineImage } from "./copyEngineImage";
 import { Settings } from "@/core/service/Settings";
 import { CopyEngineUtils } from "./copyEngineUtils";
 import { DeleteManager } from "@/core/stage/stageManager/concreteMethods/StageDeleteManager";
+import { SearchContentHighlightRenderer } from "@/core/render/canvas2d/utilsRenderer/searchContentHighlightRenderer";
+import { setHighlightProjects } from "@/core/service/dataManageService/crossFileHighlight";
+import { URI } from "vscode-uri";
 import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/StageSectionInOutManager";
 
 function fixture() {
   const p: any = {
+    uri: URI.file("C:/highlight-copy-test/" + crypto.randomUUID() + ".prg"),
     stage: [],
     attachments: new Map(),
     emit: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
     effects: { addEffect: vi.fn() },
     syncAssociationManager: { onStageObjectDeleted: vi.fn() },
     renderer: { transformView2World: (v: Vector) => v.multiply(2).add(new Vector(-5000, 3000)) },
@@ -89,9 +96,11 @@ function fixture() {
   };
   p.stageManager = new StageManager(p);
   p.sectionMethods = new SectionMethods(p);
+  p.graphMethods = new GraphMethods(p);
   p.sectionInOutManager = new SectionInOutManager(p);
   p.deleteManager = new DeleteManager(p);
   p.copyEngine = new CopyEngine(p);
+  p.searchContentHighlightRenderer = new SearchContentHighlightRenderer(p);
   return p as Project;
 }
 function addTree(p: Project) {
@@ -121,6 +130,10 @@ function expectPoint(actual: Vector, expected: Vector) {
 beforeEach(() => {
   vi.spyOn(CopyEngineImage.prototype, "pasteImagesFromFileClipboard").mockResolvedValue(false);
   Settings.clipboardPasteMode = "tauri";
+  Settings.connectedNodeHighlightLocked = false;
+  Settings.connectedNodeHighlightScope = "all";
+  Settings.enableCrossFileConnections = false;
+  setHighlightProjects([]);
   clipboard.text = "";
   clipboard.read.mockReset().mockImplementation(async () => clipboard.text);
   clipboard.write.mockReset().mockImplementation(async (text: string) => {
@@ -131,9 +144,97 @@ beforeEach(() => {
   MouseLocation.x = 200;
   MouseLocation.y = 150;
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  setHighlightProjects([]);
+  vi.restoreAllMocks();
+});
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
+  it("deletes one child while retaining its parent, siblings and their directed edges through undo and redo", () => {
+    const p = fixture();
+    const parent = new TextNode(p, { text: "parent" });
+    const children = Array.from({ length: 12 }, (_, i) => new TextNode(p, { text: `child ${i}` }));
+    const edges = children.map((child) => new LineEdge(p, { associationList: [parent, child] }));
+    p.stage.push(parent, ...children, ...edges);
+    p.stageManager.updateReferences();
+    p.historyManager = new HistoryManager(p);
+    children[5].isSelected = true;
+    p.stageManager.deleteSelectedStageObjects();
+    expect(p.stageManager.getTextNodes()).toHaveLength(12);
+    expect(p.stageManager.getTextNodes()).toContain(parent);
+    expect(p.stageManager.getTextNodes()).not.toContain(children[5]);
+    expect(p.stageManager.getAssociations()).toEqual(edges.filter((_, i) => i !== 5));
+    expect(parent.isSelected).toBe(true);
+    p.historyManager.undo();
+    expect(p.stageManager.getTextNodes()).toHaveLength(13);
+    expect(p.stageManager.getAssociations()).toHaveLength(12);
+    p.historyManager.redo();
+    expect(p.stageManager.getTextNodes()).toHaveLength(12);
+    expect(p.stageManager.getAssociations()).toHaveLength(11);
+    const surviving = p.stageManager.getTextNodes().find((node) => node.uuid === parent.uuid);
+    expect(surviving).toBeDefined();
+    expect(p.stageManager.getLineEdges().every((edge) => edge.source === surviving)).toBe(true);
+  });
+  it("selects every locked highlighted node without copying, then supports normal Ctrl+C", async () => {
+    const p = fixture();
+    const { a, b } = addTree(p);
+    b.isSelected = false;
+    Settings.connectedNodeHighlightLocked = true;
+    const before = serialize(p.stage);
+    clipboard.text = "existing clipboard";
+    expect(p.stageManager.selectHighlightedNodes()).toBe(2);
+    expect(clipboard.text).toBe("existing clipboard");
+    expect(clipboard.write).not.toHaveBeenCalled();
+    expect(p.stageManager.getSelectedEntities()).toEqual([a, b]);
+    expect(serialize(p.stage)).toEqual(before);
+    expect(await p.copyEngine.copy("nodes")).toBe(true);
+    const target = fixture();
+    target.historyManager = new HistoryManager(target);
+    await target.copyEngine.paste();
+    expect(target.stageManager.getTextNodes().map((node) => node.text)).toEqual([a.text, b.text]);
+    expect(target.stageManager.getAssociations()).toHaveLength(1);
+    expectPoint(bounds(target.stageManager.getEntities()).center, target.renderer.transformView2World(MouseLocation.vector()));
+  });
+  it("copies highlighted text through the current highlight rule without selecting neighbours", async () => {
+    const p = fixture();
+    const { a, b } = addTree(p);
+    b.isSelected = false;
+    Settings.connectedNodeHighlightLocked = true;
+    expect(await p.copyEngine.copyHighlightedText()).toBe(true);
+    expect(clipboard.text).toBe(a.text + "\n\n" + b.text);
+    expect(p.stageManager.getSelectedEntities()).toEqual([a]);
+  });
+  it("does not alter the clipboard when highlight lock is disabled", async () => {
+    const p = fixture();
+    addTree(p);
+    clipboard.text = "existing clipboard";
+    expect(p.stageManager.selectHighlightedNodes()).toBe(0);
+    expect(await p.copyEngine.copyHighlightedText()).toBe(false);
+    expect(clipboard.text).toBe("existing clipboard");
+    expect(clipboard.write).not.toHaveBeenCalled();
+  });
+  it("copies only the current file when locked highlights extend into another file", async () => {
+    const source = fixture(), other = fixture();
+    const { a, b } = addTree(source);
+    const foreign = addTree(other);
+    b.isSelected = foreign.a.isSelected = foreign.b.isSelected = false;
+    a.crossFileLinks = [{
+      id: crypto.randomUUID(), targetFile: other.uri.toString(), targetNode: foreign.a.uuid,
+    }];
+    Settings.connectedNodeHighlightLocked = true;
+    Settings.enableCrossFileConnections = true;
+    setHighlightProjects([source, other]);
+    expect(other.searchContentHighlightRenderer.getConnectedHighlightedNodes()).toHaveLength(2);
+    expect(source.stageManager.selectHighlightedNodes()).toBe(2);
+    expect(clipboard.write).not.toHaveBeenCalled();
+    expect(other.stageManager.getSelectedEntities()).toHaveLength(0);
+    expect(await source.copyEngine.copyHighlightedText()).toBe(true);
+    expect(clipboard.text).toBe(a.text + "\n\n" + b.text);
+    expect(await source.copyEngine.copy("nodes")).toBe(true);
+    expect(decodeClipboardPayload(clipboard.text)?.stageObjects).toHaveLength(3);
+    expect(other.stageManager.getEntities()).toHaveLength(2);
+    expect(source.stageManager.getSelectedEntities()).toEqual([a, b]);
+  });
   it.each([false, true])("cuts and pastes at the cursor with undo, cross-document=%s", async (crossDocument) => {
     const source = fixture();
     addTree(source);

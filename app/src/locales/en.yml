@@ -1969,6 +1969,12 @@ keyBinds:
   copyText:
     title: Copy Text
     description: Copy only selected node text. By default, hold Ctrl and press C twice within 350 milliseconds. Text fields retain normal copying.
+  selectHighlighted:
+    title: Select all highlighted nodes
+    description: With highlight lock enabled, select all highlighted nodes in the current file. Default shortcut is Shift+C.
+  copyHighlightedText:
+    title: Copy highlighted node text
+    description: With highlight lock enabled, hold Shift and press C twice within 350 milliseconds to copy highlighted node text in the current file.
   paste:
     title: Paste
     description: Paste the clipboard content when pressed

@@ -114,9 +114,7 @@ export class SearchContentHighlightRenderer {
     this.connectedNodes = [];
   }
 
-  // Existing callers may still pass the canvas frame number.
-  render(frameTickIndex?: number): void;
-  render() {
+  public getConnectedHighlightedNodes(): readonly ConnectableEntity[] {
     const locked = Settings.connectedNodeHighlightLocked;
     if (
       locked &&
@@ -141,9 +139,16 @@ export class SearchContentHighlightRenderer {
     }
     this.followingSelection = locked;
     this.refreshConnectedNodes();
+    return crossFileHighlighted(this.project) ?? this.connectedNodes;
+  }
+
+  // Existing callers may still pass the canvas frame number.
+  render(frameTickIndex?: number): void;
+  render() {
+    const highlighted = this.getConnectedHighlightedNodes();
     const selectedColor = this.project.stageStyleManager.currentStyle.CollideBoxSelected;
     const outline = new Color(255 - selectedColor.r, 255 - selectedColor.g, 255 - selectedColor.b, 0.9);
-    for (const node of crossFileHighlighted(this.project) ?? this.connectedNodes) {
+    for (const node of highlighted) {
       if (node.isHiddenBySectionCollapse) continue;
       const bounds = node.collisionBox.getRectangle();
       const rect = node.isSelected

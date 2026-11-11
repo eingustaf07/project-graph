@@ -2339,6 +2339,12 @@ keyBinds:
   copyText:
     title: Salin Teks
     description: Salin hanya teks node yang dipilih. Secara default, tahan Ctrl dan tekan C dua kali dalam 350 milidetik. Penyalinan biasa tetap berlaku di kolom teks.
+  selectHighlighted:
+    title: Pilih semua simpul tersorot
+    description: Saat kunci sorotan aktif, tekan Shift+C untuk memilih semua simpul tersorot dalam berkas saat ini.
+  copyHighlightedText:
+    title: Salin teks simpul tersorot
+    description: Saat kunci sorotan aktif, tahan Shift dan tekan C dua kali dalam 350 milidetik untuk menyalin teks simpul tersorot dalam berkas saat ini.
   paste:
     title: Tempel
     description: Setelah ditekan, tempel konten clipboard

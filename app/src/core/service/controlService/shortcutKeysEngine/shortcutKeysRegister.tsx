@@ -1736,6 +1736,24 @@ export const allKeyBinds: KeyBindItem[] = [
     },
   },
   {
+    id: "selectHighlighted",
+    defaultKey: "S-c",
+    icon: SquareDashed,
+    when: (project) => Settings.connectedNodeHighlightLocked && whenKeyboardOnlyOpenWithSelectedStageObjects(project),
+    onPress: (project) => {
+      project!.stageManager.selectHighlightedNodes();
+    },
+  },
+  {
+    id: "copyHighlightedText",
+    defaultKey: "S-c S-c",
+    icon: Copy,
+    when: (project) => Settings.connectedNodeHighlightLocked && whenKeyboardOnlyOpenWithSelectedStageObjects(project),
+    onPress: (project) => {
+      void project!.copyEngine.copyHighlightedText();
+    },
+  },
+  {
     id: "paste",
     defaultKey: "C-v",
     icon: Clipboard,

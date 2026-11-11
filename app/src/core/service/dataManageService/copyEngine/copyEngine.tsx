@@ -7,6 +7,8 @@ import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
+import { Section } from "@/core/stage/stageObject/entity/Section";
+import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { Serialized } from "@/types/node";
 import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { deserialize, serialize } from "@graphif/serializer";
@@ -46,9 +48,16 @@ export class CopyEngine {
     this.copyEngineText = new CopyEngineText(project);
   }
 
-  async copy(mode?: CopyMode): Promise<boolean> {
+  async copyHighlightedText(): Promise<boolean> {
+    if (!Settings.connectedNodeHighlightLocked) return false;
+    const nodes = this.project.searchContentHighlightRenderer.getConnectedHighlightedNodes()
+      .filter((node) => !node.isHiddenBySectionCollapse);
+    return this.copy("text", nodes);
+  }
+
+  async copy(mode?: CopyMode, entities?: Entity[]): Promise<boolean> {
     if (this.choosingCopyMode) return false;
-    const selected = this.project.stageManager.getSelectedEntities();
+    const selected = entities ?? this.project.stageManager.getSelectedEntities();
     if (!selected.length) {
       toast.info("请先选择要复制的节点");
       return false;
@@ -58,10 +67,12 @@ export class CopyEngine {
       const objects = CopyEngineUtils.getAllStageObjectFromEntities(this.project, selected);
       // Snapshot before opening the chooser; a later selection must not change what is copied.
       const serialized = serialize(objects);
-      const text = objects
-        .filter((object) => object instanceof TextNode)
-        .map((node) => node.text)
-        .join("\n\n");
+      const textNodes = entities
+        ? selected.filter((node): node is TextNode | Section | UrlNode =>
+            node instanceof TextNode || node instanceof Section || node instanceof UrlNode,
+          )
+        : objects.filter((object): object is TextNode => object instanceof TextNode);
+      const text = textNodes.map((node) => node instanceof UrlNode ? node.title : node.text).join("\n\n");
       const choice = mode ?? (await chooseCopyMode());
       if (!choice) return false;
       if (choice === "text" && !text) {
