@@ -8,6 +8,7 @@ import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { LatexNode } from "@/core/stage/stageObject/entity/LatexNode";
+import { MediaNode } from "@/core/stage/stageObject/entity/MediaNode";
 import { PenStroke } from "@/core/stage/stageObject/entity/PenStroke";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
@@ -37,6 +38,7 @@ export class DeleteManager {
     this.registerHandler(Section, this.deleteSection.bind(this));
     this.registerHandler(ConnectPoint, this.deleteConnectPoint.bind(this));
     this.registerHandler(ImageNode, this.deleteImageNode.bind(this));
+    this.registerHandler(MediaNode, this.deleteMediaNode.bind(this));
     this.registerHandler(UrlNode, this.deleteUrlNode.bind(this));
     this.registerHandler(PenStroke, this.deletePenStroke.bind(this));
     this.registerHandler(SvgNode, this.deleteSvgNode.bind(this));
@@ -131,6 +133,16 @@ export class DeleteManager {
       this.deleteEntityAfterClearAssociation(entity);
     }
   }
+  private deleteMediaNode(entity: MediaNode) {
+    if (this.project.stageManager.getEntities().includes(entity)) {
+      this.project.stageManager.delete(entity);
+      this.project.effects.addEffect(
+        new ExplodeDashEffect(new ProgressNumber(0, 30), entity.collisionBox.getRectangle(), Color.White),
+      );
+      this.deleteEntityAfterClearAssociation(entity);
+      void entity.dispose();
+    }
+  }
   private deleteUrlNode(entity: UrlNode) {
     if (this.project.stageManager.getUrlNodes().includes(entity)) {
       this.project.stageManager.delete(entity);
@@ -210,7 +222,7 @@ export class DeleteManager {
    * @param deleteEdge 要删除的边
    * @returns
    */
-  deleteEdge(deleteEdge: Edge): boolean {
+  deleteEdge(deleteEdge: Edge, updateReferences = true): boolean {
     const fromNode = deleteEdge.source;
     const toNode = deleteEdge.target;
     // 检查边的源和目标是否在锁定的 section 内
@@ -224,20 +236,20 @@ export class DeleteManager {
     ) {
       // 删除边
       this.project.stageManager.delete(deleteEdge);
-      this.project.stageManager.updateReferences();
+      if (updateReferences) this.project.stageManager.updateReferences();
       return true;
     } else {
       return false;
     }
   }
 
-  deleteMultiTargetUndirectedEdge(edge: MultiTargetUndirectedEdge) {
+  deleteMultiTargetUndirectedEdge(edge: MultiTargetUndirectedEdge, updateReferences = true) {
     // 检查无向边是否连接了锁定的 section 内的物体
     if (this.project.sectionMethods.isObjectBeLockedBySection(edge)) {
       return false; // 连接了锁定 section 内物体的无向边不允许删除
     }
     this.project.stageManager.delete(edge);
-    this.project.stageManager.updateReferences();
+    if (updateReferences) this.project.stageManager.updateReferences();
     return true;
   }
 }

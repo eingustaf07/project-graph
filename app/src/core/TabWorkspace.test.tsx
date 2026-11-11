@@ -10,13 +10,14 @@ import {
   tabsAtom,
 } from "@/state";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { URI } from "vscode-uri";
 
 vi.mock("./service/Settings", () => ({ Settings: { maxFps: 60, maxFpsUnfocused: 60 } }));
 vi.mock("./service/Telemetry", () => ({ Telemetry: { event: vi.fn() } }));
 vi.mock("@/components/ui/dialog", () => ({ Dialog: { buttons: vi.fn() } }));
 
 import { Tab } from "./Tab";
-import { createTabGroup, getTabGroups } from "./TabGroup";
+import { createTabGroup, getTabGroups, findTabGroupByTabId, FIXED_SIDE_GROUP_IDS } from "./TabGroup";
 import { TabWorkspace } from "./TabWorkspace";
 
 class TestTab extends Tab {
@@ -43,7 +44,7 @@ function openTestTab() {
   return tab;
 }
 
-describe("TabWorkspace close lifecycle", () => {
+describe("TabWorkspace", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     store.set(tabsAtom, []);
@@ -57,6 +58,78 @@ describe("TabWorkspace close lifecycle", () => {
   afterEach(() => {
     vi.clearAllTimers();
     vi.useRealTimers();
+  });
+
+  it("switches docked documents without republishing the resource list", () => {
+    const first = TabWorkspace.open(new DocumentTestTab({}));
+    const second = TabWorkspace.open(new DocumentTestTab({}));
+    const list = store.get(tabsAtom);
+    const notify = vi.fn();
+    const unsubscribe = store.sub(tabsAtom, notify);
+    try {
+      for (let i = 0; i < 100; i++) {
+        const next = i % 2 === 0 ? first : second;
+        TabWorkspace.focus(next.id);
+        expect(store.get(activeResourceTabAtom)).toBe(next);
+      }
+      expect(notify).not.toHaveBeenCalled();
+      expect(store.get(tabsAtom)).toBe(list);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("focuses the visible file in the other split without rebuilding the split layout", () => {
+    const first = TabWorkspace.open(new DocumentTestTab({}));
+    const second = TabWorkspace.open(new DocumentTestTab({}));
+    TabWorkspace.split(second.id, "right");
+    TabWorkspace.focus(first.id);
+    const layout = store.get(tabGroupRootAtom);
+    TabWorkspace.focus(second.id);
+    expect(store.get(activeResourceTabAtom)).toBe(second);
+    expect(store.get(tabGroupRootAtom)).toBe(layout);
+  });
+
+  it.each(["left", "right", "top", "bottom"] as const)(
+    "keeps the selected file when opening a %s panel",
+    (splitEdge) => {
+      const first = TabWorkspace.open(Object.assign(new TestTab({}), { uri: URI.file("/first.prg") }));
+      const second = TabWorkspace.open(Object.assign(new TestTab({}), { uri: URI.file("/second.prg") }));
+      TabWorkspace.focus(first.id);
+
+      const panel = TabWorkspace.create({ layout: "docked", splitEdge });
+      const root = store.get(tabGroupRootAtom);
+
+      expect(findTabGroupByTabId(root, first.id)).toMatchObject({
+        tabIds: [first.id, second.id],
+        activeTabId: first.id,
+      });
+      expect(findTabGroupByTabId(root, panel.id)?.activeTabId).toBe(panel.id);
+      expect(store.get(activeTabAtom)).toBe(panel);
+      expect(store.get(activeResourceTabAtom)).toBe(first);
+    },
+  );
+
+  it.each(["left", "right"] as const)("keeps the selected file when reusing the %s panel group", (splitEdge) => {
+    const first = TabWorkspace.open(Object.assign(new TestTab({}), { uri: URI.file("/first.prg") }));
+    const second = TabWorkspace.open(Object.assign(new TestTab({}), { uri: URI.file("/second.prg") }));
+    const existingPanel = TabWorkspace.create({ layout: "docked", splitEdge });
+    TabWorkspace.focus(first.id);
+
+    const panel = TabWorkspace.create({ layout: "docked", splitEdge });
+    const root = store.get(tabGroupRootAtom);
+
+    expect(findTabGroupByTabId(root, first.id)).toMatchObject({
+      tabIds: [first.id, second.id],
+      activeTabId: first.id,
+    });
+    expect(findTabGroupByTabId(root, panel.id)).toMatchObject({
+      id: FIXED_SIDE_GROUP_IDS[splitEdge],
+      tabIds: [existingPanel.id, panel.id],
+      activeTabId: panel.id,
+    });
+    expect(store.get(activeTabAtom)).toBe(panel);
+    expect(store.get(activeResourceTabAtom)).toBe(first);
   });
 
   it("waits for disposal after removing the closing tab", async () => {

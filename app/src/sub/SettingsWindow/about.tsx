@@ -1,19 +1,21 @@
 import logoUrl from "@/assets/icon.png";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getVersion } from "@tauri-apps/api/app";
+import { getName, getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-shell";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export default function AboutTab() {
   const [appVersion, setAppVersion] = useState("unknown");
+  const [appName, setAppName] = useState("Project Graph E");
   const [logoClickCount, setLogoClickCount] = useState(0);
   const { t } = useTranslation("welcome");
 
   useEffect(() => {
     (async () => {
       setAppVersion(await getVersion());
+      setAppName(await getName());
     })();
   }, []);
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function AboutTab() {
       <header className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-semibold">
-            <span>Project Graph Custom</span>
+            <span>{appName}</span>
             {/* 把版本号调大一些，因为一些用户录屏反馈的时候会主动打开这个页面，展示版本号。如果字太小了，在手机上看用户录屏视频就看不清了 */}
             <a
               href="https://graphif.dev/docs/app/misc/history"
@@ -49,7 +51,7 @@ export default function AboutTab() {
               rel="noopener noreferrer"
               className="border-border bg-muted inline-flex cursor-pointer items-center rounded-md border px-2 py-1 text-xl hover:underline"
             >
-              v{appVersion}
+              {appVersion}
             </a>
           </h1>
           <p className="text-sm opacity-50">{t("slogan")}</p>
@@ -81,6 +83,7 @@ export default function AboutTab() {
             <Author name="zty012" url="https://github.com/zty012" />,{" "}
             <Author name="Rutubet(小劫)" url="https://github.com/Rutubet" /> 以及所有贡献者
           </div>
+          <p className="mt-1">{t("editionDeveloperCredit")}</p>
         </div>
         <div className="cursor-pointer rounded-md border p-4 **:cursor-pointer">
           <div className="text-xs opacity-50">官网与仓库</div>
@@ -104,7 +107,7 @@ export default function AboutTab() {
         {versionHistory.map((release, index) => (
           <details key={release.version} open={index === 0} className="border-t py-3">
             <summary className="cursor-pointer font-semibold">
-              {release.version} · {release.title}
+              Project Graph E {release.version} · {release.title}
             </summary>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               {release.changes.map((change) => (
@@ -122,9 +125,49 @@ export default function AboutTab() {
 
 const versionHistory = [
   {
-    version: "PG1.5",
+    version: "2.0",
+    title: "十字准星滚轮",
+    changes: [
+      "查找中输入「/空」，匹配空白文本节点和 Node_数字等默认编号节点；遵循原有搜索范围，作为筛选指令使用。",
+      "修复 Ctrl＋滚轮在准星下有节点或连线、按键状态变化时失效的问题；画布缩放仍以十字准星为中心，选中图片的原有缩放操作保留。",
+      "文件标签右键菜单增加「在新窗口中显示」：保存后移至独立桌面窗口，恢复撤销记录、视图和选中状态；新窗口加载失败时恢复原标签。草稿首次操作会选择保存位置。",
+      "Ctrl+H 查找时，所有匹配节点的边框按原主题色常亮。用键盘或结果列表定位节点时，定位框也保持静止。",
+      "ZZ 模式下左选节点、右点另一文件节点即可建立跨文件连线。选中连线可调整方向、外观与文字；关联高亮遵循当前范围，底部关联文件图标可向右分屏打开。",
+      "直接在另一分屏右键平移大图时，延后分批刷新节点，连续平移复用背景命中结果。",
+      "切换文件标签时跳过后台画布的选区扫描，复用拖放监听。",
+      "用橡皮擦完整个容器边框后移除容器，支持撤销。局部擦除保留容器。",
+      "音视频可从窗口上方拖入画布。拖入选中的文字会在落点创建文本节点。",
+      "AI 面板可折叠模型返回的思考文字，长行自动换行。打开停靠面板时保留当前文件。",
+      "在画布中按住 Ctrl 滚动滚轮，以当前画布的中心十字准星作为滚轮作用位置。实际鼠标指针停在原处。",
+      "软件名称统一为 Project Graph E，版本号单独以数字显示。",
+      "在查找面板输入 /okk 或 /err，可列出待办扩展标绿或标红的节点。",
+    ],
+  },
+  {
+    version: "1.5",
     title: "布局、缩放控制与开发版",
     changes: [
+      "设置 → 视觉 → 选中状态新增“高亮锁定”。开启后自动按当前范围高亮选中节点的关联节点，清空选区即取消。关联高亮采用选中色的反色，已选节点的高亮框显示在选中框外侧。",
+      "同一窗口切换工程标签时复用已打开的画布，跳过旧标签的重复激活。菜单打开时才检查相关节点和可用命令。",
+      "启用框内大标题时，缩小视图后命名的涂鸦框和容器与分组框按相同阈值显示框内标题，放大后恢复框外标题。",
+      "ZZ 选择模式和 BB 画笔模式均可点击已有容器或涂鸦框的边框，通过八个控制点调整大小。隐藏画笔工具栏后也可调整。",
+      "开启容器边界后，在矩形容器内选中一个节点，按住左键向同一侧连续撞三次，该侧向外扩大 32 个画布单位。两次撞击之间要退开，按住 V 时仍用于进出容器。",
+      "整树拖动或多选节点拖动时，按住 V 可在鼠标越过容器边框时整组移入、移出，并保持节点相对位置。整组放不下时不会只移入部分节点。",
+      "Shift+G 创建的多节点无向边支持从中心点按住右键拖至空白处，松开新建并连接文本节点。左键仍可调整中心位置。",
+      "修复按住 V 拖动已选图片进出容器时被边框挡住的问题。现在按鼠标抓取位置判断跨界，大图也可直接移入或移出。",
+      "个性化 → 主题新增自选配色，可用调色盘选择背景色、文字色和强调色，预览并保存。",
+      "修复更新或切换启动方式后反复要求 ChatGPT 登录的问题：使用固定的当前用户加密凭据目录，首次启用时迁移最近使用的旧凭据，后续升级继续复用。官方授权过期或撤销后仍需重新授权。",
+      "读取 ChatGPT 登录状态时显示检查进度，临时网络故障提供重试入口，避免误显示为未登录。",
+      "本版开始统一命名为“Project Graph E 版本号”，例如 Project Graph E 1.5；程序内部标识和原有设置目录继续保留。",
+      "开发版更换桌面程序前保留未保存草稿、撤销记录和视图状态，重新启动后继续恢复。",
+      "2026-11-09 · 新增版本记录维护要求：每次增加功能或修复问题，都在当前版本下追加记录，可在“设置 → 关于 → 自定义版更新日志”查看。",
+      "2026-11-09 · 大文件标签切换保留已经访问过的工程画布，减少重复挂载和画布像素缓冲区重建；关闭标签时仍释放其显示组件。",
+      "2026-11-09 · CC 批量切割合并引用更新和历史记录，一次切割支持整次撤销、重做；预览按帧计算，松手时使用最终切割位置。千条连线的测试仍约需0.7秒，超大批量操作会有处理时间。",
+      "2026-11-09 · 修复电脑重启后开发版找不到 Node 的问题：从程序自带 runtime 目录定位运行环境，并兼容旧配置中失效的绝对路径。",
+      "2026-11-09 · 改进大节点树拖动：一次移动只扫描一次连线，合并共同父框更新，并加速碰撞候选查找；多选父子节点时避免重复移动。",
+      "2026-11-09 · 容器与涂鸦框的鼠标命中范围根据缩放和屏幕尺寸调整，优先响应节点；无法明确区分相邻框线时不自动选中。缩放控制点扩大点击范围并补偿偏移，避免拖动跳变。",
+      "关联高亮新增“仅高亮当前链条”，入口为设置 → 视觉 → 选中状态 → 关联节点高亮范围，沿用当前高亮快捷键（你的设置为 HH）。遇到分叉时停止向下扩展，选中分叉节点时只高亮到当前节点。",
+      "按住 V 拖动节点时临时忽略实体碰撞，可穿过其他节点；拖动途中松开 V 后继续移动，恢复原碰撞设置。V 拖入、拖出容器的操作保留。",
       "实验性网格对齐：开启背景方格后，新生成节点以最近的任意角点对齐网格交点；兼顾树形层级与碰撞间距。在设置中搜索“网格”。",
       "图片自由缩放：选中图片后使用四角和四边中点，共八个控制点，分别调整宽度和高度。",
       "容器和几何涂鸦框增加四个边中点，支持八个控制点调整大小。",
@@ -141,7 +184,7 @@ const versionHistory = [
     ],
   },
   {
-    version: "PG1.4",
+    version: "1.4",
     title: "操作、音效与容器增强",
     changes: [
       "Ctrl+C 复制节点，按住 Ctrl 连按两次 C 复制文本；Ctrl+X 剪切后可跨文档在鼠标位置粘贴。入口为设置 → 快捷键 → 基础。",
@@ -159,7 +202,7 @@ const versionHistory = [
     ],
   },
   {
-    version: "PG1.3 / 1.3.1",
+    version: "1.3 / 1.3.1",
     title: "剪贴板与绘图",
     changes: [
       "增加节点与文本两种复制方式，粘贴节点或节点树时将其中心放到鼠标位置，支持同文件和跨文件。",
@@ -175,7 +218,7 @@ const versionHistory = [
     ],
   },
   {
-    version: "PG1.2",
+    version: "1.2",
     title: "AI 树生成与整理",
     changes: [
       "AI 树生成按真实节点尺寸计算布局，增加最大宽度、避免覆盖和内容结构保护。",
@@ -187,7 +230,7 @@ const versionHistory = [
     ],
   },
   {
-    version: "PG1.1",
+    version: "1.1",
     title: "ChatGPT 账号连接",
     changes: [
       "设置 → AI 增加 ChatGPT 账号与自定义 API 两种连接方式，提供登录、连接状态和断开入口。",
@@ -198,7 +241,7 @@ const versionHistory = [
     ],
   },
   {
-    version: "PG Custom / PG1.0",
+    version: "1.0",
     title: "自定义稳定基线",
     changes: [
       "文本节点增加最大宽度：短文本随内容自适应，达到上限自动换行，默认建议 15 个中文字符，可在设置中调整。",

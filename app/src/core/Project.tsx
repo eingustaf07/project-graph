@@ -1,3 +1,4 @@
+import { outlineErased } from "@/core/algorithm/eraserGeometry";
 import { Dialog } from "@/components/ui/dialog";
 import type { CurveRenderer } from "@/core/render/canvas2d/basicRenderer/curveRenderer";
 import type { ImageRenderer } from "@/core/render/canvas2d/basicRenderer/ImageRenderer";
@@ -13,6 +14,7 @@ import type { EdgeRenderer } from "@/core/render/canvas2d/entityRenderer/edge/Ed
 import type { EntityDetailsButtonRenderer } from "@/core/render/canvas2d/entityRenderer/EntityDetailsButtonRenderer";
 import type { EntityRenderer } from "@/core/render/canvas2d/entityRenderer/EntityRenderer";
 import type { LatexNodeRenderer } from "@/core/render/canvas2d/entityRenderer/latexNode/LatexNodeRenderer";
+import type { MediaNodeRenderer } from "@/core/render/canvas2d/entityRenderer/mediaNode/MediaNodeRenderer";
 import type { MultiTargetUndirectedEdgeRenderer } from "@/core/render/canvas2d/entityRenderer/multiTargetUndirectedEdge/MultiTargetUndirectedEdgeRenderer";
 import type { ReferenceBlockRenderer } from "@/core/render/canvas2d/entityRenderer/ReferenceBlockRenderer";
 import type { SectionRenderer } from "@/core/render/canvas2d/entityRenderer/section/SectionRenderer";
@@ -84,7 +86,7 @@ import mime from "mime";
 import React from "react";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { URI } from "vscode-uri";
-import { CollaborationService } from "./service/collaboration/CollaborationService";
+import type { CollaborationService } from "./service/collaboration/CollaborationService";
 import { AutoSaveBackupService } from "./service/dataFileService/AutoSaveBackupService";
 import { generateThumbnail } from "./service/dataGenerateService/generateThumbnail";
 import { ProjectOwnershipLifecycle, ProjectOwnershipLease } from "./ProjectOwnership";
@@ -273,6 +275,12 @@ export class Project extends Tab {
       // 注意：这里需要在服务加载后才能调用，所以需要检查服务是否已加载
       if (this.getService("stageManager")) {
         this.stageManager.updateReferences();
+        if (this.getService("deleteManager") && this.getService("sectionInOutManager")) {
+          const { Doodle } = await import("@/core/stage/stageObject/entity/Doodle");
+          const erased = this.stage.filter((object): object is InstanceType<typeof Doodle> => object instanceof Doodle &&
+            !!object.erasures?.length && outlineErased(object.frame, object.shape, object.erasures));
+          if (erased.length) this.deleteManager.deleteEntities(erased);
+        }
       }
 
       this.wasUpgraded = currentVersion !== latestVersion;
@@ -505,11 +513,9 @@ export class Project extends Tab {
         return (
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute inset-0 overflow-hidden" ref={this.containerRef}></div>
-            {this.state.showQuickSettingsToolbar && (
-              <React.Suspense fallback={null}>
-                <DoodleToolbar project={self} />
-              </React.Suspense>
-            )}
+            <React.Suspense fallback={null}>
+              <DoodleToolbar project={self} showToolbar={this.state.showQuickSettingsToolbar} />
+            </React.Suspense>
           </div>
         );
       }
@@ -521,11 +527,9 @@ export class Project extends Tab {
     return (
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden" ref={this.containerRef}></div>
-        {Settings.showQuickSettingsToolbar && (
-          <React.Suspense fallback={null}>
-            <DoodleToolbar project={this} />
-          </React.Suspense>
-        )}
+        <React.Suspense fallback={null}>
+          <DoodleToolbar project={this} showToolbar={Settings.showQuickSettingsToolbar} />
+        </React.Suspense>
       </div>
     );
   }
@@ -610,6 +614,7 @@ declare module "./Project" {
     sectionRenderer: SectionRenderer;
     svgNodeRenderer: SvgNodeRenderer;
     latexNodeRenderer: LatexNodeRenderer;
+    mediaNodeRenderer: MediaNodeRenderer;
     textNodeRenderer: TextNodeRenderer;
     urlNodeRenderer: UrlNodeRenderer;
     backgroundRenderer: BackgroundRenderer;
@@ -634,9 +639,8 @@ declare module "./Project" {
 /**
  * 装饰器
  */
-export const service =
-  (id: string) =>
-  <
+export function service(id: string) {
+  return <
     T extends {
       [x: string | number | symbol]: any;
       id?: string;
@@ -648,3 +652,4 @@ export const service =
     target.id = id;
     return target as T & { id: string };
   };
+}

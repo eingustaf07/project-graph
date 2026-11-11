@@ -45,7 +45,17 @@ function captureSession() {
 }
 type Snapshot = ReturnType<typeof captureSession>;
 
-async function sessionStore(mode: "readwrite" | "readonly", value?: Snapshot | null): Promise<Snapshot | undefined> {
+function windowSessionKey() {
+  const marker = "pg-development-window-session";
+  let id = sessionStorage.getItem(marker);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(marker, id);
+  }
+  return "pending:" + id;
+}
+
+async function sessionStore(mode: "readwrite" | "readonly", value?: Snapshot | null, key = windowSessionKey()): Promise<Snapshot | undefined> {
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open("pg-development-session", 1);
     request.onupgradeneeded = () => request.result.createObjectStore("session");
@@ -58,10 +68,10 @@ async function sessionStore(mode: "readwrite" | "readonly", value?: Snapshot | n
         storage = tx.objectStore("session");
       const request =
         mode === "readonly"
-          ? storage.get("pending")
+          ? storage.get(key)
           : value
-            ? storage.put(value, "pending")
-            : storage.delete("pending");
+            ? storage.put(value, key)
+            : storage.delete(key);
       tx.oncomplete = () => resolve(mode === "readonly" ? (request.result as Snapshot | undefined) : undefined);
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error ?? new Error("开发会话保存被中断"));
@@ -72,7 +82,7 @@ async function sessionStore(mode: "readwrite" | "readonly", value?: Snapshot | n
 }
 
 let applying = false;
-export async function applyDevelopmentUpdate() {
+export async function applyDevelopmentUpdate(restartShell = false) {
   if (applying) return;
   applying = true;
   const projects = store.get(tabsAtom).filter((tab): tab is Project => tab instanceof Project);
@@ -95,7 +105,10 @@ export async function applyDevelopmentUpdate() {
     projects.forEach((p) => p.pause());
     await sessionStore("readwrite", captureSession());
     await Promise.all(projects.map((p) => p.dispose()));
-    location.reload();
+    if (restartShell) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("exit", { code: 0 });
+    } else location.reload();
   } catch (error) {
     projects.forEach((p) => p.loop());
     toast.error(`开发更新未应用：${String(error)}`);
@@ -106,7 +119,8 @@ export async function applyDevelopmentUpdate() {
 }
 
 export async function restoreDevelopmentSession(): Promise<boolean> {
-  const snapshot = await sessionStore("readonly");
+  const currentSnapshot = await sessionStore("readonly");
+  const snapshot = currentSnapshot ?? await sessionStore("readonly", undefined, "pending");
   if (!snapshot) return false;
   const ids = new Map<string, string>();
   for (const saved of snapshot.projects) {
@@ -155,6 +169,7 @@ export async function restoreDevelopmentSession(): Promise<boolean> {
     store.set(activeResourceTabAtom, active);
   }
   await sessionStore("readwrite", null);
+  if (!currentSnapshot) await sessionStore("readwrite", null, "pending");
   return true;
 }
 

@@ -83,7 +83,7 @@ vi.mock("@graphif/serializer", async (loadOriginal) => ({
     }),
 }));
 
-import { Vector } from "@graphif/data-structures";
+import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { ContentSearch, SearchScope } from "./contentSearchEngine";
@@ -158,6 +158,82 @@ describe("literal text replacement planning", () => {
 });
 
 describe("find/replace in the current Project", () => {
+  it("finds empty and default-numbered text nodes with /空 without changing them", () => {
+    const empty = node("");
+    const whitespace = node("  \n ");
+    const numbered = node("Node_123");
+    const alternate = node("node 42");
+    const selected = Object.assign(node("Node7"), { isSelected: true });
+    const literal = node("内容中提及 Node_123");
+    const queryText = node("内容中提及 /空");
+    const { search, recordStep } = createProject(empty, whitespace, numbered, alternate, selected, literal, queryText);
+    search.startSearch("/空", false);
+    expect(search.searchResultNodes).toEqual([empty, whitespace, numbered, alternate, selected]);
+    expect(search.getReplacementStatus("/空").hasCurrent).toBe(false);
+    expect(search.replaceText("/空", "更改", true).count).toBe(0);
+    expect(queryText.text).toBe("内容中提及 /空");
+    expect(recordStep).not.toHaveBeenCalled();
+    search.searchScope = SearchScope.SELECTED;
+    search.startSearch("/空", false);
+    expect(search.searchResultNodes).toEqual([selected]);
+    search.searchScope = SearchScope.ALL;
+    search.startSearch("Node_123", false);
+    expect(search.searchResultNodes).toEqual([numbered, literal]);
+  });
+  it("locates matches without animated effects and clears the locator when the search changes", () => {
+    const first = node("节点一", 10, 20);
+    const second = node("节点二", 300, 50);
+    const { project, search } = createProject(first, second);
+    project.camera.bombMove = vi.fn();
+    search.startSearch("节点");
+    expect(search.locatedResult).toEqual({ node: first, color: Color.Green });
+    search.nextSearchResult();
+    search.nextSearchResult();
+    expect(project.camera.location).toEqual(second.collisionBox.getRectangle().center);
+    expect(search.locatedResult).toEqual({ node: second, color: Color.Green });
+    search.previousSearchResult();
+    expect(project.camera.location).toEqual(first.collisionBox.getRectangle().center);
+    expect(search.locatedResult).toEqual({ node: first, color: Color.Green });
+    search.panToResult(search.searchResultNodes[1]);
+    expect(project.camera.bombMove).toHaveBeenCalledWith(second.collisionBox.getRectangle().center);
+    expect(search.locatedResult).toEqual({ node: second, color: Color.Magenta });
+    expect(search.currentSearchResultIndex).toBe(0);
+    expect(project.effects.addEffect).not.toHaveBeenCalled();
+    search.startSearch("节点二", false);
+    expect(search.locatedResult).toBeUndefined();
+    search.panToResult(search.searchResultNodes[0]);
+    search.startSearch("", false);
+    expect(search.locatedResult).toBeUndefined();
+  });
+  it("finds task markers within scope and keeps status searches read-only", () => {
+    const green = { r: 52, g: 103, b: 53 };
+    const red = { r: 52, g: 12, b: 14 };
+    const ok = Object.assign(node("✅ 已完成"), { color: green });
+    const err = Object.assign(node("❌ 待修复"), { color: red, isSelected: true });
+    const literal = node("/okk /err");
+    const { search, recordStep } = createProject(
+      ok,
+      err,
+      literal,
+      Object.assign(node("手工绿色"), { color: green }),
+      node("✅ 仅有符号"),
+    );
+    search.startSearch("/okk", false);
+    expect(search.searchResultNodes).toEqual([ok]);
+    expect(search.getReplacementStatus("/okk").hasCurrent).toBe(false);
+    expect(search.replaceText("/okk", "替换", true).count).toBe(0);
+    expect(literal.text).toBe("/okk /err");
+    expect(recordStep).not.toHaveBeenCalled();
+    search.searchScope = SearchScope.SELECTED;
+    expect(search.startSearch("/okk", false)).toBe(false);
+    search.startSearch("/ERR", false);
+    expect(search.searchResultNodes).toEqual([err]);
+    err.rename("待修复");
+    expect(search.startSearch("/err", false)).toBe(false);
+    search.searchScope = SearchScope.ALL;
+    search.startSearch("/okk /err", false);
+    expect(search.searchResultNodes).toEqual([literal]);
+  });
   beforeEach(() => {
     Settings.historyManagerMode = "timeEfficient";
     fixtureClasses.objects.clear();

@@ -12,6 +12,7 @@
  */
 
 import { Project, service } from "@/core/Project";
+import { isSectionTitleZoomedOut } from "@/core/render/canvas2d/sectionTitleZoom";
 import { Settings } from "@/core/service/Settings";
 import { Association } from "@/core/stage/stageObject/abstract/Association";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
@@ -153,11 +154,12 @@ export class SectionMethods {
       this.bigTitleActiveCache.set(section, false);
       return false;
     }
-    const sectionMaxSide = Math.max(section.rectangle.size.x, section.rectangle.size.y);
-    const viewMaxSide = Math.max(this.project.renderer.w, this.project.renderer.h) / this.project.camera.currentScale;
-    const active =
-      sectionMaxSide < viewMaxSide * Settings.sectionBigTitleThresholdRatio &&
-      this.project.camera.currentScale <= Settings.sectionBigTitleCameraScaleThreshold;
+    const active = isSectionTitleZoomedOut(
+      section.rectangle.size,
+      this.project.camera.currentScale,
+      this.project.renderer.w,
+      this.project.renderer.h,
+    );
     this.bigTitleActiveCache.set(section, active);
     return active;
   }

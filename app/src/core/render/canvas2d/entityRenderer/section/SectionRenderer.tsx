@@ -7,6 +7,7 @@ import { getTextSize } from "@/utils/font";
 import { Color, colorInvert, mixColors, Vector } from "@graphif/data-structures";
 import { CubicBezierCurve, Rectangle } from "@graphif/shapes";
 import { paintWithErasures } from "../../eraserMask";
+import { isSectionTitleZoomedOut } from "../../sectionTitleZoom";
 
 @service("sectionRenderer")
 export class SectionRenderer {
@@ -14,9 +15,14 @@ export class SectionRenderer {
 
   private doodleTitleMetrics(section: Doodle) {
     const scale = this.project.camera.currentScale;
+    const { w, h } = this.project.renderer;
+    if (Settings.sectionBitTitleRenderType === "cover" && isSectionTitleZoomedOut(section.frame.size, scale, w, h)) {
+      return { inside: true, bounds: section.frame, padding: 4, fontSize: 0 };
+    }
     const fontSize = Math.max(12, 24 * scale);
     const size = getTextSize(section.text, fontSize);
     return {
+      inside: false,
       fontSize,
       bounds: new Rectangle(
         section.frame.location.add(new Vector(8 / scale, -(8 + fontSize * 1.3) / scale)),
@@ -293,7 +299,15 @@ export class SectionRenderer {
             ctx.arc(rect.center.x, rect.center.y, Math.min(rect.width, rect.height) / 2, 0, Math.PI * 2);
           else ctx.rect(rect.left, rect.top, rect.width, rect.height);
           ctx.stroke();
-          if (section.text) {
+          if (section.text && title.inside) {
+            let titleRect = rect;
+            if (section.shape === "circle") {
+              const side = Math.min(rect.width, rect.height) / Math.SQRT2;
+              const size = new Vector(side, side);
+              titleRect = new Rectangle(rect.center.subtract(size.multiply(0.5)), size);
+            }
+            this.project.textRenderer.renderTextInRectangle(section.text, titleRect, section.color);
+          } else if (section.text) {
             ctx.font = `${title.fontSize}px ${Settings.defaultFontFamily}`;
             ctx.textAlign = "left";
             ctx.textBaseline = "alphabetic";

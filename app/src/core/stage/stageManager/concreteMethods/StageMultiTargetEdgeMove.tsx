@@ -10,6 +10,28 @@ import { Rectangle } from "@graphif/shapes";
 export class MultiTargetEdgeMove {
   constructor(private readonly project: Project) {}
 
+  async growFromCenter(edge: MultiTargetUndirectedEdge, location: Vector) {
+    if (!this.project.stage.includes(edge)) return;
+    const sections = this.project.sectionMethods.getSectionsByInnerLocation(location);
+    const id = await this.project.nodeAdder.addTextNodeByClick(location, sections, true, false);
+    const node = this.project.stageManager.getTextNodeByUUID(id);
+    if (!node) return;
+    if (this.project.stage.includes(edge)) {
+      const center = edge.centerLocation;
+      edge.associationList.push(node);
+      edge.rectRates.push(Vector.same(0.5));
+      const bounds = Rectangle.getBoundingRectangle(
+        edge.associationList.map((item) => item.collisionBox.getRectangle()),
+      );
+      edge.centerRate = new Vector(
+        bounds.width ? (center.x - bounds.left) / bounds.width : 0.5,
+        bounds.height ? (center.y - bounds.top) / bounds.height : 0.5,
+      );
+      this.project.stageManager.updateReferences();
+    }
+    this.project.historyManager.recordStep();
+  }
+
   /**
    *
    * @param lastMoveLocation 鼠标按下的位置

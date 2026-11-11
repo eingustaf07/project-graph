@@ -28,7 +28,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { arch, platform, version } from "@tauri-apps/plugin-os";
 import { restoreStateCurrent, saveWindowState, StateFlags } from "@tauri-apps/plugin-window-state";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { ChevronsLeftRight, Copy, Minus, Pin, PinOff, Square, X } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -44,13 +44,31 @@ import { isLinux, isMac, isWindows } from "./utils/platform";
 
 const CrossFileConnections = React.lazy(() => import("@/components/cross-file-connections"));
 
+function ActiveResourceRuntime() {
+  const activeResourceTab = useAtomValue(activeResourceTabAtom);
+  const tabs = useAtomValue(tabsAtom);
+  useEffect(() => {
+    const updateTabRenderLoops = () => {
+      if (!activeResourceTab) return;
+      if (Settings.pauseRenderWhenTabUnfocused) {
+        activeResourceTab.loop();
+        tabs.filter((tab) => tab !== activeResourceTab).forEach((tab) => tab.pause());
+      } else {
+        tabs.filter((tab) => isResourceTab(tab) && !tab.closing).forEach((tab) => tab.loop());
+      }
+    };
+    return Settings.watch("pauseRenderWhenTabUnfocused", updateTabRenderLoops);
+  }, [activeResourceTab, tabs]);
+
+  return activeResourceTab instanceof Project ? <DropWindowCover project={activeResourceTab} /> : null;
+}
+
 export default function App() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_, _setMaximized] = useAtom(isWindowMaxsizedAtom);
 
   const [tabs, setTabs] = useAtom(tabsAtom);
-  const [, setActiveTab] = useAtom(activeTabAtom);
-  const [activeResourceTab] = useAtom(activeResourceTabAtom);
+  const setActiveTab = useSetAtom(activeTabAtom);
   // const [isWide, setIsWide] = useState(false);
   const [telemetryEventSent, setTelemetryEventSent] = useState(false);
   const [isClassroomMode, setIsClassroomMode] = useAtom(isClassroomModeAtom);
@@ -200,19 +218,6 @@ export default function App() {
         _setMaximized(isMaximized);
       });
   }
-
-  useEffect(() => {
-    const updateTabRenderLoops = () => {
-      if (!activeResourceTab) return;
-      if (Settings.pauseRenderWhenTabUnfocused) {
-        activeResourceTab.loop();
-        tabs.filter((tab) => tab !== activeResourceTab).forEach((tab) => tab.pause());
-      } else {
-        tabs.filter((tab) => isResourceTab(tab) && !tab.closing).forEach((tab) => tab.loop());
-      }
-    };
-    return Settings.watch("pauseRenderWhenTabUnfocused", updateTabRenderLoops);
-  }, [activeResourceTab, tabs]);
 
   useEffect(() => {
     TabWorkspace.synchronizeGroups();
@@ -407,7 +412,7 @@ export default function App() {
             onClick={() => getCurrentWindow().close()}
           ></div>
         )}
-        {activeResourceTab instanceof Project ? <DropWindowCover project={activeResourceTab} /> : null}
+        <ActiveResourceRuntime />
 
         <CommandPalette zoomStyle={zoomStyle} />
         <RenderOverlays />

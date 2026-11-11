@@ -1259,6 +1259,7 @@ export const allKeyBinds: KeyBindItem[] = [
     icon: Network,
     when: (project) =>
       !!project &&
+      !Settings.connectedNodeHighlightLocked &&
       (whenHasSelectedConnectableEntities(project) || project.searchContentHighlightRenderer.hasConnectedHighlight),
     onPress: (project) => {
       const count = project!.searchContentHighlightRenderer.toggleConnectedHighlight();

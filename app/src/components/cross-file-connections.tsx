@@ -1,21 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAtomValue } from "jotai";
-import { tabsAtom } from "@/state";
-import { Project } from "@/core/Project";
+import { store, activeResourceTabAtom, tabGroupRootAtom, tabsAtom } from "@/state";
+import { findTabGroupByTabId } from "@/core/TabGroup";
+import { URI } from "vscode-uri";
+import {
+  invalidateCrossFileHighlight,
+  setHighlightProjects,
+} from "@/core/service/dataManageService/crossFileHighlight";
+import { Project, ProjectState } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { TabWorkspace } from "@/core/TabWorkspace";
 import { ConnectableEntity, type CrossFileNodeLink } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import {
   addCrossFileConnection,
+  editCrossFileConnection,
+  fileKey,
   endpointNode,
   removeCrossFileConnection,
-  resolveCrossFileTarget,
   type NodeEndpoint,
 } from "@/core/service/dataManageService/CrossFileConnections";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
-import { Link2, List, X } from "lucide-react";
+import { PanelsTopLeft, X } from "lucide-react";
 
 type Point = { x: number; y: number };
 type Row = {
@@ -27,8 +34,7 @@ type Row = {
   label: string;
 };
 
-export function endpointOnScreen(endpoint: NodeEndpoint): Point | undefined {
-  const node = endpointNode(endpoint);
+export function endpointOnScreen(endpoint: NodeEndpoint, node = endpointNode(endpoint)): Point | undefined {
   const canvas = endpoint.project.canvas?.element;
   if (!node || node.isHiddenBySectionCollapse || !canvas?.isConnected) return;
   const bounds = canvas.getBoundingClientRect();
@@ -37,7 +43,14 @@ export function endpointOnScreen(endpoint: NodeEndpoint): Point | undefined {
   if (p.x < bounds.left || p.x > bounds.right || p.y < bounds.top || p.y > bounds.bottom) return;
   // A floating tab or dialog may cover the underlying canvas.
   const hit = document.elementFromPoint(p.x, p.y);
-  if (hit !== canvas) return;
+  if (
+    hit !== canvas &&
+    !(
+      hit?.closest("svg [data-cross-edge]") &&
+      document.elementsFromPoint(p.x, p.y).find((el) => !el.closest("svg [data-cross-edge]")) === canvas
+    )
+  )
+    return;
   return p;
 }
 
@@ -62,228 +75,462 @@ function Connections() {
   const projects = tabs.filter((tab): tab is Project => tab instanceof Project && !tab.closing);
   const projectsRef = useRef(projects);
   projectsRef.current = projects;
-  const [connecting, setConnecting] = useState(false);
+  const active = useAtomValue(activeResourceTabAtom);
   const [showList, setShowList] = useState(false);
+  const [mode, setMode] = useState(Settings.mouseLeftMode);
   const [viewer, setViewer] = useState(Settings.viewerMode);
   const [rows, setRows] = useState<Row[]>([]);
-  const [preview, setPreview] = useState<{ a: Point; b: Point }>();
+  const [selected, setSelected] = useState<Row>();
+  const [incoming, setIncoming] = useState<Record<string, string[]>>({});
   useEffect(() => Settings.watch("viewerMode", setViewer), []);
+  useEffect(() => Settings.watch("mouseLeftMode", setMode), []);
   useEffect(() => {
-    if (viewer) setConnecting(false);
-  }, [viewer]);
+    setShowList(false);
+  }, [active, mode]);
   useEffect(() => {
+    const open = projectsRef.current;
+    setHighlightProjects(open);
+    let dirty = true;
+    const invalidate = () => {
+      dirty = true;
+      invalidateCrossFileHighlight();
+    };
+    const stamps = new Map<Project, unknown>();
+    let links: {
+      source: NodeEndpoint;
+      node: ConnectableEntity;
+      link: CrossFileNodeLink;
+      destination?: ConnectableEntity;
+      target?: NodeEndpoint;
+    }[] = [];
+    let saved: Record<string, string[]> = {};
+    try {
+      saved = JSON.parse(localStorage.getItem("pg-cross-file-index") ?? "{}") ?? {};
+    } catch {}
+    for (const p of open) {
+      p.on("stage-commit", invalidate);
+      p.on("state-change", invalidate);
+    }
     const refresh = () => {
-      const current = projectsRef.current;
-      const result: Row[] = [];
-      for (const project of current)
-        for (const node of project.stage) {
-          if (!(node instanceof ConnectableEntity)) continue;
-          for (const link of node.crossFileLinks ?? []) {
-            const source = { project, nodeId: node.uuid };
-            const target = resolveCrossFileTarget(link, current);
-            result.push({
-              source,
-              target,
-              link,
-              a: endpointOnScreen(source),
-              b: target && endpointOnScreen(target),
-              label: `${project.title} → ${link.targetFile.split("/").pop()} (${target ? "已连接" : "目标未打开、已移动或节点已删除"})`,
-            });
+      for (const p of open) {
+        const stamp = p.stageManager.topLevelEntities ?? p.stage;
+        if (stamps.get(p) !== stamp) {
+          stamps.set(p, stamp);
+          dirty = true;
+        }
+      }
+      if (dirty) {
+        dirty = false;
+        invalidateCrossFileHighlight();
+        const byFile = new Map(open.map((p) => [fileKey(p.uri.toString()), p]));
+        const nodes = new Map(
+          open.map((p) => [
+            p,
+            new Map(
+              p.stage.filter((n): n is ConnectableEntity => n instanceof ConnectableEntity).map((n) => [n.uuid, n]),
+            ),
+          ]),
+        );
+        links = [];
+        let indexChanged = false;
+        for (const p of open) {
+          const targets = new Set<string>();
+          for (const node of nodes.get(p)!.values())
+            for (const link of node.crossFileLinks ?? []) {
+              const dest = byFile.get(fileKey(link.targetFile));
+              const destination = dest && nodes.get(dest)?.get(link.targetNode);
+              targets.add(link.targetFile);
+              links.push({
+                source: { project: p, nodeId: node.uuid },
+                node,
+                link,
+                destination,
+                target: dest && destination ? { project: dest, nodeId: destination.uuid } : undefined,
+              });
+            }
+          const uri = p.uri.toString(),
+            next = [...targets];
+          if (
+            p.projectState === ProjectState.Saved &&
+            fileKey(uri) &&
+            JSON.stringify(saved[uri] ?? []) !== JSON.stringify(next)
+          ) {
+            saved[uri] = next;
+            indexChanged = true;
           }
         }
-      setRows(result);
+        if (indexChanged)
+          try {
+            localStorage.setItem("pg-cross-file-index", JSON.stringify(saved));
+          } catch {}
+        setIncoming({ ...saved });
+      }
+      const result = links.map(({source,node,link,target,destination}) => {
+        let a = endpointOnScreen(source,node);
+        let b = target && endpointOnScreen(target,destination);
+        if (a && b && target && destination) {
+          const from=a, to=b;
+          const boundary = (p:Project,n:ConnectableEntity,center:Point,towards:Point) => {
+            const corner=p.canvas.viewToClient(p.renderer.transformWorld2View(n.collisionBox.getRectangle().location));
+            const dx=towards.x-center.x,dy=towards.y-center.y;
+            const ratio=Math.min(dx ? Math.abs((center.x-corner.x)/dx) : Infinity,dy ? Math.abs((center.y-corner.y)/dy) : Infinity,0.49);
+            return {x:center.x+dx*ratio,y:center.y+dy*ratio};
+          };
+          a=boundary(source.project,node,from,to); b=boundary(target.project,destination,to,from);
+        }
+        return {source,node,link,target,a,b,label:link.text??""};
+      });
+      setRows((old) =>
+        old.length === result.length &&
+        old.every(
+          (r, i) =>
+            r.link === result[i].link &&
+            r.source.project === result[i].source.project &&
+            r.target?.project === result[i].target?.project &&
+            r.a?.x === result[i].a?.x &&
+            r.a?.y === result[i].a?.y &&
+            r.b?.x === result[i].b?.x &&
+            r.b?.y === result[i].b?.y,
+        )
+          ? old
+          : result,
+      );
     };
     refresh();
     const timer = window.setInterval(refresh, 100);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!connecting) return;
-    let source: NodeEndpoint | undefined;
-    const cancel = () => {
-      source = undefined;
-      setPreview(undefined);
-      setConnecting(false);
-    };
-    const commit = (target: NodeEndpoint) => {
-      if (!source) return;
-      try {
-        addCrossFileConnection(source, target);
-        TabWorkspace.focus(source.project.id);
-        toast.success("已建立跨文件连接，请保存起点文件；可在起点文件撤销");
-        cancel();
-      } catch (error) {
-        toast.error(String(error));
+    return () => {
+      clearInterval(timer);
+      for (const p of open) {
+        p.off("stage-commit", invalidate);
+        p.off("state-change", invalidate);
       }
+      setHighlightProjects([]);
     };
+  }, [tabs]);
+  useEffect(() => {
+    let gesture:
+      | { source: NodeEndpoint; target: NodeEndpoint; x: number; y: number; moved: boolean; pointer: number }
+      | undefined;
+    let suppressMenuUntil = 0;
     const down = (event: PointerEvent) => {
-      if (event.button !== 0 || (event.target as Element)?.closest?.("[data-cross-file-controls]")) return;
-      const hit = endpointAtPoint(projectsRef.current, event.clientX, event.clientY);
-      if (!hit) return;
+      gesture = undefined;
+      if (
+        event.button !== 2 ||
+        Settings.viewerMode ||
+        !Settings.enableRightClickConnect ||
+        Settings.mouseLeftMode !== "selectAndMove"
+      )
+        return;
+      const source = store.get(activeResourceTabAtom);
+      if (
+        !(source instanceof Project) ||
+        source.canvas?.element === event.target ||
+        !(event.target instanceof HTMLCanvasElement)
+      )
+        return;
+      const selected = source.stageManager.getSelectedEntities().filter((n) => n instanceof ConnectableEntity);
+      if (selected.length !== 1) return;
+      const target = endpointAtPoint(projectsRef.current, event.clientX, event.clientY);
+      if (!target || source === target.project) return;
+      gesture = {
+        source: { project: source, nodeId: selected[0].uuid },
+        target,
+        x: event.clientX,
+        y: event.clientY,
+        moved: false,
+        pointer: event.pointerId,
+      };
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (source) {
-        commit(hit);
-        return;
-      }
-      source = hit;
-      const a = endpointOnScreen(hit);
-      if (a) setPreview({ a, b: a });
     };
     const move = (event: PointerEvent) => {
-      if (!source) return;
-      if (!projectsRef.current.includes(source.project)) {
-        cancel();
-        return;
-      }
-      const a = endpointOnScreen(source);
-      if (a) setPreview({ a, b: { x: event.clientX, y: event.clientY } });
+      if (
+        gesture &&
+        event.pointerId === gesture.pointer &&
+        Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 5
+      )
+        gesture.moved = true;
     };
     const up = (event: PointerEvent) => {
-      if (event.button !== 0 || !source) return;
+      if (event.button !== 2 || !gesture || gesture.pointer !== event.pointerId) return;
+      const g = gesture;
+      gesture = undefined;
       event.preventDefault();
       event.stopImmediatePropagation();
+      suppressMenuUntil = performance.now() + 350;
+      if (g.moved || Math.hypot(event.clientX - g.x, event.clientY - g.y) > 5) return;
       const hit = endpointAtPoint(projectsRef.current, event.clientX, event.clientY);
-      if (hit && (hit.project !== source.project || hit.nodeId !== source.nodeId)) commit(hit);
-    };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        cancel();
+      if (hit?.project !== g.target.project || hit.nodeId !== g.target.nodeId) return;
+      try {
+        addCrossFileConnection(g.source, hit);
+      } catch (e) {
+        toast.error(String(e));
       }
     };
-    const stopClick = (event: MouseEvent) => {
-      if ((event.target as Element)?.tagName === "CANVAS") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
+    const menu = (e: MouseEvent) => {
+      if ((gesture || performance.now() < suppressMenuUntil) && e.target instanceof HTMLCanvasElement) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
       }
+    };
+    const cancel = () => {
+      gesture = undefined;
     };
     window.addEventListener("pointerdown", down, true);
     window.addEventListener("pointermove", move, true);
     window.addEventListener("pointerup", up, true);
-    window.addEventListener("keydown", key, true);
-    window.addEventListener("click", stopClick, true);
+    window.addEventListener("contextmenu", menu, true);
+    window.addEventListener("pointercancel", cancel, true);
     window.addEventListener("blur", cancel);
     return () => {
       window.removeEventListener("pointerdown", down, true);
       window.removeEventListener("pointermove", move, true);
       window.removeEventListener("pointerup", up, true);
-      window.removeEventListener("keydown", key, true);
-      window.removeEventListener("click", stopClick, true);
+      window.removeEventListener("contextmenu", menu, true);
+      window.removeEventListener("pointercancel", cancel, true);
       window.removeEventListener("blur", cancel);
-      setPreview(undefined);
     };
-  }, [connecting]);
-
-  const focus = (endpoint: NodeEndpoint) => {
-    const node = endpointNode(endpoint);
-    if (!node) {
-      toast.error("节点已不存在");
-      return;
+  }, []);
+  const edge = rows.find((r) => selected?.source.project === r.source.project && selected.link.id === r.link.id);
+  function edit(patch: Parameters<typeof editCrossFileConnection>[2]) {
+    if (edge)
+      try {
+        editCrossFileConnection(edge.source, edge.link.id, patch);
+      } catch (e) {
+        toast.error(String(e));
+      }
+  }
+  function remove() {
+    if (edge)
+      try {
+        removeCrossFileConnection(edge.source, edge.link.id);
+        setSelected(undefined);
+      } catch (e) {
+        toast.error(String(e));
+      }
+  }
+  useEffect(() => {
+    if (!edge) return;
+    const down = (e: PointerEvent) => {
+      if (e.target instanceof Element && !e.target.closest("[data-cross-edge]")) setSelected(undefined);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && (e.target.matches("input,select,textarea") || e.target.isContentEditable))
+        return;
+      if (e.key === "Escape") setSelected(undefined);
+      if (!viewer && (e.key === "Backspace" || e.key === "Delete")) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        remove();
+      }
+    };
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("keydown", key, true);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("keydown", key, true);
+    };
+  }, [edge, viewer]);
+  const related = new Map<string, string>();
+  if (showList && active instanceof Project) {
+    const current = fileKey(active.uri.toString());
+    const add = (uri: string) => {
+      const key = fileKey(uri);
+      if (key && key !== current) related.set(key, uri);
+    };
+    for (const row of rows) {
+      if (row.source.project === active) add(row.link.targetFile);
+      if (fileKey(row.link.targetFile) === current) add(row.source.project.uri.toString());
     }
-    TabWorkspace.focus(endpoint.project.id);
-    endpoint.project.stageManager.clearSelectAll();
-    node.isSelected = true;
-    endpoint.project.camera.location = node.geometryCenter.clone();
-    endpoint.project.controller.resetCountdownTimer();
-    endpoint.project.loop();
+    for (const [uri, targets] of Object.entries(incoming))
+      if (
+        !projectsRef.current.some((p) => fileKey(p.uri.toString()) === fileKey(uri)) &&
+        Array.isArray(targets) &&
+        targets.some((target) => fileKey(target) === current)
+      )
+        add(uri);
+  }
+  const splitRight = async (uri: string) => {
+    if (!(active instanceof Project)) return;
+    try {
+      if (active.layout !== "docked") TabWorkspace.dock(active.id);
+      const group = findTabGroupByTabId(store.get(tabGroupRootAtom), active.id);
+      if (!group) return;
+      const existing = projectsRef.current.find((p) => fileKey(p.uri.toString()) === fileKey(uri));
+      const other =
+        existing ?? (await (await import("@/core/service/GlobalMenu")).onOpenFile(URI.parse(uri), "跨文件连线"));
+      if (!other || other === active || active.closing) return;
+      TabWorkspace.focus(active.id);
+      if (!TabWorkspace.moveTab(other.id, { groupId: group.id, edge: "right" }))
+        throw new Error("无法在当前文件右侧拆分");
+      setShowList(false);
+    } catch (error) {
+      toast.error(String(error));
+    }
   };
   return createPortal(
     <>
       <svg aria-label="跨文件连接线" className="pointer-events-none fixed inset-0 z-[45] size-full">
-        <defs>
-          <marker id="pg-cross-file-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-            <path d="M0,0 L8,4 L0,8" fill="#16a085" />
-          </marker>
-        </defs>
-        {rows.map(
-          ({ source, link, a, b }) =>
-            a &&
-            b && (
-              <line
-                key={`${source.project.id}:${source.nodeId}:${link.id}`}
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
-                stroke="#16a085"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-                markerEnd="url(#pg-cross-file-arrow)"
+        {rows.map((row) => {
+          const { source, link, a, b } = row;
+          if (!a || !b) return null;
+          const start = link.direction === "reverse" ? b : a,
+            end = link.direction === "reverse" ? a : b;
+          const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+          const off = link.curve ? Math.min(48, Math.hypot(end.x - start.x, end.y - start.y) / 8) : 0;
+          const path = ["M", start.x, start.y, ...(off ? ["Q", mid.x, mid.y - off] : ["L"]), end.x, end.y].join(" ");
+          const color = link.color ?? "currentColor";
+          const marker = "cross-arrow-" + (source.project.id + link.id).replace(/[^a-zA-Z0-9_-]/g, "_");
+          return (
+            <g key={marker} data-cross-edge="">
+              <defs>
+                <marker
+                  id={marker}
+                  markerUnits="userSpaceOnUse"
+                  markerWidth="13"
+                  markerHeight="12"
+                  refX="12"
+                  refY="6"
+                  orient="auto"
+                >
+                  <path
+                    d={link.arrow?.includes("diamond") ? "M1 6 L6 1 L12 6 L6 11 Z" : "M1 1 L12 6 L1 11 Z"}
+                    stroke={color}
+                    fill={link.arrow?.startsWith("hollow") ? "var(--background)" : color}
+                  />
+                </marker>
+              </defs>
+              {edge === row && <path d={path} fill="none" stroke="var(--primary)" strokeWidth="7" opacity=".6" />}
+              <path
+                d={path}
+                fill="none"
+                stroke={color}
+                strokeWidth={link.lineType === "double" ? 4 : 2}
+                strokeDasharray={link.lineType === "dashed" ? "6 4" : undefined}
+                markerEnd={link.direction === "undirected" ? undefined : "url(#" + marker + ")"}
               />
-            ),
-        )}
-        {preview && (
-          <line
-            x1={preview.a.x}
-            y1={preview.a.y}
-            x2={preview.b.x}
-            y2={preview.b.y}
-            stroke="#16a085"
-            strokeWidth="2"
-            strokeDasharray="4 4"
-          />
-        )}
+              {link.lineType === "double" && <path d={path} fill="none" stroke="var(--background)" strokeWidth="1.5" />}
+              {link.text && (
+                <text x={mid.x} y={mid.y - off / 2 - 5} fill={color} textAnchor="middle">
+                  {link.text}
+                </text>
+              )}
+              <path
+                d={path}
+                stroke="transparent"
+                strokeWidth="8"
+                fill="none"
+                style={{ pointerEvents: "stroke" }}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  event.stopPropagation();
+                  TabWorkspace.focus(source.project.id);
+                  setSelected(row);
+                }}
+              />
+            </g>
+          );
+        })}
       </svg>
-      <div
-        data-cross-file-controls
-        className="bg-popover fixed top-16 right-3 z-50 max-w-sm rounded-lg border p-2 shadow-lg"
-      >
-        <div className="flex items-center gap-1">
-          <Button
-            size="sm"
-            variant={connecting ? "default" : "outline"}
-            disabled={viewer}
-            onClick={() => setConnecting(!connecting)}
+      {edge && !viewer && (
+        <div
+          key={edge.link.id}
+          data-cross-edge=""
+          className="bg-popover fixed top-12 right-3 z-50 flex flex-wrap items-center gap-2 rounded border p-2"
+        >
+          <input
+            aria-label="连线文字"
+            placeholder="连线文字"
+            key={edge.link.id + edge.link.text}
+            defaultValue={edge.link.text}
+            onBlur={(e) => edit({ text: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+          />
+          <select
+            aria-label="连线方向"
+            value={edge.link.direction ?? "forward"}
+            onChange={(e) => edit({ direction: e.target.value as CrossFileNodeLink["direction"] })}
           >
-            <Link2 className="size-4" />
-            {connecting ? "取消连线" : "跨文件连线"}
-          </Button>
-          <Button size="icon" variant="ghost" aria-label="跨文件连接列表" onClick={() => setShowList(!showList)}>
-            <List className="size-4" />
+            <option value="forward">正向</option>
+            <option value="reverse">反向</option>
+            <option value="undirected">无向</option>
+          </select>
+          <input
+            aria-label="线条颜色"
+            type="color"
+            value={edge.link.color ?? "#808080"}
+            onChange={(e) => edit({ color: e.target.value })}
+          />
+          <select
+            aria-label="线型"
+            value={edge.link.lineType ?? "solid"}
+            onChange={(e) => edit({ lineType: e.target.value as CrossFileNodeLink["lineType"] })}
+          >
+            <option value="solid">实线</option>
+            <option value="dashed">虚线</option>
+            <option value="double">双线</option>
+          </select>
+          <select
+            aria-label="箭头"
+            value={edge.link.arrow ?? "default"}
+            onChange={(e) => edit({ arrow: e.target.value as CrossFileNodeLink["arrow"] })}
+          >
+            {Object.entries({
+              default: "默认箭头",
+              "filled-triangle": "实心三角",
+              "hollow-triangle": "空心三角",
+              "filled-diamond": "实心菱形",
+              "hollow-diamond": "空心菱形",
+            }).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+          <label>
+            <input type="checkbox" checked={!!edge.link.curve} onChange={(e) => edit({ curve: e.target.checked })} />
+            弧线
+          </label>
+          <Button size="icon" aria-label="删除连线" onClick={remove}>
+            <X />
           </Button>
         </div>
-        {connecting && <p className="mt-2 text-xs">从起点拖到另一文件的节点，或依次点击两个节点。Esc 取消。</p>}
-        {showList && (
-          <div className="mt-2 max-h-64 overflow-y-auto text-xs">
-            {rows.length === 0 && <p>尚无跨文件连接。请先保存两份文件，再分栏或浮动显示。</p>}
-            {rows.map((row) => (
-              <div key={`${row.source.project.id}:${row.source.nodeId}:${row.link.id}`} className="my-2 border-t pt-2">
-                <p className="break-all">{row.label}</p>
-                <Button size="sm" variant="ghost" onClick={() => focus(row.source)}>
-                  起点
-                </Button>
+      )}
+      {mode === "selectAndMove" && active instanceof Project && (
+        <div
+          data-cross-file-controls=""
+          className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border"
+        >
+          {showList && (
+            <div className="max-h-56 max-w-lg overflow-auto p-2">
+              {related.size === 0 && <p>此文件暂无已知的跨文件连线。</p>}
+              {[...related.values()].map((uri) => (
                 <Button
-                  size="sm"
+                  className="block"
+                  key={uri}
                   variant="ghost"
-                  disabled={!row.target}
-                  onClick={() => row.target && focus(row.target)}
+                  title={URI.parse(uri).fsPath}
+                  onClick={() => void splitRight(uri)}
                 >
-                  终点
+                  {URI.parse(uri).fsPath} → 向右拆分
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={viewer}
-                  aria-label="删除跨文件连接"
-                  onClick={() => {
-                    try {
-                      removeCrossFileConnection(row.source, row.link.id);
-                      TabWorkspace.focus(row.source.project.id);
-                    } catch (error) {
-                      toast.error(String(error));
-                    }
-                  }}
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="查看关联文件"
+            title="查看关联文件并向右拆分"
+            aria-expanded={showList}
+            onClick={() => setShowList(!showList)}
+          >
+            <PanelsTopLeft />
+          </Button>
+        </div>
+      )}
     </>,
     document.body,
   );

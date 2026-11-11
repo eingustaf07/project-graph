@@ -21,6 +21,23 @@ export class CollisionBoxRenderer {
     return this.project.camera.isDefaultZoom() ? 1 : 1 / this.project.camera.currentScale;
   }
 
+  /** Distance from the world bounding box to the outside of its selection stroke, in view pixels. */
+  selectionOutset(box: CollisionBox): number {
+    const scale = this.project.camera.currentScale;
+    const strokeScale = this.dynamicScale;
+    let outset = 0;
+    for (const shape of box.shapes) {
+      const distance =
+        shape instanceof Rectangle
+          ? 7.5 * this.reDynamicScale * scale + 4 * strokeScale
+          : shape instanceof Circle
+            ? 7.5 * scale + 5 * strokeScale
+            : 12 * strokeScale;
+      outset = Math.max(outset, distance);
+    }
+    return outset;
+  }
+
   render(collideBox: CollisionBox, color: Color, dashed: boolean = false) {
     for (const shape of collideBox.shapes) {
       if (shape instanceof Rectangle) {

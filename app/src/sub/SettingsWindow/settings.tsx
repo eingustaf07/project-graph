@@ -318,7 +318,7 @@ export const categories = {
       "sectionInitBorderStyle",
     ],
     edge: ["lineStyle", "hideArrowWhenPointingToConnectPoint", "enableAutoEdgeWidth"],
-    selectedState: ["enableCollisionBoxAutoWidth", "connectedNodeHighlightScope"],
+    selectedState: ["enableCollisionBoxAutoWidth", "connectedNodeHighlightScope", "connectedNodeHighlightLocked"],
     entityDetails: [
       "nodeDetailsPanel",
       "alwaysShowDetails",

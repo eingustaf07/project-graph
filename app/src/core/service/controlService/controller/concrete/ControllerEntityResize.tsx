@@ -3,6 +3,7 @@ import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { ControllerClass } from "@/core/service/controlService/controller/ControllerClass";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
+import { MediaNode } from "@/core/stage/stageObject/entity/MediaNode";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
 import { ReferenceBlockNode } from "@/core/stage/stageObject/entity/ReferenceBlockNode";
 import { Rectangle } from "@graphif/shapes";
@@ -40,6 +41,7 @@ export class ControllerEntityResizeClass extends ControllerClass {
       if (
         selectedEntity instanceof TextNode ||
         selectedEntity instanceof SvgNode ||
+        selectedEntity instanceof MediaNode ||
         selectedEntity instanceof ReferenceBlockNode
       ) {
         // 对TextNode进行特殊处理，只在手动模式下允许缩放
@@ -71,6 +73,7 @@ export class ControllerEntityResizeClass extends ControllerClass {
     } else if (
       this.changeSizeEntity instanceof TextNode ||
       this.changeSizeEntity instanceof SvgNode ||
+      this.changeSizeEntity instanceof MediaNode ||
       this.changeSizeEntity instanceof ReferenceBlockNode
     ) {
       this.changeSizeEntity.resizeHandle(diff);

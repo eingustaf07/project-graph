@@ -48,6 +48,7 @@ function ToolButton({ label, children, ...props }: ComponentProps<typeof Button>
 type Gesture = { start: Vector; end: Vector; pointerId: number };
 type Resize = {
   original: Rectangle;
+  pointerOffset: Vector;
   anchor: Vector;
   end: Vector;
   direction: Vector;
@@ -87,6 +88,7 @@ function frameFromPoints(start: Vector, end: Vector, shape: DoodleShape): Rectan
 }
 
 function frameFromResize(resize: Resize, point: Vector): Rectangle {
+  point = point.subtract(resize.pointerOffset);
   const { original, anchor, direction } = resize;
   if (resize.entity.shape === "circle" && (direction.x === 0 || direction.y === 0)) {
     const size = direction.x === 0 ? Math.abs(point.y - anchor.y) : Math.abs(point.x - anchor.x);
@@ -105,13 +107,21 @@ function frameFromResize(resize: Resize, point: Vector): Rectangle {
   );
 }
 
-export default function DoodleToolbar({ project }: { project: Project }) {
+export default function DoodleToolbar({ project, showToolbar = true }: { project: Project; showToolbar?: boolean }) {
   const [mode, setMode] = useState(Settings.mouseLeftMode);
   useEffect(() => Settings.watch("mouseLeftMode", setMode), []);
-  return mode === "draw" ? <DrawingTools project={project} /> : null;
+  if (mode !== "draw" && mode !== "selectAndMove") return null;
+  return (
+    <DrawingTools
+      key={mode + String(showToolbar)}
+      project={project}
+      drawing={mode === "draw"}
+      showToolbar={showToolbar}
+    />
+  );
 }
 
-function DrawingTools({ project }: { project: Project }) {
+function DrawingTools({ project, drawing, showToolbar }: { project: Project; drawing: boolean; showToolbar: boolean }) {
   const [dock, setDock] = useState<Dock>(Settings.drawingToolbarPosition ?? "bottom");
   const dragDock = useRef<{ pointerId: number; bounds: DOMRect; x: number; y: number; original: Dock } | undefined>(
     undefined,
@@ -222,12 +232,19 @@ function DrawingTools({ project }: { project: Project }) {
     };
     const sync = () => {
       frame = 0;
-      setSelected(
-        project.stageManager.getSelectedEntities().find((entity): entity is Doodle => entity instanceof Doodle),
-      );
-      redraw((value) => value + 1);
+      const selectedEntities = project.stageManager.getSelectedEntities();
+      const frameEntity = selectedEntities.find((entity): entity is Doodle => entity instanceof Doodle);
+      const editable =
+        frameEntity &&
+        !project.sectionMethods.isObjectBeLockedBySection(frameEntity) &&
+        (drawing || selectedEntities.length === 1)
+          ? frameEntity
+          : undefined;
+      setSelected(editable);
+      if (drawing || editable) redraw((value) => value + 1);
     };
     const schedule = () => {
+      if (project.canvas.element.closest?.("[hidden]")) return;
       if (!frame) frame = requestAnimationFrame(sync);
     };
     const clickFrame = (event: globalThis.PointerEvent) => {
@@ -311,22 +328,26 @@ function DrawingTools({ project }: { project: Project }) {
       project.loop();
     };
     project.on("state-change", schedule);
-    project.canvas.element.addEventListener("dblclick", editTitle, true);
-    project.canvas.element.addEventListener("pointermove", moveFrame, true);
-    project.canvas.element.addEventListener("pointerup", stopFrameDrag, true);
-    project.canvas.element.addEventListener("pointercancel", cancelFrameDrag);
-    project.canvas.element.addEventListener("lostpointercapture", cancelFrameDrag);
-    window.addEventListener("keydown", cancelFrameDragByKey);
-    project.canvas.element.addEventListener("pointerdown", selectFrameInDrawingMode, true);
-    project.canvas.element.addEventListener("pointerup", clickFrame);
-    window.addEventListener("pointerup", schedule);
+    project.on("stage-commit", schedule);
+    if (drawing) {
+      project.canvas.element.addEventListener("dblclick", editTitle, true);
+      project.canvas.element.addEventListener("pointermove", moveFrame, true);
+      project.canvas.element.addEventListener("pointerup", stopFrameDrag, true);
+      project.canvas.element.addEventListener("pointercancel", cancelFrameDrag);
+      project.canvas.element.addEventListener("lostpointercapture", cancelFrameDrag);
+      window.addEventListener("keydown", cancelFrameDragByKey);
+      project.canvas.element.addEventListener("pointerdown", selectFrameInDrawingMode, true);
+      project.canvas.element.addEventListener("pointerup", clickFrame);
+    }
+    project.canvas.element.addEventListener("pointerup", schedule);
     window.addEventListener("keyup", schedule);
-    window.addEventListener("wheel", schedule);
+    project.canvas.element.addEventListener("wheel", schedule);
     window.addEventListener("resize", schedule);
     sync();
     return () => {
       cancelAnimationFrame(frame);
       project.off("state-change", schedule);
+    project.off("stage-commit", schedule);
       project.canvas.element.removeEventListener("dblclick", editTitle, true);
       project.canvas.element.removeEventListener("pointermove", moveFrame, true);
       project.canvas.element.removeEventListener("pointerup", stopFrameDrag, true);
@@ -336,12 +357,31 @@ function DrawingTools({ project }: { project: Project }) {
       cancelFrameDrag();
       project.canvas.element.removeEventListener("pointerdown", selectFrameInDrawingMode, true);
       project.canvas.element.removeEventListener("pointerup", clickFrame);
-      window.removeEventListener("pointerup", schedule);
+      project.canvas.element.removeEventListener("pointerup", schedule);
       window.removeEventListener("keyup", schedule);
-      window.removeEventListener("wheel", schedule);
+      project.canvas.element.removeEventListener("wheel", schedule);
       window.removeEventListener("resize", schedule);
     };
-  }, [project]);
+  }, [project, drawing]);
+  // ZZ can pan the canvas or move a selected frame without changing selection.
+  // Track only the active frame's projection, without scanning the whole graph.
+  useEffect(() => {
+    if (drawing || !selected || viewer) return;
+    let previous = project.renderer.transformWorld2View(selected.frame.location);
+    let scale = project.camera.currentScale;
+    let animation: number;
+    const track = () => {
+      const next = project.renderer.transformWorld2View(selected.frame.location);
+      if (next.x !== previous.x || next.y !== previous.y || scale !== project.camera.currentScale) {
+        previous = next;
+        scale = project.camera.currentScale;
+        redraw((value) => value + 1);
+      }
+      animation = requestAnimationFrame(track);
+    };
+    animation = requestAnimationFrame(track);
+    return () => cancelAnimationFrame(animation);
+  }, [project, drawing, selected, viewer]);
   useEffect(() => {
     if (!selected) {
       setEditingId(undefined);
@@ -382,7 +422,7 @@ function DrawingTools({ project }: { project: Project }) {
     }
   }, [viewer]);
 
-  const editing = !!selected && editingId === selected.uuid && !tool && !viewer && !eraser;
+  const editing = !!selected && !viewer && (!drawing || (editingId === selected.uuid && !tool && !eraser));
   const shape = tool ?? selected?.shape ?? "rectangle";
   const preview = gesture
     ? frameFromPoints(gesture.start, gesture.end, shape)
@@ -396,6 +436,7 @@ function DrawingTools({ project }: { project: Project }) {
         showFrame.size.multiply(project.camera.currentScale),
       )
     : undefined;
+  const resizeHitSize = viewFrame ? Math.min(24, viewFrame.width / 2, viewFrame.height / 2) : 24;
 
   const drawComplete = (event: PointerEvent<HTMLDivElement>) => {
     if (!gesture || !tool || event.pointerId !== gesture.pointerId) return;
@@ -436,6 +477,15 @@ function DrawingTools({ project }: { project: Project }) {
     event.stopPropagation();
     try {
       const frame = frameFromResize(resize, world(event));
+      if (
+        frame.left === resize.original.left &&
+        frame.top === resize.original.top &&
+        frame.width === resize.original.width &&
+        frame.height === resize.original.height
+      ) {
+        setResize(undefined);
+        return;
+      }
       resize.entity.resizeFrame(frame);
       project.stageManager.updateReferences();
       project.historyManager.recordStep();
@@ -479,7 +529,7 @@ function DrawingTools({ project }: { project: Project }) {
     }
   };
   useEffect(() => {
-    if (!editing || !selected) return;
+    if (!drawing || !editing || !selected) return;
     const finishOnOutside = (event: globalThis.PointerEvent) => {
       if (event.button !== 0 || !(event.target instanceof Element)) return;
       if (event.target.closest("[data-pg-doodle-toolbar], [data-pg-doodle-parameters], [data-pg-doodle-handle]"))
@@ -510,6 +560,7 @@ function DrawingTools({ project }: { project: Project }) {
   };
 
   useEffect(() => {
+    if (!drawing || !showToolbar) return;
     const run = (command: DoodleCommand) => {
       if (viewer || Settings.mouseLeftMode !== "draw") return;
       if (command === "rectangle" || command === "circle") {
@@ -676,18 +727,27 @@ function DrawingTools({ project }: { project: Project }) {
               }
               data-pg-doodle-handle
               type="button"
-              className="bg-background border-primary absolute z-40 size-3 rounded-sm border-2"
+              className="absolute z-40 flex size-6 items-center justify-center"
               style={{
-                left: viewFrame.left + (viewFrame.width * (dx + 1)) / 2 - 6,
-                top: viewFrame.top + (viewFrame.height * (dy + 1)) / 2 - 6,
+                width: resizeHitSize,
+                height: resizeHitSize,
+                left: viewFrame.left + (viewFrame.width * (dx + 1)) / 2 - resizeHitSize / 2,
+                top: viewFrame.top + (viewFrame.height * (dy + 1)) / 2 - resizeHitSize / 2,
                 cursor: dx === 0 ? "ns-resize" : dy === 0 ? "ew-resize" : dx === dy ? "nwse-resize" : "nesw-resize",
               }}
               onPointerDown={(event) => {
+                if (event.button !== 0) return;
                 event.preventDefault();
                 event.stopPropagation();
                 event.currentTarget.setPointerCapture(event.pointerId);
                 setResize({
                   original: rect.clone(),
+                  pointerOffset: world(event).subtract(
+                    new Vector(
+                      dx < 0 ? rect.left : dx > 0 ? rect.right : rect.center.x,
+                      dy < 0 ? rect.top : dy > 0 ? rect.bottom : rect.center.y,
+                    ),
+                  ),
                   anchor,
                   end: world(event),
                   direction: new Vector(dx, dy),
@@ -700,10 +760,16 @@ function DrawingTools({ project }: { project: Project }) {
               }}
               onPointerUp={finishResize}
               onPointerCancel={() => setResize(undefined)}
-            />
+            >
+              <span
+                aria-hidden
+                className="bg-background border-primary pointer-events-none size-3 rounded-sm border-2"
+                style={{ width: Math.min(12, resizeHitSize), height: Math.min(12, resizeHitSize) }}
+              />
+            </button>
           );
         })}
-      {legacy ? (
+      {!drawing || !showToolbar ? null : legacy ? (
         <>
           <Suspense fallback={<div className="absolute top-1/2 right-2">加载快捷设置…</div>}>
             <LegacyToolbar />

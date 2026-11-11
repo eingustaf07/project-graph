@@ -55,9 +55,10 @@ export function doodleContainsPoint(frame: Rectangle, shape: DoodleShape, point:
   return point.distance(frame.center) <= Math.min(frame.width, frame.height) / 2;
 }
 
+export const doodleContentPadding = 8;
 /** Returns a translation that keeps all four corners inside the boundary, or null if it cannot fit. */
 export function fitDoodleBounds(frame: Rectangle, shape: DoodleShape, child: Rectangle): Vector | null {
-  const padding = 8;
+  const padding = doodleContentPadding;
   if (shape === "rectangle") {
     if (child.width > frame.width - padding * 2 || child.height > frame.height - padding * 2) return null;
     return new Vector(

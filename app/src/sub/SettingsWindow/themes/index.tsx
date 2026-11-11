@@ -15,10 +15,15 @@ import {
 import { Extension } from "@/core/extension/Extension";
 import { Settings } from "@/core/service/Settings";
 import { Themes } from "@/core/service/Themes";
+import { contrastingText, defaultPalette, paletteId, readPalette } from "@/core/service/themePalette";
 import { Blocks, ChevronRight, Moon, Palette, Sun } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 export default function ThemesTab() {
+  const [editingPalette, setEditingPalette] = useState(false);
+  const [palette, setPalette] = useState(
+    () => readPalette(Settings.theme) ?? readPalette(Settings.savedPaletteTheme) ?? defaultPalette,
+  );
   const [selectedTheme, setSelectedTheme] = useState<Themes.Theme | null>(null);
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set(["builtin"]));
   const [extensionGroups, setExtensionGroups] = useState<{ extension: Extension; themes: Themes.Theme[] }[]>([]);
@@ -57,6 +62,17 @@ export default function ThemesTab() {
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={editingPalette}
+                    onClick={() => {
+                      setSelectedTheme(null);
+                      setEditingPalette(true);
+                    }}
+                  >
+                    <Palette /> 自选配色
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 {/* 内置主题 */}
                 <Collapsible
                   open={openCategories.has("builtin")}
@@ -92,7 +108,10 @@ export default function ThemesTab() {
                             <SidebarMenuSubItem key={theme.metadata.id}>
                               <SidebarMenuSubButton
                                 isActive={selectedTheme?.metadata.id === theme.metadata.id}
-                                onClick={() => setSelectedTheme(theme)}
+                                onClick={() => {
+                                  setEditingPalette(false);
+                                  setSelectedTheme(theme);
+                                }}
                               >
                                 {theme.metadata.type === "light" ? (
                                   <Sun className="size-3 shrink-0" />
@@ -147,7 +166,10 @@ export default function ThemesTab() {
                               <SidebarMenuSubItem key={theme.metadata.id}>
                                 <SidebarMenuSubButton
                                   isActive={selectedTheme?.metadata.id === theme.metadata.id}
-                                  onClick={() => setSelectedTheme(theme)}
+                                  onClick={() => {
+                                    setEditingPalette(false);
+                                    setSelectedTheme(theme);
+                                  }}
                                 >
                                   {theme.metadata.type === "light" ? (
                                     <Sun className="size-3 shrink-0" />
@@ -176,7 +198,49 @@ export default function ThemesTab() {
 
       {/* 右侧详情面板 */}
       <div className="bg-background/50 flex flex-1 flex-col items-center justify-center gap-4 overflow-auto p-6">
-        {selectedTheme ? (
+        {editingPalette ? (
+          <div className="w-full max-w-md space-y-4">
+            <h2 className="text-lg font-semibold">自选配色</h2>
+            {(
+              [
+                ["background", "背景色"],
+                ["foreground", "文字色"],
+                ["primary", "强调色"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="flex items-center justify-between">
+                {label}
+                <input
+                  type="color"
+                  value={palette[key]}
+                  onChange={(event) => setPalette({ ...palette, [key]: event.target.value })}
+                />
+              </label>
+            ))}
+            <div
+              className="flex items-center justify-between rounded-md border p-4"
+              style={{ background: palette.background, color: palette.foreground }}
+            >
+              主题预览
+              <span
+                className="rounded px-2 py-1"
+                style={{ background: palette.primary, color: contrastingText(palette.primary) }}
+              >
+                强调色
+              </span>
+            </div>
+            <Button
+              onClick={() => {
+                const id = paletteId(palette);
+                Settings.savedPaletteTheme = id;
+                void handleApply(id);
+              }}
+            >
+              <Palette />
+              应用主题
+            </Button>
+          </div>
+        ) : selectedTheme ? (
           <div className="w-full max-w-md space-y-4">
             <div className="flex items-center gap-3">
               {selectedTheme.metadata.type === "light" ? (

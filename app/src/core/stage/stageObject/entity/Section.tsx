@@ -224,7 +224,7 @@ export class Section extends ConnectableEntity {
     return this._isSelected;
   }
   public set isSelected(value: boolean) {
-    this._isSelected = value;
+    super.isSelected = value;
   }
 
   /**
@@ -389,6 +389,47 @@ export class Doodle extends Section {
 
   override get rectangle(): Rectangle {
     return this.frame ?? super.rectangle;
+  }
+  private get pointerScale() {
+    const scale = this.project.camera?.currentScale ?? 1;
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  }
+  get frameHitTolerancePixels() {
+    const scale = this.pointerScale;
+    return Math.min(8, Math.max(3, 6 / Math.sqrt(scale)), (Math.min(this.frame.width, this.frame.height) * scale) / 4);
+  }
+  framePointerDistance(location: Vector): number {
+    if (this.shape === "circle") {
+      const radius = Math.min(this.frame.width, this.frame.height) / 2;
+      return Math.abs(location.subtract(this.frame.center).magnitude() - radius) * this.pointerScale;
+    }
+    const dx = Math.max(this.frame.left - location.x, 0, location.x - this.frame.right);
+    const dy = Math.max(this.frame.top - location.y, 0, location.y - this.frame.bottom);
+    const distance =
+      dx || dy
+        ? Math.hypot(dx, dy)
+        : Math.min(
+            location.x - this.frame.left,
+            this.frame.right - location.x,
+            location.y - this.frame.top,
+            this.frame.bottom - location.y,
+          );
+    return distance * this.pointerScale;
+  }
+  isFrameHit(location: Vector): boolean {
+    if (this.framePointerDistance(location) > this.frameHitTolerancePixels) return false;
+    if (!this.erasures?.length) return true;
+    if (this.shape === "circle") {
+      const offset = location.subtract(this.frame.center);
+      const size = offset.magnitude();
+      return size > 0 && !this.isPointErased(this.frame.center.add(offset.multiply(Math.min(this.frame.width,this.frame.height)/(2*size))));
+    }
+    const {left,right,top,bottom} = this.frame;
+    const x = Math.max(left,Math.min(right,location.x));
+    const y = Math.max(top,Math.min(bottom,location.y));
+    const nearest = [new Vector(left,y),new Vector(right,y),new Vector(x,top),new Vector(x,bottom)]
+      .sort((a,b) => a.distance(location)-b.distance(location))[0];
+    return !this.isPointErased(nearest);
   }
   override get collisionBox(): CollisionBox {
     if (!this.frame) return super.collisionBox;

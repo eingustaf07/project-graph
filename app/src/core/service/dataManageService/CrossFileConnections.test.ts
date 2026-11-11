@@ -25,6 +25,8 @@ vi.mock("@/core/service/Settings", () => ({ Settings: settings }));
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
 vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: { play: {} } }));
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
+import { crossFileHighlighted, invalidateCrossFileHighlight, setHighlightProjects } from "./crossFileHighlight";
+import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import type { Project } from "@/core/Project";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
@@ -37,6 +39,7 @@ import { encode, decode } from "@msgpack/msgpack";
 import { URI } from "vscode-uri";
 import {
   addCrossFileConnection,
+  editCrossFileConnection,
   removeCrossFileConnection,
   resolveCrossFileTarget,
   endpointNode,
@@ -133,4 +136,59 @@ it("hydrates optional links on a second real node class and accepts old nodes wi
   const restored = deserialize(decode(encode(serialize(a.p.stage))), a.p);
   expect(restored.find((node: ConnectPoint) => node.uuid === point.uuid).crossFileLinks).toEqual([link]);
   expect(restored.find((node: TextNode) => node.uuid === a.node.uuid).crossFileLinks).toBeUndefined();
+});
+
+it("persists edge direction, text and appearance with undo and redo", () => {
+  const a = fixture(),
+    b = fixture("file:///D:/b.prg");
+  const link = addCrossFileConnection(a.endpoint, b.endpoint);
+  const patch = {
+    direction: "reverse",
+    text: "备注",
+    color: "#17ab45",
+    lineType: "double",
+    arrow: "hollow-diamond",
+    curve: true,
+  } as const;
+  editCrossFileConnection(a.endpoint, link.id, patch);
+  a.p.historyManager.undo();
+  expect(endpointNode(a.endpoint)?.crossFileLinks?.[0]).toEqual(link);
+  a.p.historyManager.redo();
+  const decoded = deserialize(decode(encode(serialize(a.p.stage))), a.p);
+  expect((decoded[0] as TextNode).crossFileLinks?.[0]).toMatchObject(patch);
+});
+
+it("uses direct, whole graph and chain rules across files, including reverse edges and forks", () => {
+  const a = fixture(),
+    b = fixture("file:///D:/b.prg"),
+    c = fixture("file:///D:/c.prg");
+  const tail = new TextNode(b.p, { text: "tail" });
+  b.p.stageManager.add(tail);
+  b.p.stageManager.add(new LineEdge(b.p, { associationList: [b.node, tail] }));
+  const link = addCrossFileConnection(a.endpoint, b.endpoint);
+  const open = [a.p, b.p, c.p];
+  for (const p of open)
+    Object.assign(p, {
+      searchContentHighlightRenderer: { crossFileRoots: () => new Set(p === a.p ? [a.node.uuid] : []) },
+    });
+  setHighlightProjects(open);
+  try {
+    Object.assign(settings, { connectedNodeHighlightScope: "direct" });
+    expect(crossFileHighlighted(b.p)).toEqual([b.node]);
+    Object.assign(settings, { connectedNodeHighlightScope: "all" });
+    expect(crossFileHighlighted(b.p)).toEqual([b.node, tail]);
+    Object.assign(settings, { connectedNodeHighlightScope: "chain" });
+    expect(crossFileHighlighted(b.p)).toEqual([b.node, tail]);
+    addCrossFileConnection(a.endpoint, c.endpoint);
+    invalidateCrossFileHighlight();
+    expect(crossFileHighlighted(b.p)).toEqual([]);
+    editCrossFileConnection(a.endpoint, link.id, { direction: "reverse" });
+    invalidateCrossFileHighlight();
+    expect(crossFileHighlighted(b.p)).toEqual([b.node]);
+    editCrossFileConnection(a.endpoint, link.id, { direction: "undirected" });
+    invalidateCrossFileHighlight();
+    expect(crossFileHighlighted(b.p)).toEqual([]);
+  } finally {
+    setHighlightProjects([]);
+  }
 });

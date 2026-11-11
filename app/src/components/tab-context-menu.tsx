@@ -7,6 +7,9 @@ import {
 } from "@/components/ui/context-menu";
 import { Tab } from "@/core/Tab";
 import { TabWorkspace } from "@/core/TabWorkspace";
+import { Project } from "@/core/Project";
+import { showProjectInNewWindow } from "@/core/ProjectNewWindow";
+import { isDesktop, isWeb } from "@/utils/platform";
 import { AppWindowMac, Columns2, Dock, Rows2, X, PanelsTopLeft } from "lucide-react";
 import React from "react";
 
@@ -23,6 +26,12 @@ export default function TabContextMenu({
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent>
+        {isDesktop && !isWeb && tab instanceof Project && (
+          <ContextMenuItem onSelect={() => void showProjectInNewWindow(tab)}>
+            <AppWindowMac />
+            在新窗口中显示
+          </ContextMenuItem>
+        )}
         {tab.layout === "docked" ? (
           <>
             <ContextMenuItem onSelect={() => TabWorkspace.split(tab.id, "right")}>

@@ -91,7 +91,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
     // 单击选中
     if (clickedStageObject !== null) {
       if (!Settings.viewerMode && clickedStageObject instanceof Entity)
-        this.project.entityMoveManager.beginPointerDrag(clickedStageObject);
+        this.project.entityMoveManager.beginPointerDrag(clickedStageObject, pressWorldLocation);
       this.isMovingEntity = !Settings.viewerMode;
       this.shakeDetector.reset(); // 开始拖拽时重置摇晃检测器
       this.shiftAxisLock = null;
@@ -250,16 +250,11 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
 
     const mouseUpViewLocation = new Vector(event.clientX, event.clientY);
     const diffLocation = mouseUpViewLocation.subtract(this.mouseDownViewLocation);
-    if (diffLocation.magnitude() > 5) {
+    if (diffLocation.magnitude() > 5 || this.project.entityMoveManager.resizedContainerDuringDrag) {
       // 判定为有效吸附的拖拽操作
       if (this.isMovingEntity) {
         // 这个时候可以触发对齐吸附事件
-        if (Settings.enableDragAutoAlign) {
-          this.project.autoAlign.alignAllSelected();
-        }
-        if (Settings.enableDragAlignToGrid) {
-          this.project.autoAlign.alignAllSelectedToGrid();
-        }
+        this.project.entityMoveManager.alignAfterPointerDrag();
 
         this.project.historyManager.recordStep(); // 记录一次历史
       }

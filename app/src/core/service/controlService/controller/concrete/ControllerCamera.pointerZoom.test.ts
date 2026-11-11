@@ -20,7 +20,7 @@ function fixture() {
   const element = document.createElement("canvas");
   const p: any = {
     canvas: { element, clientToView: (x: number, y: number) => new Vector((x - 200) / 0.8, (y - 100) / 0.8) },
-    controller: { pressingKeySet: new Set(), isCameraLocked: false },
+    controller: { pressingKeySet: new Set(), isCameraLocked: false, imageScale: { canScaleAt: vi.fn(() => false) } },
     effects: { addEffect: vi.fn() },
     stageManager: { findEntityByLocation: vi.fn(() => null), findAssociationByLocation: vi.fn(() => null) },
   };
@@ -74,7 +74,7 @@ afterEach(() => {
 describe("Ctrl-wheel pointer zoom on empty canvas", () => {
   it.each([-120, 120, -3])("keeps the cursor world point fixed through every animation tick for delta %s", (deltaY) => {
     const { p, control } = fixture();
-    const view = new Vector(780, 180),
+    const view = new Vector(500, 350),
       anchor = p.renderer.transformView2World(view);
     const original = structuredClone(Settings);
     p.camera.addScaleFollowMouseLocationTime(5);
@@ -86,22 +86,32 @@ describe("Ctrl-wheel pointer zoom on empty canvas", () => {
     }
     expect(Settings).toEqual(original);
   });
-  it("uses native canvas-local event conversion for an offset and scaled pane", () => {
+  it("anchors native Ctrl-wheel at the pane crosshair without moving the event pointer", () => {
     const { p } = fixture();
     vi.advanceTimersByTime(10);
-    const view = new Vector(650, 240),
+    const view = new Vector(500, 350),
       anchor = p.renderer.transformView2World(view);
-    p.canvas.element.dispatchEvent(
-      new WheelEvent("wheel", { ctrlKey: true, clientX: 720, clientY: 292, deltaY: -120 }),
-    );
-    p.camera.tick();
-    expect(p.renderer.transformWorld2View(anchor).distance(view)).toBeLessThan(1e-7);
+    for (const [clientX, clientY, deltaY] of [
+      [720, 292, -120],
+      [250, 540, 120],
+    ]) {
+      const event = new WheelEvent("wheel", { ctrlKey: true, clientX, clientY, deltaY });
+      const before = p.camera.targetScale;
+      p.canvas.element.dispatchEvent(event);
+      expect(p.stageManager.findEntityByLocation).not.toHaveBeenCalled();
+      expect(p.camera.targetScale).toBeCloseTo(before * (deltaY < 0 ? 1.2 : 0.8));
+      expect([event.clientX, event.clientY]).toEqual([clientX, clientY]);
+      for (let frame = 0; frame < 20; frame++) {
+        p.camera.tick();
+        expect(p.renderer.transformWorld2View(anchor).distance(view)).toBeLessThan(1e-7);
+      }
+    }
   });
-  it("captures a new anchor when the mouse moves during consecutive zoom gestures", () => {
+  it("keeps the crosshair as anchor when the mouse moves during consecutive zoom gestures", () => {
     const { p, control } = fixture();
     wheel(control);
     p.camera.tick();
-    const view = new Vector(150, 600),
+    const view = new Vector(500, 350),
       anchor = p.renderer.transformView2World(view);
     wheel(control, { clientX: view.x, clientY: view.y, deltaY: 120 });
     for (let i = 0; i < 15; i++) {
@@ -109,7 +119,7 @@ describe("Ctrl-wheel pointer zoom on empty canvas", () => {
       expect(p.renderer.transformWorld2View(anchor).distance(view)).toBeLessThan(1e-7);
     }
   });
-  it.each(["entity", "edge"])("leaves %s content and configured Ctrl wheel action unchanged", (kind) => {
+  it.each(["entity", "edge"])("continues Ctrl zoom when the crosshair overlaps an %s", (kind) => {
     const { p, control } = fixture();
     vi.spyOn(p.camera, "zoomAtPointer");
     vi.mocked(
@@ -117,8 +127,21 @@ describe("Ctrl-wheel pointer zoom on empty canvas", () => {
     ).mockReturnValue({} as never);
     p.controller.pressingKeySet.add("control");
     wheel(control);
-    expect(p.camera.zoomAtPointer).not.toHaveBeenCalled();
+    expect(p.camera.zoomAtPointer).toHaveBeenCalledOnce();
+    expect(p.camera.targetScale).toBeCloseTo(0.65 * 1.2);
+  });
+  it("keeps image resizing exclusive when the pointer is over a selected image", () => {
+    const { p, control } = fixture();
+    vi.mocked(p.controller.imageScale.canScaleAt).mockReturnValue(true);
+    wheel(control);
     expect(p.camera.targetScale).toBe(0.65);
+  });
+  it("handles high-resolution wheels with slight horizontal drift and stale cached modifiers", () => {
+    const { p, control } = fixture();
+    p.controller.pressingKeySet.add("shift");
+    p.controller.pressingKeySet.add("alt");
+    wheel(control, { deltaX: 0.25, deltaY: -1 });
+    expect(p.camera.targetScale).toBeCloseTo(0.65 * 1.2);
   });
   it("respects the existing reverse direction value without changing it", () => {
     Settings.mouseWheelWithCtrlModeReverse = true;

@@ -13,7 +13,10 @@ fn read_clipboard_image_paths() -> Result<Vec<String>, String> {
 }
 mod chatgpt_auth;
 mod project_ownership;
+mod project_new_window;
 pub mod project_reference_store;
+#[cfg(target_os = "windows")]
+mod custom_drag_drop;
 mod project_runtime_bridge;
 
 pub mod ownership_helper {
@@ -115,9 +118,14 @@ pub fn run() {
                 app.handle()
                     .plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
             }
+            #[cfg(target_os = "windows")]
+            custom_drag_drop::install(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            project_new_window::open_project_in_new_window,
+            project_new_window::get_detached_project_session,
+            project_new_window::finish_detached_project_window,
             chatgpt_auth::chatgpt_connection_status,
             chatgpt_auth::chatgpt_start_login,
             chatgpt_auth::chatgpt_disconnect,

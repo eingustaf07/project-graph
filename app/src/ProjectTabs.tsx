@@ -111,9 +111,9 @@ export const ProjectTabs = memo(function ProjectTabs({
                 const onMouseUp = (event: MouseEvent) => {
                   window.removeEventListener("mousemove", onMouseMove);
                   window.removeEventListener("mouseup", onMouseUp);
+                  if (!dragged) return;
                   const target = TabWorkspace.getDropTarget(event.clientX, event.clientY);
                   TabWorkspace.clearDropPreview();
-                  if (!dragged) return;
                   if (target) {
                     TabWorkspace.moveTab(tab.id, target);
                   } else {

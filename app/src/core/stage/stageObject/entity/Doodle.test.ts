@@ -40,6 +40,11 @@ import { HistoryManager } from "@/core/stage/stageManager/StageHistoryManager";
 import { TextNode } from "./TextNode";
 import { Section } from "./Section";
 import { ImageNode } from "./ImageNode";
+import { HyperedgeCenterDrag } from "@/core/service/controlService/controller/HyperedgeCenterDrag";
+import { MultiTargetUndirectedEdge } from "../association/MutiTargetUndirectedEdge";
+import { LineEdge } from "../association/LineEdge";
+import { MultiTargetEdgeMove } from "@/core/stage/stageManager/concreteMethods/StageMultiTargetEdgeMove";
+import { NodeAdder } from "@/core/stage/stageManager/concreteMethods/StageNodeAdder";
 import { Doodle, containPastedEntities } from "./Doodle";
 import { fitDoodleBounds } from "@/core/algorithm/doodleBounds";
 import { CollisionBox } from "../collisionBox/collisionBox";
@@ -52,6 +57,7 @@ import { getMultiLineTextSize } from "@/utils/font";
 function fixture() {
   const p: any = {
     stage: [],
+    renderer: { frameIndex: 0 },
     controller: { pressingKeySet: new Set<string>() },
     attachments: new Map(),
     emit: vi.fn(),
@@ -89,11 +95,102 @@ function cage(p: Project, shape: "rectangle" | "circle" = "rectangle", bounded =
   p.stageManager.add(d);
   return d;
 }
+
+describe("zoom-aware frame pointer targeting", () => {
+  it.each(["rectangle", "circle"] as const)(
+    "uses screen distance for %s borders without changing physical bounds",
+    (shape) => {
+      const p = fixture();
+      p.camera = { currentScale: 0.1 } as Project["camera"];
+      const frame = new Doodle(p, { shape, bounded: false, frame: new Rectangle(Vector.getZero(), Vector.same(1000)) });
+      p.stage.push(frame);
+      p.stageManager.updateReferences();
+      const near = new Vector(500, -70);
+      expect(frame.isFrameHit(near)).toBe(true);
+      expect(frame.collisionBox.isContainsPoint(near)).toBe(false);
+      expect(p.stageManager.findEntityByLocation(near)).toBe(frame);
+      expect(p.stageManager.findEntityByLocation(new Vector(500, -90))).toBeNull();
+      expect(frame.isFrameHit(frame.frame.center)).toBe(false);
+      p.camera.currentScale = 0.01;
+      expect(frame.frameHitTolerancePixels).toBe(2.5);
+      expect(frame.isFrameHit(new Vector(500, -240))).toBe(true);
+      expect(frame.isFrameHit(new Vector(500, -260))).toBe(false);
+    },
+  );
+  it("prefers a real node over a nearby border and refuses ambiguous neighboring borders", () => {
+    const p = fixture();
+    p.camera = { currentScale: 0.1 } as Project["camera"];
+    const first = new Doodle(p, { frame: new Rectangle(Vector.getZero(), Vector.same(1000)) });
+    const second = new Doodle(p, { frame: new Rectangle(new Vector(0, 40), Vector.same(1000)) });
+    p.stage = [first, second];
+    p.stageManager.updateReferences();
+    expect(p.stageManager.findEntityByLocation(new Vector(500, 20))).toBeNull();
+    const n = node(p, "node", new Vector(460, 5));
+    p.stage.unshift(n);
+    p.stageManager.updateReferences();
+    expect(p.stageManager.findEntityByLocation(n.rectangle.center)).toBe(n);
+  });
+});
 function inside(d: Doodle, rect: Rectangle) {
   const delta = fitDoodleBounds(d.frame, d.shape, rect);
   expect(delta).not.toBeNull();
   expect(delta!.magnitude()).toBeLessThan(0.001);
 }
+
+it("grows a real hyperedge only on right drag from its center, with one undo step", async () => {
+  vi.stubGlobal("window", new EventTarget());
+  const previousMode = Settings.mouseLeftMode;
+  Settings.mouseLeftMode = "selectAndMove";
+  const p = fixture();
+  const canvas = new EventTarget();
+  const coords = (x: number, y: number) => new Vector(x, y);
+  Object.assign(p, {
+    canvas: { element: canvas, clientToView: coords, viewToClient: (v: Vector) => v },
+    camera: { currentScale: 1 },
+    stageUtils: { replaceAutoNameTemplate: () => "新节点" },
+    multiTargetEdgeMove: new MultiTargetEdgeMove(p),
+    nodeAdder: new NodeAdder(p),
+  });
+  Object.assign(p.renderer, { transformView2World: (v: Vector) => v });
+  Object.assign(p.controller, { resetCountdownTimer: vi.fn() });
+  const members = [0, 1, 2].map((i) => node(p, "A", new Vector(i * 400, i === 1 ? 400 : 0)));
+  members.forEach((n) => p.stageManager.add(n));
+  const edge = MultiTargetUndirectedEdge.createFromSomeEntity(p, members);
+  p.stageManager.add(edge);
+  p.historyManager = new HistoryManager(p);
+  const center = edge.centerLocation;
+  const send = (type: string, button: number, at: Vector) =>
+    canvas.dispatchEvent(Object.assign(new Event(type), { button, pointerId: 1, clientX: at.x, clientY: at.y }));
+  const gesture = new HyperedgeCenterDrag(p);
+  try {
+    send("pointerdown", 0, center);
+    expect(gesture.preview).toBeUndefined();
+    send("pointerdown", 2, center);
+    send("pointerup", 2, center);
+    expect(p.stageManager.getTextNodes()).toHaveLength(3);
+    send("pointerdown", 2, center);
+    expect(gesture.preview?.edge).toBe(edge);
+    const end = center.add(new Vector(700, 300));
+    send("pointermove", 2, end);
+    expect(gesture.preview?.end).toEqual(end);
+    send("pointerup", 2, end);
+    await vi.waitFor(() => expect(edge.associationList).toHaveLength(4));
+    expect(edge.centerLocation.distance(center)).toBeLessThan(0.001);
+    expect(edge.rectRates).toHaveLength(4);
+    expect(edge.associationList[3].collisionBox.getRectangle().center).toEqual(end);
+    p.historyManager.undo();
+    expect(p.stageManager.getTextNodes()).toHaveLength(3);
+    expect((p.stage.find((item) => item.uuid === edge.uuid) as MultiTargetUndirectedEdge).associationList).toHaveLength(
+      3,
+    );
+    p.historyManager.redo();
+    expect(p.stageManager.getTextNodes()).toHaveLength(4);
+  } finally {
+    gesture.dispose();
+    Settings.mouseLeftMode = previousMode;
+    vi.unstubAllGlobals();
+  }
+});
 beforeEach(() => {
   vi.clearAllMocks();
   Settings.containerAutoExpand = false;
@@ -213,6 +310,150 @@ describe("real PG doodles and fixed containers", () => {
       expect(serialize(d.frame)).toEqual(original);
     },
   );
+  it.each(["rectangle", "circle"] as const)(
+    "transfers a pasted image at the grabbed point across a %s boundary",
+    (shape) => {
+      Settings.containerNBoundary = true;
+      const p = fixture();
+      const frame = cage(p, shape);
+      const image = new ImageNode(p, {
+        collisionBox: new CollisionBox([new Rectangle(new Vector(130, 250), new Vector(340, 100))]),
+      });
+      p.stageManager.add(image);
+      containPastedEntities(p, [image], frame.frame.center);
+      image.isSelected = true;
+      // Grab near the right edge. The pointer crosses the border before the image center.
+      p.entityMoveManager.beginPointerDrag(image, new Vector(460, 300));
+      p.controller.pressingKeySet.add("v");
+      for (let i = 0; i < 15; i++) p.entityMoveManager.dragSelection(new Vector(10, 0), false);
+      expect(image.parentSection).toBeNull();
+      expect(frame.children).not.toContain(image);
+      expect(image.rectangle.left).toBeGreaterThanOrEqual(frame.frame.right - 0.001);
+      p.entityMoveManager.endPointerDrag();
+      // Re-grab at the opposite edge and move a short distance back across the wall.
+      p.entityMoveManager.beginPointerDrag(image, new Vector(image.rectangle.left + 10, 300));
+      p.entityMoveManager.dragSelection(new Vector(-30, 0), false);
+      expect(image.parentSection).toBe(frame);
+      inside(frame, image.rectangle);
+      p.controller.pressingKeySet.clear();
+      p.entityMoveManager.dragSelection(new Vector(900, 0), false);
+      expect(image.parentSection).toBe(frame);
+      inside(frame, image.rectangle);
+    },
+  );
+  it.each(["rectangle", "circle"] as const)(
+    "moves a root and its unselected descendants through a %s wall together",
+    (shape) => {
+      Settings.containerNBoundary = true;
+      const p = fixture();
+      const frame = cage(p, shape);
+      const root = node(p, "A", new Vector(605, 260));
+      const children = [node(p, "B", new Vector(729, 180)), node(p, "C", new Vector(729, 345))];
+      const tree = [root, ...children];
+      tree.forEach((entity) => p.stageManager.add(entity));
+      const edges = children.map((child) => new LineEdge(p, { associationList: [root, child] }));
+      edges.forEach((edge) => p.stageManager.add(edge));
+      const offsets = () => children.map((child) => child.rectangle.center.subtract(root.rectangle.center));
+      const original = offsets();
+      const checkOffsets = () =>
+        offsets().forEach((offset, index) => expect(offset.distance(original[index])).toBeLessThan(1e-8));
+      const grab = root.rectangle.center.clone();
+      root.isSelected = true;
+      p.entityMoveManager.beginPointerDrag(root, grab);
+      p.controller.pressingKeySet.add("v");
+      p.entityMoveManager.dragSelection(new Vector(592 - grab.x, 300 - grab.y), true);
+      expect(frame.children.map((n) => n.uuid).sort()).toEqual(tree.map((n) => n.uuid).sort());
+      tree.forEach((n) => inside(frame, n.rectangle));
+      checkOffsets();
+      p.controller.pressingKeySet.delete("v");
+      p.entityMoveManager.dragSelection(new Vector(30, 0), true);
+      tree.forEach((n) => inside(frame, n.rectangle));
+      p.controller.pressingKeySet.add("v");
+      p.entityMoveManager.dragSelection(new Vector(1, 0), true);
+      expect(frame.children).toHaveLength(0);
+      expect(tree.every((n) => n.parentSection === null)).toBe(true);
+      checkOffsets();
+      expect(edges.map((e) => e.target)).toEqual(children);
+    },
+  );
+
+  it("keeps a multi-selection together when the target cannot fit its full width", () => {
+    Settings.containerNBoundary = true;
+    const p = fixture();
+    const frame = cage(p);
+    const a = node(p, "A", new Vector(605, 200));
+    const b = node(p, "B", new Vector(1300, 200));
+    for (const n of [a, b]) {
+      p.stageManager.add(n);
+      n.isSelected = true;
+    }
+    const width = b.rectangle.left - a.rectangle.left;
+    p.entityMoveManager.beginPointerDrag(a, a.rectangle.center);
+    p.controller.pressingKeySet.add("v");
+    p.entityMoveManager.dragSelection(new Vector(-150, 0), false);
+    expect(frame.children).toHaveLength(0);
+    expect(b.rectangle.left - a.rectangle.left).toBe(width);
+    expect(a.rectangle.left).toBeGreaterThanOrEqual(frame.frame.right);
+  });
+
+  it("transfers a fully selected tree in one hierarchy refresh and restores membership on undo and redo", () => {
+    Settings.containerNBoundary = true;
+    const p = fixture();
+    const frame = cage(p);
+    const a = node(p, "A", new Vector(630, 200));
+    const b = node(p, "B", new Vector(830, 200));
+    const other = node(p, "旁边", new Vector(1200, 800));
+    for (const n of [a, b, other]) p.stageManager.add(n);
+    const edge = new LineEdge(p, { associationList: [a, b] });
+    p.stageManager.add(edge);
+    p.historyManager = new HistoryManager(p);
+    const refresh = vi.spyOn(p.stageManager, "rebuildSectionRuntimeTree");
+    a.isSelected = b.isSelected = true;
+    p.entityMoveManager.beginPointerDrag(a, a.rectangle.center);
+    p.controller.pressingKeySet.add("v");
+    p.entityMoveManager.dragSelection(new Vector(-120, 0), false);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(frame.children).toEqual([a, b]);
+    expect(other.rectangle.location).toEqual(new Vector(1200, 800));
+    p.entityMoveManager.endPointerDrag();
+    p.historyManager.recordStep();
+    p.historyManager.undo();
+    expect(p.stageManager.getTextNodeByUUID(a.uuid)?.parentSection).toBeNull();
+    expect(p.stageManager.getTextNodeByUUID(b.uuid)?.parentSection).toBeNull();
+    p.historyManager.redo();
+    expect(p.stageManager.getTextNodeByUUID(a.uuid)?.parentSection?.uuid).toBe(frame.uuid);
+    expect(p.stageManager.getTextNodeByUUID(b.uuid)?.parentSection?.uuid).toBe(frame.uuid);
+  });
+
+  it("grows only the impacted wall on the third bounce and restores the frame on undo and redo", () => {
+    Settings.containerNBoundary = true;
+    const p = fixture();
+    const frame = cage(p);
+    const n = node(p);
+    p.stageManager.add(n);
+    p.historyManager = new HistoryManager(p);
+    n.isSelected = true;
+    const move = (x: number) => p.entityMoveManager.dragSelection(new Vector(x, 0), false);
+    p.entityMoveManager.beginPointerDrag(n);
+    move(600);
+    move(10);
+    move(10);
+    expect(frame.frame.right).toBe(600);
+    move(-20);
+    move(40);
+    expect(frame.frame.right).toBe(600);
+    move(-20);
+    move(40);
+    expect(frame.frame.right).toBe(632);
+    expect(p.entityMoveManager.resizedContainerDuringDrag).toBe(true);
+    expect(n.parentSection).toBe(frame);
+    p.entityMoveManager.endPointerDrag();
+    p.historyManager.recordStep();
+    p.historyManager.undo();
+    expect((p.stageManager.get(frame.uuid) as Doodle).frame.right).toBe(600);
+    p.historyManager.redo();
+    expect((p.stageManager.get(frame.uuid) as Doodle).frame.right).toBe(632);
+  });
   it("requires V at the inner wall and returns an exiting node to the outer container", () => {
     Settings.containerNBoundary = true;
     const p = fixture();

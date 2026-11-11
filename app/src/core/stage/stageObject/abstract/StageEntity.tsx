@@ -89,6 +89,7 @@ export abstract class Entity extends StageObject {
    * 每次父框 adjustLocationAndSize 后，调用碰撞求解器推开与其重叠的同级分支。
    */
   protected updateFatherSectionByMove() {
+    if (this.project.entityMoveManager?.deferParentUpdate(this)) return;
     let boundary = this.parentSection;
     let insideFixedBoundary = false;
     while (boundary) {
@@ -122,7 +123,7 @@ export abstract class Entity extends StageObject {
    * 此函数在move函数中被调用，更新
    */
   protected updateOtherEntityLocationByMove() {
-    if (!Settings.isEnableEntityCollision) {
+    if (!this.shouldResolveEntityCollisions) {
       return;
     }
     // Within fixed walls, recursive collision pushing can otherwise bounce nodes against the boundary forever.
@@ -137,6 +138,10 @@ export abstract class Entity extends StageObject {
       }
       this.collideWithOtherEntity(entity);
     }
+  }
+
+  protected get shouldResolveEntityCollisions() {
+    return Settings.isEnableEntityCollision && !this.project.entityMoveManager?.ignoresDragCollisions;
   }
 
   /**

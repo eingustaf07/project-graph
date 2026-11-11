@@ -140,11 +140,13 @@ it("commits repeated title edits and never replaces an externally updated title 
         Object.defineProperty(event, "pointerId", { value: 1 });
         await act(() => button.dispatchEvent(event));
       };
-      await dispatch("pointerdown", point);
-      await dispatch("pointermove", point.add(new Vector(dx, dy)));
+      const offsetPoint = point.add(new Vector(9, 9));
+      expect(button.className).toContain("size-6");
+      await dispatch("pointerdown", offsetPoint);
+      await dispatch("pointermove", offsetPoint.add(new Vector(dx, dy)));
       expect(shape.frame).toEqual(before);
       const calls = history.mock.calls.length;
-      await dispatch("pointerup", point.add(new Vector(dx, dy)));
+      await dispatch("pointerup", offsetPoint.add(new Vector(dx, dy)));
       expect(history).toHaveBeenCalledTimes(calls + 1);
       expect(shape.frame.width).toBe(before.width + Math.abs(dx));
       expect(shape.frame.height).toBe(before.height + Math.abs(dy));
@@ -153,6 +155,37 @@ it("commits repeated title edits and never replaces an externally updated title 
       if (side === "上") expect(shape.frame.bottom).toBe(before.bottom);
     }
   }
+  // ZZ uses the normal canvas selection. An eraser selected in BB must not hide the handles in ZZ.
+  state.settings.penStrokeEraser = true;
+  state.settings.mouseLeftMode = "selectAndMove";
+  await act(() => state.watchers.get("mouseLeftMode")?.("selectAndMove"));
+  await act(() => root.render(<DoodleToolbar project={project} showToolbar={false} />));
+  expect(host.querySelector("aside")).toBeNull();
+  expect(host.querySelectorAll("[data-pg-doodle-handle]")).toHaveLength(8);
+  const right = host.querySelector<HTMLButtonElement>('[aria-label="调整右边"]')!;
+  right.setPointerCapture = vi.fn();
+  const before = shape.frame.clone();
+  const count = history.mock.calls.length;
+  for (const [type, dx] of [
+    ["pointerdown", 0],
+    ["pointermove", 32],
+    ["pointerup", 32],
+  ] as const) {
+    const event = new MouseEvent(type, {
+      button: 0,
+      bubbles: true,
+      clientX: before.right + dx,
+      clientY: before.center.y,
+    });
+    Object.defineProperty(event, "pointerId", { value: 11 });
+    await act(() => right.dispatchEvent(event));
+  }
+  expect(shape.frame.right).toBe(before.right + 32);
+  expect(shape.frame.left).toBe(before.left);
+  expect(history).toHaveBeenCalledTimes(count + 1);
+  await act(() => state.watchers.get("viewerMode")?.(true));
+  expect(host.querySelector("[data-pg-doodle-handle]")).toBeNull();
+  state.settings.penStrokeEraser = false;
   canvas.remove();
 });
 
@@ -223,4 +256,42 @@ it("only activates drawing tools in draw mode and removes pending shapes when le
   expect(host.querySelector("[data-pg-doodle-layer]")).toBeNull();
   await mode("connectAndCut");
   expect(host.querySelector("aside")).toBeNull();
+});
+
+it("does not traverse either document selection when switching large-file tabs repeatedly", async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+  const bar = document.createElement("button");
+  bar.dataset.pgTabBar = "";
+  host.before(bar);
+  const projects = [0, 1].map(() => ({
+    canvas: { element: document.createElement("canvas") },
+    stageStyleManager: { currentStyle: { StageObjectBorder: new Color(0, 0, 0, 1) } },
+    stageManager: { getSelectedEntities: vi.fn(() => []) },
+    on: vi.fn(),
+    off: vi.fn(),
+  }));
+  try {
+    await act(() =>
+      root.render(
+        projects.map((p, i) => (
+          <div key={i} hidden={i === 1}>
+            <DoodleToolbar project={p as unknown as Project} />
+          </div>
+        )),
+      ),
+    );
+    for (const p of projects) p.stageManager.getSelectedEntities.mockClear();
+    for (let i = 0; i < 20; i++) {
+      (host.children[0] as HTMLElement).hidden = i % 2 === 0;
+      (host.children[1] as HTMLElement).hidden = i % 2 !== 0;
+      bar.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
+    }
+    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    for (const p of projects) expect(p.stageManager.getSelectedEntities).not.toHaveBeenCalled();
+  } finally {
+    bar.remove();
+  }
 });

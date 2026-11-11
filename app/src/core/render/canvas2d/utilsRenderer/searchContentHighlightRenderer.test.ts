@@ -5,15 +5,25 @@ import { parse } from "yaml";
 vi.mock("@/core/Project", () => ({ Project: class {}, service: () => (target: unknown) => target }));
 vi.mock("@/core/stage/stageObject/abstract/ConnectableEntity", () => ({ ConnectableEntity: class {} }));
 vi.mock("@/core/stage/stageObject/abstract/Association", () => ({ ConnectableAssociation: class {} }));
-const highlightSettings = vi.hoisted(() => ({ connectedNodeHighlightScope: "all" as "direct" | "all" }));
+vi.mock("@/core/stage/stageObject/association/Edge", async () => {
+  const { ConnectableAssociation } = await import("@/core/stage/stageObject/abstract/Association");
+  abstract class MockEdge extends ConnectableAssociation {}
+  return { Edge: MockEdge };
+});
+const highlightSettings = vi.hoisted(() => ({
+  connectedNodeHighlightLocked: false,
+  connectedNodeHighlightScope: "all" as "direct" | "all" | "chain",
+}));
 vi.mock("@/core/service/Settings", () => ({ Settings: highlightSettings }));
 
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
+import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { ConnectableAssociation } from "@/core/stage/stageObject/abstract/Association";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { Rectangle } from "@graphif/shapes";
 import { Color, Vector } from "@graphif/data-structures";
 import { SearchContentHighlightRenderer } from "./searchContentHighlightRenderer";
+import { CollisionBoxRenderer } from "../entityRenderer/CollisionBoxRenderer";
 
 function makeNode(uuid: string, x: number) {
   return Object.assign(new (ConnectableEntity as any)(), {
@@ -38,6 +48,7 @@ function fixture() {
     on: vi.fn((_name, callback) => listeners.add(callback)),
     off: vi.fn((_name, callback) => listeners.delete(callback)),
     shapeRenderer: { renderRect: vi.fn() },
+    collisionBoxRenderer: { selectionOutset: () => 11.5 },
     renderer: { transformWorld2View: (rect: Rectangle) => rect },
     stageStyleManager: { currentStyle: { CollideBoxSelected: Color.Green, effects: { warningShadow: Color.Red } } },
     contentSearch: { searchResultNodes: [] },
@@ -63,8 +74,65 @@ function fixture() {
 
 describe("connected highlight overlay", () => {
   beforeEach(() => {
+    highlightSettings.connectedNodeHighlightLocked = false;
     highlightSettings.connectedNodeHighlightScope = "all";
   });
+  it("follows selection, combines roots, clears when empty and releases the lock", () => {
+    const { a, other, project, renderer } = fixture();
+    highlightSettings.connectedNodeHighlightLocked = true;
+    renderer.render(0);
+    const [outer, , color] = project.shapeRenderer.renderRect.mock.calls[0];
+    expect(outer.left).toBe(-16.5);
+    expect(color.toArray()).toEqual([255, 0, 255, 0.9]);
+    expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(3);
+    other.isSelected = true;
+    renderer.invalidateSelection();
+    project.shapeRenderer.renderRect.mockClear();
+    renderer.render(1);
+    expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(4);
+    a.isSelected = false;
+    renderer.invalidateSelection();
+    project.shapeRenderer.renderRect.mockClear();
+    renderer.render(2);
+    expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(1);
+    const scans = project.stageManager.getEntities.mock.calls.length;
+    renderer.render(3);
+    expect(project.stageManager.getEntities).toHaveBeenCalledTimes(scans);
+    other.isSelected = false;
+    renderer.invalidateSelection();
+    renderer.render(4);
+    expect(renderer.hasConnectedHighlight).toBe(false);
+    a.isSelected = true;
+    renderer.invalidateSelection();
+    renderer.render(5);
+    highlightSettings.connectedNodeHighlightLocked = false;
+    renderer.render(6);
+    expect(renderer.hasConnectedHighlight).toBe(false);
+    expect(renderer.toggleConnectedHighlight()).toBe(3);
+  });
+  it.each([0.03, 0.3, 1, 3, 8])(
+    "keeps three view pixels between selection and highlight strokes at zoom %s",
+    (scale) => {
+      const { project, renderer, a } = fixture();
+      project.camera = { currentScale: scale, isDefaultZoom: () => scale > 0.1 && scale < 4 };
+      project.renderer.transformWorld2View = (item: Rectangle | Vector) =>
+        item instanceof Rectangle
+          ? new Rectangle(item.location.multiply(scale), item.size.multiply(scale))
+          : item.multiply(scale);
+      project.collisionBoxRenderer = new CollisionBoxRenderer(project);
+      renderer.toggleConnectedHighlight();
+      for (const auto of [true, false]) {
+        Object.assign(highlightSettings, { enableCollisionBoxAutoWidth: auto });
+        project.shapeRenderer.renderRect.mockClear();
+        project.collisionBoxRenderer.render(a.collisionBox, Color.Green);
+        renderer.render(0);
+        const [[inner, , , innerWidth], [outer, , , outerWidth]] = project.shapeRenderer.renderRect.mock.calls;
+        expect(inner.left - innerWidth / 2 - (outer.left + outerWidth / 2)).toBeCloseTo(3);
+        expect(outer.bottom - outerWidth / 2 - (inner.bottom + innerWidth / 2)).toBeCloseTo(3);
+      }
+    },
+  );
+
   it("updates active highlighting immediately when the saved range setting changes", () => {
     const { project, renderer } = fixture();
     expect(renderer.toggleConnectedHighlight()).toBe(3);
@@ -75,6 +143,16 @@ describe("connected highlight overlay", () => {
     highlightSettings.connectedNodeHighlightScope = "all";
     renderer.render(1);
     expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(3);
+  });
+  it("switches a live highlight to the directed chain and ignores undirected associations", () => {
+    const { a, other, project, renderer } = fixture();
+    project.stage.push(
+      Object.assign(Object.create(Edge.prototype), { source: a, target: other, associationList: [a, other] }),
+    );
+    expect(renderer.toggleConnectedHighlight()).toBe(4);
+    highlightSettings.connectedNodeHighlightScope = "chain";
+    renderer.render(0);
+    expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(2);
   });
   it("toggles persistent outlines without changing selection, colors, geometry or recording history", () => {
     const { a, b, c, other, project, renderer } = fixture();
@@ -105,6 +183,27 @@ describe("connected highlight overlay", () => {
     expect(renderer.toggleConnectedHighlight()).toBe(3);
     renderer.render(1);
     expect(project.shapeRenderer.renderRect).toHaveBeenCalledTimes(4);
+  });
+  it("draws the same themed match outlines and stationary locator on every frame", () => {
+    const { a, b, project, renderer } = fixture();
+    project.contentSearch.searchResultNodes = [a, b];
+    project.contentSearch.locatedResult = { node: b, color: Color.Magenta };
+    const themeColor = new Color(23, 129, 174);
+    project.stageStyleManager.currentStyle.effects.warningShadow = themeColor;
+    const bounds = [a, b].map((node) => node.collisionBox.getRectangle());
+    for (const tick of [0, 6, 19, 120]) {
+      project.shapeRenderer.renderRect.mockClear();
+      renderer.render(tick);
+      expect(project.shapeRenderer.renderRect.mock.calls).toEqual([
+        [bounds[0].expandFromCenter(10), Color.Transparent, themeColor.toNewAlpha(0.5), 4],
+        [bounds[1].expandFromCenter(10), Color.Transparent, themeColor.toNewAlpha(0.5), 4],
+        [bounds[1], Color.Transparent, Color.Magenta, 2],
+      ]);
+    }
+    project.shapeRenderer.renderRect.mockClear();
+    project.contentSearch.searchResultNodes = [];
+    renderer.render(121);
+    expect(project.shapeRenderer.renderRect).not.toHaveBeenCalled();
   });
   it("caches traversal across frames and updates after connection edits and undo-like stage replacement", () => {
     const { a, c, other, project, renderer, relation, commit } = fixture();

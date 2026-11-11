@@ -27,6 +27,8 @@ export function ChatGPTConnectionSettings() {
   const [status, setStatus] = useState<ConnectionStatus>({ connected: false, hasPlanAccess: false });
   const [models, setModels] = useState<AccountModel[]>([]);
   const [busy, setBusy] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [statusError, setStatusError] = useState(false);
   const [showPlanNotice, setShowPlanNotice] = useState(false);
   const selectedModelRef = useRef(selectedModel);
   const setSelectedModelRef = useRef(setSelectedModel);
@@ -34,9 +36,13 @@ export function ChatGPTConnectionSettings() {
   setSelectedModelRef.current = setSelectedModel;
 
   const refreshStatus = useCallback(async () => {
+    setStatusLoading(true);
+    setStatusError(false);
+    let statusRead = false;
     try {
       const next = await invoke<ConnectionStatus>("chatgpt_connection_status");
       setStatus(next);
+      statusRead = true;
       if (next.connected && next.hasPlanAccess) {
         const available = await invoke<AccountModel[]>("chatgpt_list_models");
         setModels(available);
@@ -49,9 +55,11 @@ export function ChatGPTConnectionSettings() {
     } catch (error) {
       if (String(error).includes("连接已过期")) {
         setStatus({ connected: false, hasPlanAccess: false, expired: true });
-      }
+      } else setStatusError(!statusRead);
       setModels([]);
       throw error;
+    } finally {
+      setStatusLoading(false);
     }
   }, []);
 
@@ -100,68 +108,80 @@ export function ChatGPTConnectionSettings() {
 
   return (
     <>
-    <Field
-      title={t("chatgpt.title")}
-      description={t("chatgpt.description")}
-      icon={<Unplug className="h-4 w-4" />}
-      className="border-accent border-b"
-    >
-      <div className="flex flex-col items-end gap-2">
-        <span className="text-sm">
-          {status.connected
-            ? `${t("chatgpt.connected")}${status.email ? ` · ${status.email}` : ""}`
-            : status.expired
-              ? t("chatgpt.expired")
-              : t("chatgpt.notConnected")}
-        </span>
-        {status.connected && status.hasPlanAccess && models.length > 0 && (
-          <Select value={selectedModel || models[0].slug} onValueChange={setSelectedModel}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder={t("chatgpt.chooseModel")} />
-            </SelectTrigger>
-            <SelectContent>
-              {models.map((model) => (
-                <SelectItem key={model.slug} value={model.slug}>
-                  {model.display_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        {status.connected ? (
-          <Button variant="outline" disabled={busy} onClick={() => void disconnect()}>
-            {t("chatgpt.disconnect")}
-          </Button>
-        ) : (
-          <Button disabled={busy} onClick={() => void connect()}>
-            {t("chatgpt.signIn")}
-          </Button>
-        )}
-        {status.connected && (
-          <Button variant="ghost" size="sm" disabled={busy} onClick={() => void connect()}>
-            {t("chatgpt.reconnect")}
-          </Button>
-        )}
-      </div>
-    </Field>
-    <AlertDialog open={showPlanNotice} onOpenChange={setShowPlanNotice}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t("chatgpt.planNoticeTitle")}</AlertDialogTitle>
-          <AlertDialogDescription>{t("chatgpt.planNoticeDescription")}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogAction
-            onClick={() => {
-              window.localStorage.setItem("project-graph.chatgpt-plan-notice-seen", "true");
-              setShowPlanNotice(false);
-            }}
-          >
-            {t("chatgpt.gotIt")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      <Field
+        title={t("chatgpt.title")}
+        description={t("chatgpt.description")}
+        icon={<Unplug className="h-4 w-4" />}
+        className="border-accent border-b"
+      >
+        <div className="flex flex-col items-end gap-2">
+          <span className="text-sm">
+            {statusLoading
+              ? "正在读取 ChatGPT 登录状态…"
+              : statusError
+                ? "暂时无法确认连接状态，请重试"
+                : status.connected
+                  ? `${t("chatgpt.connected")}${status.email ? ` · ${status.email}` : ""}`
+                  : status.expired
+                    ? t("chatgpt.expired")
+                    : t("chatgpt.notConnected")}
+          </span>
+          {status.connected && status.hasPlanAccess && models.length > 0 && (
+            <Select value={selectedModel || models[0].slug} onValueChange={setSelectedModel}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder={t("chatgpt.chooseModel")} />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((model) => (
+                  <SelectItem key={model.slug} value={model.slug}>
+                    {model.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {statusLoading ? null : statusError ? (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => void refreshStatus().catch((error) => toast.error(String(error)))}
+            >
+              重试读取连接状态
+            </Button>
+          ) : status.connected ? (
+            <Button variant="outline" disabled={busy} onClick={() => void disconnect()}>
+              {t("chatgpt.disconnect")}
+            </Button>
+          ) : (
+            <Button disabled={busy} onClick={() => void connect()}>
+              {t("chatgpt.signIn")}
+            </Button>
+          )}
+          {status.connected && !statusLoading && !statusError && (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void connect()}>
+              {t("chatgpt.reconnect")}
+            </Button>
+          )}
+        </div>
+      </Field>
+      <AlertDialog open={showPlanNotice} onOpenChange={setShowPlanNotice}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("chatgpt.planNoticeTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("chatgpt.planNoticeDescription")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => {
+                window.localStorage.setItem("project-graph.chatgpt-plan-notice-seen", "true");
+                setShowPlanNotice(false);
+              }}
+            >
+              {t("chatgpt.gotIt")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

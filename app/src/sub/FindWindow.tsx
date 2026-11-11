@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Project } from "@/core/Project";
 import { SearchScope } from "@/core/service/dataManageService/contentSearchEngine/contentSearchEngine";
-import { RectangleLittleNoteEffect } from "@/core/service/feedbackService/effectEngine/concrete/RectangleLittleNoteEffect";
 import { createSubWindow } from "@/core/subWindowOpen";
 import { TabWorkspace } from "@/core/TabWorkspace";
 import { activeResourceTabAtom } from "@/state";
@@ -89,8 +88,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
       }
       const next = project.contentSearch.searchResultNodes[project.contentSearch.currentSearchResultIndex];
       if (next) {
-        project.camera.bombMove(next.collisionBox.getRectangle().center);
-        project.effects.addEffect(RectangleLittleNoteEffect.fromSearchNode(next));
+        project.contentSearch.panToResult(next);
       }
     } catch (error) {
       setSearchResults(
@@ -108,7 +106,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
   return (
     <div className="flex flex-col gap-2 p-4">
       <Input
-        placeholder="请输入要在舞台上搜索的内容"
+        placeholder="搜索文字；/空 查空节点，/okk 查绿标，/err 查红标"
         aria-label={t("findLabel")}
         autoFocus
         type="search"
@@ -281,8 +279,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
               if (isMouseEnterCameraMovable) {
                 const node = project.stageManager.get(result.uuid);
                 if (node) {
-                  project.camera.bombMove(node.collisionBox.getRectangle().center);
-                  project.effects.addEffect(RectangleLittleNoteEffect.fromSearchNode(node));
+                  project.contentSearch.panToResult(node);
                 }
               }
             }}
@@ -292,8 +289,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
               setTick((tick) => tick + 1);
               const node = project.stageManager.get(result.uuid);
               if (node) {
-                project.camera.bombMove(node.collisionBox.getRectangle().center);
-                project.effects.addEffect(RectangleLittleNoteEffect.fromSearchNode(node));
+                project.contentSearch.panToResult(node);
               }
             }}
           >

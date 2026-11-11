@@ -1,6 +1,10 @@
 import type { Project } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
-import { ConnectableEntity, type CrossFileNodeLink } from "@/core/stage/stageObject/abstract/ConnectableEntity";
+import {
+  ConnectableEntity,
+  type CrossFileEdgeStyle,
+  type CrossFileNodeLink,
+} from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { URI } from "vscode-uri";
 
 export type NodeEndpoint = { project: Project; nodeId: string };
@@ -31,10 +35,26 @@ export function addCrossFileConnection(source: NodeEndpoint, target: NodeEndpoin
   if (source.project.sectionMethods.isObjectBeLockedBySection(from)) throw new Error("起点节点已锁定");
   if (from.crossFileLinks?.some((link) => fileKey(link.targetFile) === targetFile && link.targetNode === to.uuid))
     throw new Error("这两个节点之间已存在相同方向的跨文件连接");
-  const link = { id: crypto.randomUUID(), targetFile: target.project.uri.toString(), targetNode: to.uuid };
+  const link = {
+    curve: Settings.rightClickConnectEdgeType === "arc",
+    id: crypto.randomUUID(),
+    targetFile: target.project.uri.toString(),
+    targetNode: to.uuid,
+  };
   from.crossFileLinks = [...(from.crossFileLinks ?? []), link];
   source.project.historyManager.recordStep();
   return link;
+}
+
+export function editCrossFileConnection(source: NodeEndpoint, id: string, patch: CrossFileEdgeStyle) {
+  if (!Settings.enableCrossFileConnections || Settings.viewerMode || source.project.closing)
+    throw new Error("当前不能修改跨文件连接");
+  const node = endpointNode(source);
+  if (!node || source.project.sectionMethods.isObjectBeLockedBySection(node)) throw new Error("起点已删除或锁定");
+  const link = node.crossFileLinks?.find((item) => item.id === id);
+  if (!link || Object.entries(patch).every(([key, value]) => link[key as keyof CrossFileEdgeStyle] === value)) return;
+  node.crossFileLinks = node.crossFileLinks!.map((item) => (item === link ? { ...link, ...patch } : item));
+  source.project.historyManager.recordStep();
 }
 
 export function removeCrossFileConnection(source: NodeEndpoint, id: string): void {

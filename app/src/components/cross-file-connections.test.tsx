@@ -8,20 +8,33 @@ const fixture = vi.hoisted(() => {
     measureText: (text: string) => ({ width: text.length * 32 }),
   })) as never;
   return {
+    active: undefined as unknown,
     projects: [] as unknown[],
     watchers: new Map<string, (value: unknown) => void>(),
     settings: {
       enableCrossFileConnections: true,
+      enableRightClickConnect: true,
+      mouseLeftMode: "selectAndMove",
       viewerMode: false,
       textNodeMaxCharWidth: 15,
       defaultFontFamily: "sans-serif",
     },
   };
 });
-vi.mock("@/core/Project", () => ({ Project: class {} }));
-vi.mock("@/core/TabWorkspace", () => ({ TabWorkspace: { focus: vi.fn() } }));
-vi.mock("@/state", () => ({ tabsAtom: {} }));
-vi.mock("jotai", () => ({ useAtomValue: () => fixture.projects }));
+vi.mock("@/core/Project", () => ({ Project: class {}, ProjectState: { Saved: 0 } }));
+vi.mock("@/core/TabWorkspace", () => ({ TabWorkspace: { focus: vi.fn(), moveTab: vi.fn(() => true) } }));
+vi.mock("@/state", () => ({
+  tabsAtom: "tabs",
+  activeResourceTabAtom: "active",
+  tabGroupRootAtom: "groups",
+  store: {
+    get: (atom: string) =>
+      atom === "active"
+        ? fixture.active
+        : { id: "first", type: "group", tabIds: ["file:///C:/a.prg"], activeTabId: "file:///C:/a.prg" },
+  },
+}));
+vi.mock("jotai", () => ({ useAtomValue: (atom: string) => (atom === "tabs" ? fixture.projects : fixture.active) }));
 vi.mock("@/core/service/Settings", () => ({
   Settings: Object.assign(fixture.settings, {
     watch: (key: string, fn: (value: unknown) => void) => {
@@ -35,6 +48,7 @@ vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: { 
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
 import { Project } from "@/core/Project";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { TabWorkspace } from "@/core/TabWorkspace";
 import { URI } from "vscode-uri";
 import { Vector } from "@graphif/data-structures";
 import { getMultiLineTextSize } from "@/utils/font";
@@ -61,18 +75,25 @@ it("connects across split canvases, tracks scaled positions, respects floating o
           getMultiLineTextSize(text, size, height, width),
       },
       sectionMethods: { isObjectBeLockedBySection: () => false },
+      on: vi.fn(),
+      off: vi.fn(),
+      layout: "docked",
       historyManager: { recordStep: vi.fn() },
     }) as Project;
     const node = new TextNode(project, { text: "节点" });
     project.stage.push(node);
     Object.assign(project, {
-      stageManager: { findConnectableEntityByLocation: (p: Vector) => (node.rectangle.isPointIn(p) ? node : null) },
+      stageManager: {
+        getSelectedEntities: () => (node.isSelected ? [node] : []),
+        findConnectableEntityByLocation: (p: Vector) => (node.rectangle.isPointIn(p) ? node : null),
+      },
     });
     return { project, node, canvas };
   };
   const a = makeProject(20, 60, "file:///C:/a.prg"),
     b = makeProject(400, 60, "file:///C:/b.prg");
   fixture.projects = [a.project, b.project];
+  fixture.active = a.project;
   document.elementFromPoint = (x, y) =>
     [b.canvas, a.canvas].find((c) => {
       const r = c.getBoundingClientRect();
@@ -91,26 +112,34 @@ it("connects across split canvases, tracks scaled positions, respects floating o
   const root = createRoot(host);
   try {
     await act(() => root.render(<CrossFileConnections />));
-    const connectButton = document.querySelector<HTMLButtonElement>("[data-cross-file-controls] button")!;
-    await act(() => connectButton.click());
+    a.node.isSelected = true;
     const targetPoint = endpointOnScreen({ project: b.project, nodeId: b.node.uuid })!;
     const dispatch = async (canvas: HTMLCanvasElement, type: string, p: { x: number; y: number }) => {
       await act(() =>
         canvas.dispatchEvent(
-          new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: p.x, clientY: p.y }),
+          new MouseEvent(type, { bubbles: true, cancelable: true, button: 2, clientX: p.x, clientY: p.y }),
         ),
       );
     };
-    await dispatch(a.canvas, "pointerdown", point);
+    await dispatch(b.canvas, "pointerdown", targetPoint);
     await dispatch(b.canvas, "pointermove", targetPoint);
     await dispatch(b.canvas, "pointerup", targetPoint);
     expect(a.node.crossFileLinks).toHaveLength(1);
+    const commit = a.project.on as ReturnType<typeof vi.fn>;
+    commit.mock.calls.find(([name]) => name === "stage-commit")?.[1]();
     expect(a.project.historyManager.recordStep).toHaveBeenCalledOnce();
     expect(b.project.historyManager.recordStep).not.toHaveBeenCalled();
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 130));
     });
-    expect(document.querySelectorAll('svg[aria-label="跨文件连接线"] line')).toHaveLength(1);
+    expect(document.querySelectorAll('svg[aria-label="跨文件连接线"] g[data-cross-edge]')).toHaveLength(1);
+    await act(() => document.querySelector<HTMLButtonElement>('[aria-label="查看关联文件"]')!.click());
+    expect(document.querySelector("[data-cross-file-controls]")?.textContent).toContain("b.prg");
+    const destination = Array.from(
+      document.querySelectorAll<HTMLButtonElement>("[data-cross-file-controls] button"),
+    ).find((b) => b.textContent?.includes("向右拆分"))!;
+    await act(() => destination.click());
+    expect(TabWorkspace.moveTab).toHaveBeenCalledWith(b.project.id, { groupId: "first", edge: "right" });
     fixture.settings.enableCrossFileConnections = false;
     await act(() => fixture.watchers.get("enableCrossFileConnections")?.(false));
     expect(document.querySelector("[data-cross-file-controls]")).toBeNull();

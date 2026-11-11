@@ -16,6 +16,7 @@ findReplace:
   help: 输入查找内容和替换文字，点击“替换”逐处替换，或点击“全部替换”处理当前搜索范围；留空替换文字可删除匹配部分。可用原有撤销操作恢复。替换不修改详情或网址，锁定对象会跳过。若关闭后有红框残留，可重新打开并清空查找框。
 
 welcome:
+  editionDeveloperCredit: E版本由Gustaf Ein开发改动
   slogan: 基于图论的思维框架图绘制软件
   slogans:
     - 基于图论的思维框架图绘制软件
@@ -192,12 +193,16 @@ settings:
   smartTreeSubtreeGap:
     title: 树形规整子树间距
     description: 不同兄弟子树后代间的最小距离，也用于避开未参与布局的节点。
+  connectedNodeHighlightLocked:
+    title: 高亮锁定
+    description: 选中节点时自动按关联节点高亮范围显示高亮。多选时合并结果，取消选择后清除。关闭后使用原有高亮快捷键。
   connectedNodeHighlightScope:
     title: 关联节点高亮范围
-    description: 选中节点后使用高亮快捷键；直接模式只显示一跳邻居，全部模式包含间接相连的节点。修改后立即更新已有高亮，不区分箭头方向。
+    description: 链条模式沿箭头向上游和下游查找。遇到多个后续节点就停在分叉点，遇到多个前驱就停止向上查找。
     options:
       direct: 仅直接相连（含选中节点）
       all: 全部连通（含间接相连）
+      chain: 仅高亮当前链条
   textNodeMaxCharWidth:
     title: 文本节点最大宽度（中文字数）
     description: 自动模式下短文本随内容收缩，达到此宽度后自动换行。默认 15，按当前字体的“中”字宽度计算；修改后立即应用于已打开的自动模式节点。手动宽度节点保留其宽度。
@@ -1612,7 +1617,7 @@ keyBinds:
     description: 规整选中节点及其后代，保留内容、层级、连接和兄弟顺序。请先在视觉 → 实验性功能中启用并选择模式。
   toggleConnectedNodeHighlight:
     title: 关联节点高亮（开关）
-    description: 选中节点后按下，按设置中的范围高亮自身及直接或间接相连的节点，不区分箭头方向。再次按下取消；不改变颜色、选择状态或项目文件。
+    description: 按设置中的范围高亮关联节点。再次按下取消高亮。
   connectedHighlightEnabled: 已高亮 {{count}} 个连通节点，再按同一快捷键可取消
   connectedHighlightDisabled: 已取消连通节点高亮
   title: 快捷键绑定

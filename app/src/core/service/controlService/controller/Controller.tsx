@@ -21,6 +21,7 @@ import { ControllerSectionEditClass } from "@/core/service/controlService/contro
 import { CursorNameEnum } from "@/types/cursors";
 import { isMac } from "@/utils/platform";
 import { Settings } from "../../Settings";
+import { HyperedgeCenterDrag } from "./HyperedgeCenterDrag";
 
 /**
  * 控制器，控制鼠标、键盘事件
@@ -112,7 +113,9 @@ export class Controller {
    * 初始化函数在页面挂在的时候调用，将事件绑定到Canvas上
    * @param this.project.canvas.element
    */
+  readonly hyperedgeCenterDrag: HyperedgeCenterDrag;
   constructor(private readonly project: Project) {
+    this.hyperedgeCenterDrag = new HyperedgeCenterDrag(project);
     window.addEventListener("blur", this.clearTransferKey);
     window.addEventListener("keyup", this.releaseTransferKey);
     // 绑定事件
@@ -138,6 +141,7 @@ export class Controller {
       });
   }
   dispose() {
+    this.hyperedgeCenterDrag.dispose();
     window.removeEventListener("blur", this.clearTransferKey);
     window.removeEventListener("keyup", this.releaseTransferKey);
     Object.values(this).forEach((v) => {
@@ -172,6 +176,16 @@ export class Controller {
 
   private mousewheel(event: WheelEvent) {
     event.preventDefault();
+    // Wheel events carry the current modifier state even if keyup happened in another pane.
+    for (const [key, pressed] of [
+      ["control", event.ctrlKey],
+      ["shift", event.shiftKey],
+      ["alt", event.altKey],
+      ["meta", event.metaKey],
+    ] as const) {
+      if (pressed) this.pressingKeySet.add(key);
+      else this.pressingKeySet.delete(key);
+    }
     // 禁用鼠标滚轮缩放
     this.resetCountdownTimer();
   }

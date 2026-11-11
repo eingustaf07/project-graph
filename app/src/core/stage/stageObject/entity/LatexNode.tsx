@@ -64,7 +64,7 @@ export class LatexNode extends ConnectableEntity {
   }
 
   set isSelected(value: boolean) {
-    this._isSelected = value;
+    super.isSelected = value;
   }
 
   get rectangle(): Rectangle {

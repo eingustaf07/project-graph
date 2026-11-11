@@ -91,7 +91,15 @@ const SubContent = ContextMenuSubContent;
  */
 export default function MyContextMenuContent() {
   const [tab] = useAtom(activeResourceTabAtom);
-  const p = tab instanceof Project ? tab : undefined;
+  if (!(tab instanceof Project)) return null;
+  return (
+    <Content>
+      <ProjectMenuItems project={tab} />
+    </Content>
+  );
+}
+
+function ProjectMenuItems({ project: p }: { project: Project }) {
   const { t } = useTranslation("contextMenu");
   const { t: tKeyBind } = useTranslation("keyBinds");
   const [config] = Settings.use("contextMenuConfig");
@@ -100,14 +108,18 @@ export default function MyContextMenuContent() {
   // 加载用户自定义颜色
   const [userColorList, setUserColorList] = useState<Color[]>([]);
   useEffect(() => {
-    ColorManager.getUserEntityFillColors().then(setUserColorList);
-    const unsub = ColorManager.subscribe(() => {
-      ColorManager.getUserEntityFillColors().then(setUserColorList);
-    });
-    return unsub;
+    let mounted = true;
+    const refresh = async () => {
+      const colors = await ColorManager.getUserEntityFillColors();
+      if (mounted) setUserColorList(colors);
+    };
+    void refresh();
+    const unsubscribe = ColorManager.subscribe(refresh);
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
-
-  if (!p) return <></>;
 
   type ContextMenuConfigItem = (typeof Settings)["contextMenuConfig"][number];
 
@@ -419,11 +431,11 @@ export default function MyContextMenuContent() {
     items.some((item) => item.id === "smartTreeArrange" || (item.children && hasSmartTreeItem(item.children)));
 
   return (
-    <Content>
+    <>
       {renderItems(config)}
       {smartTreeEnabled &&
         !hasSmartTreeItem(config) &&
         renderItem({ type: "item", id: "smartTreeArrange", visible: true })}
-    </Content>
+    </>
   );
 }

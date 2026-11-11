@@ -1,4 +1,5 @@
 welcome:
+  editionDeveloperCredit: Gustaf Ein mengembangkan modifikasi untuk edisi E.
   slogan: Perangkat Lunak Pemetaan Kerangka Berpikir Berbasis Teori Graf
   slogans:
     - Perangkat Lunak Pemetaan Kerangka Berpikir Berbasis Teori Graf
@@ -171,12 +172,16 @@ settings:
   smartTreeSubtreeGap:
     title: Jarak subpohon
     description: Jarak minimum keturunan subpohon berbeda dan rintangan luar.
+  connectedNodeHighlightLocked:
+    title: Kunci sorotan ke pilihan
+    description: Sorot koneksi simpul terpilih sesuai cakupan saat ini. Kosongkan pilihan untuk menghapus sorotan.
   connectedNodeHighlightScope:
     title: Jangkauan sorotan node terhubung
-    description: Mode langsung menyorot node terpilih dan tetangga langsung. Mode semua menyertakan koneksi tidak langsung. Perubahan segera berlaku tanpa membedakan arah panah.
+    description: Ikuti panah ke hulu dan hilir dari node terpilih. Berhenti jika langkah berikutnya bercabang.
     options:
       direct: Koneksi langsung saja (termasuk node terpilih)
       all: Semua node terhubung (termasuk koneksi tidak langsung)
+      chain: Hanya rantai saat ini
   textNodeMaxCharWidth:
     title: Lebar maksimum simpul teks (karakter CJK)
     description: Simpul otomatis menyesuaikan teks pendek dan membungkus teks panjang. Nilai awal 15 kali lebar 中 pada font saat ini. Perubahan langsung berlaku pada simpul otomatis yang terbuka. Lebar manual dipertahankan.
@@ -1875,7 +1880,7 @@ keyBinds:
     description: Tata akar terpilih dan keturunannya tanpa mengubah isi, hierarki, koneksi atau urutan. Aktifkan di Visual → Eksperimental.
   toggleConnectedNodeHighlight:
     title: Aktifkan sorotan node terkait
-    description: Sorot node terpilih dan koneksi langsung atau tidak langsung sesuai pengaturan jangkauan, tanpa membedakan arah. Tekan lagi untuk menghapus sorotan. Warna, pilihan, dan berkas proyek tidak berubah.
+    description: Sorot node sesuai jangkauan yang dipilih. Tekan lagi untuk menghapus sorotan.
   connectedHighlightEnabled: Menyorot {{count}} node terhubung. Tekan pintasan yang sama untuk membatalkan.
   connectedHighlightDisabled: Sorotan node terhubung dibatalkan
   title: Pengikatan Pintasan

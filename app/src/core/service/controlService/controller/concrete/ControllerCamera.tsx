@@ -24,6 +24,7 @@ export class ControllerCameraClass extends ControllerClass {
 
   // 是否正在使用
   public isUsingMouseGrabMove = false;
+  private rightPanStarted = false;
   private lastMousePressLocation: Vector[] = [Vector.getZero(), Vector.getZero(), Vector.getZero()];
   /**
    * 是否正在使用空格+左键 拖动视野
@@ -77,6 +78,7 @@ export class ControllerCameraClass extends ControllerClass {
       this.isUsingMouseGrabMove = true;
     }
     if (Settings.mouseRightDragBackground === "moveCamera" && event.button === 2) {
+      this.rightPanStarted = false;
       // 右键按下
       this.isUsingMouseGrabMove = true;
     }
@@ -86,7 +88,8 @@ export class ControllerCameraClass extends ControllerClass {
 
     if (this.isUsingMouseGrabMove && Settings.autoRefreshStageByMouseAction) {
       // 开始刷新舞台
-      this.project.stageManager.refreshAllStageObjects();
+      if (event.button === 2 && this.project.stage.length >= 512) this.project.stageManager.refreshAfterLargePan();
+      else this.project.stageManager.refreshAllStageObjects();
     }
 
     // 2025年4月28日：实验性内容
@@ -134,15 +137,11 @@ export class ControllerCameraClass extends ControllerClass {
       this.project.controller.setCursorName(CursorNameEnum.Grabbing);
     }
     if (Settings.mouseRightDragBackground === "moveCamera" && this.project.controller.isMouseDown[2]) {
-      // 还要保证这个鼠标位置没有悬浮在什么东西上
-      const mouseLocation = new Vector(event.clientX, event.clientY);
-      const worldLocation = this.project.renderer.transformView2World(mouseLocation);
-      const entity = this.project.stageManager.findEntityByLocation(worldLocation);
-      if (this.project.controller.nodeConnection.isUsing) {
-        return;
-      }
-      if (entity !== null) {
-        return;
+      if (this.project.controller.nodeConnection.isUsing) return;
+      if (!this.rightPanStarted) {
+        const world = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
+        if (this.project.stageManager.findEntityByLocation(world)) return;
+        this.rightPanStarted = true;
       }
       this.moveCameraByMouseMove(event.clientX, event.clientY, 2);
       this.project.controller.setCursorName(CursorNameEnum.Grabbing);
@@ -204,6 +203,7 @@ export class ControllerCameraClass extends ControllerClass {
     if (Settings.mouseLeftMode === "draw" && this.project.controller.pressingKeySet.has("shift")) {
       return;
     }
+    if (this.project.controller.imageScale?.canScaleAt(event)) return;
     if (this.zoomBlankCanvasAtPointer(event)) return;
     // 禁用触控板在这里的滚动
     const isUsingTouchPad = !this.isMouseWheel(event);
@@ -236,30 +236,18 @@ export class ControllerCameraClass extends ControllerClass {
   };
 
   private zoomBlankCanvasAtPointer(event: WheelEvent): boolean {
-    const keys = this.project.controller.pressingKeySet;
     if (
       isMac ||
       isIpad ||
-      !(event.ctrlKey || keys.has("control")) ||
+      !event.ctrlKey ||
       event.shiftKey ||
-      keys.has("shift") ||
       event.altKey ||
-      keys.has("alt") ||
       event.metaKey ||
-      keys.has("meta") ||
-      event.deltaX !== 0 ||
       !Number.isFinite(event.deltaY) ||
       event.deltaY === 0
     )
       return false;
-    // ControllerClass has already converted the event into this canvas's local coordinates.
-    const view = new Vector(event.clientX, event.clientY);
-    const world = this.project.renderer.transformView2World(view);
-    if (
-      this.project.stageManager.findEntityByLocation(world) ||
-      this.project.stageManager.findAssociationByLocation(world)
-    )
-      return false;
+    const view = this.project.renderer.transformWorld2View(this.project.camera.location);
     const delta = Settings.mouseWheelWithCtrlModeReverse ? -event.deltaY : event.deltaY;
     this.project.camera.zoomAtPointer(view, delta < 0 ? 1.2 : 0.8);
     this.project.effects.addEffect(MouseTipFeedbackEffect.default(delta < 0 ? "expand" : "shrink"));

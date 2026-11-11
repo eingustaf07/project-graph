@@ -56,6 +56,14 @@ export class Renderer {
    */
   resizeWindow(newW: number, newH: number) {
     const scale = window.devicePixelRatio;
+    if (newW <= 0 || newH <= 0) return;
+    if (
+      this.w === newW &&
+      this.h === newH &&
+      this.project.canvas.element.width === Math.trunc(newW * scale) &&
+      this.project.canvas.element.height === Math.trunc(newH * scale)
+    )
+      return;
     this.w = newW;
     this.h = newH;
     this.project.canvas.element.width = newW * scale;
@@ -424,6 +432,14 @@ export class Renderer {
 
   /** 手动连接线 */
   private renderConnectingLine() {
+    const drag = this.project.controller.hyperedgeCenterDrag.preview;
+    if (drag)
+      this.project.worldRenderUtils.renderLaser(
+        drag.edge.centerLocation,
+        drag.end,
+        2,
+        this.project.stageStyleManager.currentStyle.StageObjectBorder,
+      );
     if (this.project.controller.nodeConnection.isUsing) {
       const mouseLocation = this.transformView2World(MouseLocation.vector());
       const connectTargetNode = this.project.controller.nodeConnection.connectToEntity;

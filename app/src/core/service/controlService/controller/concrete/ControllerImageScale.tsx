@@ -6,10 +6,20 @@ import { isMac } from "@/utils/platform";
 import { Vector } from "@graphif/data-structures";
 
 export class ControllerImageScaleClass extends ControllerClass {
+  canScaleAt(event: WheelEvent): boolean {
+    if (!(isMac ? event.metaKey : event.ctrlKey)) return false;
+    const location = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
+    const hovered = this.project.stageManager.findEntityByLocation(location);
+    return (
+      (hovered instanceof ImageNode || hovered instanceof SvgNode || hovered instanceof ReferenceBlockNode) &&
+      this.project.stageManager.getSelectedEntities().some(
+        (entity) => entity instanceof ImageNode || entity instanceof SvgNode || entity instanceof ReferenceBlockNode,
+      )
+    );
+  }
+
   mousewheel = (event: WheelEvent) => {
-    if (
-      isMac ? this.project.controller.pressingKeySet.has("meta") : this.project.controller.pressingKeySet.has("control")
-    ) {
+    if (this.canScaleAt(event)) {
       const location = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
       const hoverEntity = this.project.stageManager.findEntityByLocation(location);
       if (hoverEntity === null) {

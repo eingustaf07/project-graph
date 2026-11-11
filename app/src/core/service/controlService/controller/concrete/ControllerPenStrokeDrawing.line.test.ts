@@ -412,6 +412,28 @@ describe("local image/ink erasing and whole-object node erasing", () => {
     n.move(new Vector(1000, 1000));
     expect(n.rectangle.right).toBeLessThanOrEqual(492);
   });
+  it("removes the fully erased container, keeping its unhit child through undo and redo", () => {
+    const { p } = fixture();
+    const d = new Doodle(p, { frame: new Rectangle(Vector.getZero(), new Vector(500, 400)), bounded: true });
+    p.stageManager.add(d);
+    const child = note(p, "child", new Vector(200, 150));
+    p.historyManager = new HistoryManager(p);
+    const erase = new CanvasEraser(p);
+    const outline = d.frame.getBoundingLines();
+    erase.begin(outline[0].start, 12);
+    for (const side of outline) {
+      erase.move(side.start);
+      erase.move(side.end);
+    }
+    erase.finish(outline[0].start);
+    expect(p.stage).not.toContain(d);
+    expect(p.stage).toContain(child);
+    expect(child.parentSection).toBeFalsy();
+    p.historyManager.undo();
+    expect(p.stage.some((entity) => entity.uuid === d.uuid)).toBe(true);
+    p.historyManager.redo();
+    expect(p.stage.some((entity) => entity.uuid === d.uuid)).toBe(false);
+  });
   it("respects viewer mode and locked groups", () => {
     const { p, record } = fixture();
     const n = image(p);

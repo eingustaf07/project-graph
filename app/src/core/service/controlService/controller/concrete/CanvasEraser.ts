@@ -1,5 +1,11 @@
 import type { Project } from "@/core/Project";
-import { eraserHitsLine, eraserHitsRectangle, makeEraserMark, type EraserMark } from "@/core/algorithm/eraserGeometry";
+import {
+  eraserHitsLine,
+  eraserHitsRectangle,
+  makeEraserMark,
+  outlineErased,
+  type EraserMark,
+} from "@/core/algorithm/eraserGeometry";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { Association } from "@/core/stage/stageObject/abstract/Association";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
@@ -120,8 +126,11 @@ export class CanvasEraser {
       return false;
     }
     try {
-      for (const [entity, masks] of oldMasks)
+      for (const [entity, masks] of oldMasks) {
         entity.erasures = [...(masks ?? []), makeEraserMark(this.path, this.radius, entity.eraserBounds)];
+        if (entity instanceof Doodle && outlineErased(entity.frame, entity.shape, entity.erasures))
+          entities.push(entity);
+      }
       this.cancel();
       if (entities.length) this.project.deleteManager.deleteEntities(entities);
       for (const association of associations) {

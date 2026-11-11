@@ -1,12 +1,11 @@
 import { Project, service } from "@/core/Project";
-import { RectangleNoteEffect } from "@/core/service/feedbackService/effectEngine/concrete/RectangleNoteEffect";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
-import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
+import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { deserialize, serialize } from "@graphif/serializer";
 import {
@@ -34,6 +33,16 @@ export enum SearchScope {
   SELECTED_BOUNDS = "selectedBounds",
 }
 
+// Signatures written by the text-node-todolist extension.
+function taskFilter(query: string) {
+  switch (query.toLowerCase()) {
+    case "/okk":
+      return { prefix: "✅ ", r: 52, g: 103, b: 53 };
+    case "/err":
+      return { prefix: "❌ ", r: 52, g: 12, b: 14 };
+  }
+}
+
 @service("contentSearch")
 export class ContentSearch {
   constructor(private readonly project: Project) {}
@@ -42,6 +51,7 @@ export class ContentSearch {
    * 搜索结果
    */
   public searchResultNodes: StageObject[] = [];
+  public locatedResult?: { node: StageObject; color: Color };
 
   /**
    * 是否忽略大小写
@@ -160,12 +170,31 @@ export class ContentSearch {
 
   public startSearch(searchString: string, autoFocus = true): boolean {
     this.searchResultNodes = [];
+    this.locatedResult = undefined;
     this.replacementCursor = undefined;
     if (searchString === "") return false;
     const objectsToSearch = this.getObjectsToSearch();
 
-    // 执行搜索
+    const filter = taskFilter(searchString);
     for (const node of objectsToSearch) {
+      if (searchString === "/空") {
+        if (node instanceof TextNode && /^(?:\s*|\s*node[_\s-]?\d+\s*)$/i.test(node.text)) {
+          this.searchResultNodes.push(node);
+        }
+        continue;
+      }
+      if (filter) {
+        if (
+          (node instanceof TextNode || node instanceof Section) &&
+          node.text.startsWith(filter.prefix) &&
+          node.color.r === filter.r &&
+          node.color.g === filter.g &&
+          node.color.b === filter.b
+        ) {
+          this.searchResultNodes.push(node);
+        }
+        continue;
+      }
       const text = this.getStageObjectText(node);
       if (this.isCaseSensitive) {
         if (text.includes(searchString)) {
@@ -181,13 +210,7 @@ export class ContentSearch {
 
     if (this.searchResultNodes.length > 0) {
       if (autoFocus) {
-        const currentNode = this.searchResultNodes[0];
-        // currentNode.isSelected = true;
-        this.project.effects.addEffect(
-          new RectangleNoteEffect(new ProgressNumber(0, 50), currentNode.collisionBox.getRectangle(), Color.Green),
-        );
-        // 摄像机对准现在的节点
-        this.project.camera.location = currentNode.collisionBox.getRectangle().center.clone();
+        this.jumpToResult(this.searchResultNodes[0]);
       }
 
       return true;
@@ -208,13 +231,7 @@ export class ContentSearch {
     }
     // 选择当前搜索结果节点
     const currentNode = this.searchResultNodes[this.currentSearchResultIndex];
-    if (currentNode) {
-      this.project.effects.addEffect(
-        new RectangleNoteEffect(new ProgressNumber(0, 50), currentNode.collisionBox.getRectangle(), Color.Green),
-      );
-      // 摄像机对准现在的节点
-      this.project.camera.location = currentNode.collisionBox.getRectangle().center.clone();
-    }
+    if (currentNode) this.jumpToResult(currentNode);
   }
 
   /**
@@ -231,13 +248,17 @@ export class ContentSearch {
     }
     // 选择当前搜索结果节点
     const currentNode = this.searchResultNodes[this.currentSearchResultIndex];
-    if (currentNode) {
-      this.project.effects.addEffect(
-        new RectangleNoteEffect(new ProgressNumber(0, 50), currentNode.collisionBox.getRectangle(), Color.Green),
-      );
-      // 摄像机对准现在的节点
-      this.project.camera.location = currentNode.collisionBox.getRectangle().center.clone();
-    }
+    if (currentNode) this.jumpToResult(currentNode);
+  }
+
+  private jumpToResult(node: StageObject) {
+    this.locatedResult = { node, color: Color.Green };
+    this.project.camera.location = node.collisionBox.getRectangle().center.clone();
+  }
+
+  public panToResult(node: StageObject) {
+    this.locatedResult = { node, color: Color.Magenta };
+    this.project.camera.bombMove(node.collisionBox.getRectangle().center);
   }
 
   public chooseSearchResult(index: number) {
@@ -290,6 +311,7 @@ export class ContentSearch {
   }
 
   public getReplacementStatus(query: string) {
+    if (taskFilter(query) || query === "/空") return { count: 0, lockedCount: 0, hasCurrent: false, atEnd: false };
     const matches = findReplacementMatches(this.getReplacementTargets(), query, this.isCaseSensitive);
     return {
       count: matches.filter((match) => !match.target.locked).length,
@@ -300,6 +322,7 @@ export class ContentSearch {
   }
 
   public replaceText(query: string, replacement: string, all: boolean) {
+    if (taskFilter(query) || query === "/空") return { count: 0, objectCount: 0, lockedCount: 0 };
     const targets = this.getReplacementTargets();
     const matches = findReplacementMatches(targets, query, this.isCaseSensitive);
     const current = all ? undefined : this.currentReplacementMatch(matches);

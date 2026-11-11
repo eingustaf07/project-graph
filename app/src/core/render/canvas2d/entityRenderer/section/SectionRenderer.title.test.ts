@@ -14,9 +14,59 @@ vi.mock("../../eraserMask", () => ({
   },
 }));
 import { SectionRenderer } from "./SectionRenderer";
+import { Settings } from "@/core/service/Settings";
 import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+
+it.each(["rectangle", "circle"])("fits a zoomed-out %s title inside the shape", (shape) => {
+  const config = {
+    sectionBitTitleRenderType: "cover",
+    sectionBigTitleCameraScaleThreshold: 0.5,
+    sectionBigTitleThresholdRatio: 0.25,
+  };
+  const previous = { ...Settings };
+  Object.assign(Settings, config);
+  try {
+    const scale = 0.2;
+    const ctx = {
+      save() {},
+      restore() {},
+      setLineDash() {},
+      beginPath() {},
+      rect() {},
+      arc() {},
+      stroke() {},
+      fillText: vi.fn(),
+    };
+    const renderTextInRectangle = vi.fn();
+    const renderer = new SectionRenderer({
+      camera: { currentScale: scale },
+      canvas: { ctx },
+      textRenderer: { renderTextInRectangle },
+      renderer: { w: 1000, h: 800, transformWorld2View: (p: Vector) => p.multiply(scale) },
+    } as any);
+    const d = Object.assign(new Doodle({} as any), {
+      text: "标题",
+      shape,
+      color: Color.Black,
+      frame: new Rectangle(new Vector(100, 200), new Vector(400, 250)),
+    });
+    renderer.render(d);
+    const [label, rect] = renderTextInRectangle.mock.calls[0];
+    expect(label).toBe(d.text);
+    expect(rect.center.x).toBeCloseTo(60);
+    expect(rect.center.y).toBeCloseTo(65);
+    expect(rect.width).toBeCloseTo(shape === "circle" ? 50 / Math.SQRT2 : 80);
+    expect(ctx.fillText).not.toHaveBeenCalled();
+    Settings.sectionBitTitleRenderType = "top";
+    renderer.render(d);
+    expect(ctx.fillText).toHaveBeenCalledOnce();
+  } finally {
+    for (const key of Object.keys(config)) Reflect.deleteProperty(Settings, key);
+    Object.assign(Settings, previous);
+  }
+});
 
 it.each([0.01, 0.1, 0.5, 1, 4, 16])("keeps a visible off-border title eligible at zoom %s", (scale) => {
   const ctx = {

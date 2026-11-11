@@ -57,7 +57,8 @@ export class ControllerClass {
   };
 
   private readonly handleMousewheel = (event: WheelEvent) => {
-    if (this.shouldHandleInteraction) this.mousewheel(this.toViewEvent(event));
+    if (!this.shouldHandleInteraction) return;
+    this.mousewheel(this.toViewEvent(event));
   };
 
   private readonly handleTouchstart = (event: TouchEvent) => {
@@ -83,8 +84,10 @@ export class ControllerClass {
   public touchmove: (event: TouchEvent) => void = () => {};
   public touchend: (event: TouchEvent) => void = () => {};
 
-  private toViewEvent<T extends PointerEvent | WheelEvent>(event: T): T {
-    const location = this.project.canvas.clientToView(event.clientX, event.clientY);
+  private toViewEvent<T extends PointerEvent | WheelEvent>(
+    event: T,
+    location = this.project.canvas.clientToView(event.clientX, event.clientY),
+  ): T {
     return new Proxy(event, {
       get(target, property) {
         if (property === "clientX") return location.x;

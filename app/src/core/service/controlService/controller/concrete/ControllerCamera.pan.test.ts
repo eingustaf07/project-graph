@@ -104,6 +104,44 @@ it("starts ten pans on a large tree without resizing unchanged nodes or moving c
   expect(p.camera.location).toEqual(new Vector(-200, -100));
 });
 
+it("finishes deferred automatic sizing after releasing a large canvas", async () => {
+  const { p, control } = fixture();
+  const child = new TextNode(p, { text: "a" });
+  p.stage = [child, ...Array.from({ length: 512 }, () => new TextNode(p, { text: "x" }))];
+  child.text = "larger ".repeat(20);
+  const refresh = vi.spyOn(child, "refreshSizeByTextIfNeeded");
+  down(control);
+  expect(refresh).not.toHaveBeenCalled();
+  control.mouseup({ button: 2 } as MouseEvent);
+  p.controller.isMouseDown[2] = false;
+  try {
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+  } finally {
+    p.stageManager.dispose();
+  }
+});
+
+it("right-drags the second canvas without moving the first or repeating background hit tests", async () => {
+  const first = fixture(),
+    second = fixture();
+  for (const { p } of [first, second]) {
+    p.canvas.clientToView = (x, y) => new Vector(x - 640, y);
+  }
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const lookup = vi.spyOn(second.p.stageManager, "findEntityByLocation");
+  const canvas = second.p.canvas.element;
+  const pointer = (type: string, x: number) =>
+    canvas.dispatchEvent(
+      new MouseEvent(type, { button: 2, buttons: type === "pointerup" ? 0 : 2, clientX: x, clientY: 40 }),
+    );
+  pointer("pointerdown", 700);
+  for (let x = 701; x <= 720; x++) pointer("pointermove", x);
+  pointer("pointerup", 720);
+  expect(first.p.camera.location).toEqual(Vector.getZero());
+  expect(second.p.camera.location).toEqual(new Vector(-20, 0));
+  expect(lookup).toHaveBeenCalledTimes(1);
+});
+
 it("still refreshes changed auto nodes and their parent while keeping manual widths", () => {
   const { p, control } = fixture();
   const child = new TextNode(p, { text: "短" });

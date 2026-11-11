@@ -28,6 +28,16 @@ import { useTranslation } from "react-i18next";
 
 type GlobalMenuConfigItem = (typeof Settings)["globalMenuConfig"][number];
 
+function MenuItems({
+  items,
+  renderItem,
+}: {
+  items?: GlobalMenuConfigItem[];
+  renderItem: (item: GlobalMenuConfigItem) => ReactNode;
+}) {
+  return items?.map(renderItem);
+}
+
 const Content = MenubarContent;
 const Item = MenubarItem;
 const Menu = MenubarMenu;
@@ -121,7 +131,9 @@ export default function GlobalMenuContent() {
             {resolveIcon(item.id, item.icon)}
             {t(`${item.id}.title`, item.label ?? item.id)}
           </SubTrigger>
-          <SubContent>{(item.children || []).map(renderItem)}</SubContent>
+          <SubContent>
+            <MenuItems items={item.children} renderItem={renderItem} />
+          </SubContent>
         </Sub>
       );
     }
@@ -161,7 +173,9 @@ export default function GlobalMenuContent() {
           {resolveIcon(top.id, top.icon)}
           <span className="hidden sm:inline">{t(`${top.id}.title`, top.label ?? top.id)}</span>
         </Trigger>
-        <Content>{(top.children || []).map(renderItem)}</Content>
+        <Content>
+          <MenuItems items={top.children} renderItem={renderItem} />
+        </Content>
       </Menu>
     );
   };

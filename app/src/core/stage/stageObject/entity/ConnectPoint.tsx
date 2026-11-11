@@ -50,7 +50,7 @@ export class ConnectPoint extends ConnectableEntity {
     if (oldValue === value) {
       return;
     }
-    this._isSelected = value;
+    super.isSelected = value;
 
     const rectangle = this.collisionBox.shapes[0];
     if (!(rectangle instanceof Rectangle)) {

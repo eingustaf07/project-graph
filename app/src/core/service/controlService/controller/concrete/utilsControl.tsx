@@ -10,6 +10,7 @@ import type { Edge } from "@/core/stage/stageObject/association/Edge";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
+import { MediaNode } from "@/core/stage/stageObject/entity/MediaNode";
 import { ReferenceBlockNode } from "@/core/stage/stageObject/entity/ReferenceBlockNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
@@ -349,6 +350,7 @@ export class ControllerUtils {
       if (
         selectedEntity instanceof TextNode ||
         selectedEntity instanceof SvgNode ||
+        selectedEntity instanceof MediaNode ||
         selectedEntity instanceof ReferenceBlockNode
       ) {
         // 对TextNode进行特殊处理，只在手动模式下允许缩放

@@ -50,3 +50,41 @@ export function eraserMarkContains(mark: EraserMark, point: Vector, frame: Recta
   const points = mark.points.map(([x, y]) => new Vector(x / mark.radiusX, y / mark.radiusY));
   return points.some((v, i) => pointSegmentDistance(p, i ? points[i - 1] : v, v) <= 1);
 }
+
+// Bound the work and keep the frame when a boundary interval is ambiguous.
+export function outlineErased(frame: Rectangle, shape: "circle" | "rectangle", marks: EraserMark[]): boolean {
+  const r = eraserFrame(frame);
+  const strokes = marks
+    .filter((m) => m.points.length && m.radiusX > 0 && m.radiusY > 0)
+    .map((m) => ({
+      rx: r.width * m.radiusX,
+      ry: r.height * m.radiusY,
+      points: m.points.map(([x, y]) => new Vector(x / m.radiusX, y / m.radiusY)),
+    }));
+  if (!strokes.length) return false;
+  let budget = 4096;
+  function covered(at: (t: number) => Vector, start: number, end: number, length: number): boolean {
+    if (--budget < 0) return false;
+    const mid = (start + end) / 2;
+    const point = at(mid);
+    let inside = false;
+    for (const { rx, ry, points } of strokes) {
+      const p = new Vector((point.x - r.left) / rx, (point.y - r.top) / ry);
+      for (let i = 0; i < points.length; i++) {
+        const margin = (1 - pointSegmentDistance(p, points[Math.max(0, i - 1)], points[i])) * Math.min(rx, ry);
+        // Everything within this distance from the midpoint is inside the stroke.
+        if (margin >= length / 2) return true;
+        if (margin > 0) inside = true;
+      }
+    }
+    return inside && length > 0.0001 && covered(at, start, mid, length / 2) && covered(at, mid, end, length / 2);
+  }
+  if (shape === "circle") {
+    const radius = Math.min(frame.width, frame.height) / 2;
+    const at = (t: number) => frame.center.add(new Vector(Math.cos(t), Math.sin(t)).multiply(radius));
+    return covered(at, 0, 2 * Math.PI, 2 * Math.PI * radius);
+  }
+  return frame
+    .getBoundingLines()
+    .every(({ start, end }) => covered((t) => start.add(end.subtract(start).multiply(t)), 0, 1, start.distance(end)));
+}

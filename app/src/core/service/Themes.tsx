@@ -1,6 +1,7 @@
 import type { Extension } from "@/core/extension/Extension";
 import { camelCaseToDashCase } from "@/utils/font";
 import { parseYamlWithFrontmatter } from "@/utils/yaml";
+import { contrastingText, readPalette } from "./themePalette";
 
 export namespace Themes {
   export type Metadata = {
@@ -51,6 +52,27 @@ export namespace Themes {
   }
 
   export async function getThemeById(id: string) {
+    const palette = readPalette(id);
+    if (palette) {
+      const type = contrastingText(palette.background) === "#000000" ? "light" : "dark";
+      const base = builtinThemes.find((theme) => theme.metadata.id === type)!;
+      return {
+        metadata: { ...base.metadata, id, name: "自选配色" },
+        content: {
+          ...base.content,
+          ...palette,
+          brand: palette.primary,
+          ring: palette.primary,
+          "primary-foreground": contrastingText(palette.primary),
+          stage: {
+            ...base.content.stage,
+            Background: palette.background,
+            StageObjectBorder: palette.foreground,
+            NodeDetailsText: palette.foreground,
+          },
+        },
+      };
+    }
     // 先尝试找内置主题
     const builtinTheme = builtinThemes.find((theme) => theme.metadata.id === id);
     if (builtinTheme) return builtinTheme;
