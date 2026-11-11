@@ -21,6 +21,7 @@ vi.mock("@/state", () => ({
 vi.mock("@/utils/platform", () => ({ isMac: false }));
 vi.mock("@/utils/store", () => ({
   createStore: async () => ({
+    entries: async () => [...fixture.saved.entries()],
     get: async (key: string) => fixture.saved.get(key),
     set: async (key: string, value: unknown) => fixture.saved.set(key, value),
     save: fixture.save,

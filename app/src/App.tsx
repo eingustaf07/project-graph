@@ -98,8 +98,6 @@ export default function App() {
     (async () => {
       await checkAndFixShortcutStorage();
     })();
-    // 注册UI级别快捷键
-    KeyBindsUI.registerAllUIKeyBinds();
     KeyBindsUI.uiStartListen();
 
     // 在捕获阶段禁止浏览器/WebView 原生右键菜单，但允许 Radix ContextMenu 处理自己的触发区域。

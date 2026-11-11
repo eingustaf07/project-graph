@@ -236,8 +236,9 @@ export namespace KeyBindsUI {
   }
   async function registerStoredUIKeyBinds() {
     const store = await createStore("keybinds2.json");
+    const savedBindings = new Map(await store.entries<string | { key: string; isEnabled?: boolean }>());
     for (const keybind of allKeyBinds.filter((keybindItem) => !keybindItem.isGlobal)) {
-      const savedData = await store.get<any>(keybind.id);
+      const savedData = savedBindings.get(keybind.id);
       let key: string;
       let isEnabled: boolean;
 

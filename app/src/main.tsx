@@ -2,6 +2,7 @@ import { runCli } from "@/cli";
 import { Toaster } from "@/components/ui/sonner";
 import { authClient } from "@/core/service/AuthClient";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
+import { KeyBindsUI } from "@/core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { RecentFileManager } from "@/core/service/dataFileService/RecentFileManager";
 import { StartFilesManager } from "@/core/service/dataFileService/StartFilesManager";
 import { ColorManager } from "@/core/service/feedbackService/ColorManager";
@@ -80,6 +81,7 @@ setTimeout(() => {
     }
     // 这些东西依赖上面的东西，所以单独一个Promise.all
     await Promise.all([loadLanguageFiles(), loadSyncModules(), ...(isCliDesktopAcceptance ? [] : [initAuth()])]);
+    await KeyBindsUI.registerAllUIKeyBinds();
     await renderApp(isCliMode, isCliDesktopAcceptance);
     if (isCliDesktopAcceptance) {
       await invoke("write_cli_desktop_acceptance_state", {
