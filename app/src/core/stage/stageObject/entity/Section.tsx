@@ -12,6 +12,7 @@ import { Line, Rectangle, Shape } from "@graphif/shapes";
 import { Value } from "platejs";
 import { doodleContainsPoint, fitDoodleBounds, type DoodleShape } from "@/core/algorithm/doodleBounds";
 import { translateClipboardEntities } from "@/core/service/dataManageService/copyEngine/clipboardPosition";
+import { solveContainerCollisions } from "@/core/stage/stageManager/concreteMethods/ContainerCollision";
 import type { EraserMark } from "@/core/algorithm/eraserGeometry";
 import { toast } from "sonner";
 
@@ -465,6 +466,7 @@ export class Doodle extends Section {
     if (Settings.containerNBoundary && this.project.entityMoveManager?.isMovingWithinContainer) return;
     const delta = fitDoodleBounds(this.frame, this.shape, box);
     if (delta && Math.abs(delta.x) < 0.001 && Math.abs(delta.y) < 0.001) return;
+    const before = this.frame.clone();
     if (this.shape === "rectangle") {
       this.frame = Rectangle.getBoundingRectangle([
         this.frame,
@@ -479,6 +481,7 @@ export class Doodle extends Section {
         ) + 8.001;
       this.frame = new Rectangle(center.subtract(Vector.same(radius)), Vector.same(radius * 2));
     }
+    solveContainerCollisions(this.project, new Map([[this, before]]), false);
     this.parentSection?.constrainChild?.(this);
   }
 
@@ -621,7 +624,10 @@ export class Doodle extends Section {
       : null;
     const delta = this.bounded && bounds ? fitDoodleBounds(normalized, this.shape, bounds) : Vector.getZero();
     if (!delta) throw new Error("边界不能小于内部节点，请扩大图形或先移出节点");
+    const before = this.frame.clone();
     this.frame = normalized;
+    if (!solveContainerCollisions(this.project, new Map([[this, before]]), false))
+      throw new Error("容器碰撞后没有足够空间，请先移开相邻容器");
     if (delta.x || delta.y) translateClipboardEntities(this.children.flatMap(tree), delta);
     this.children.forEach((child) => this.remember(child));
   }
@@ -637,8 +643,11 @@ export class Doodle extends Section {
     this.frame = new Rectangle(this.frame.location.add(delta), this.frame.size.clone());
   }
   override move(delta: Vector): void {
+    const before = this.frame.clone();
     this.translateClipboardGeometry(delta);
     translateClipboardEntities(this.children.flatMap(tree), delta);
+    if (!this.project.entityMoveManager?.isMovingContainerBatch)
+      solveContainerCollisions(this.project, new Map([[this, before]]));
     this.children.forEach((child) => this.remember(child));
     this.updateFatherSectionByMove();
   }

@@ -125,6 +125,14 @@ export default function AboutTab() {
 
 const versionHistory = [
   {
+    version: "2.3",
+    title: "容器碰撞与节点编辑",
+    changes: [
+      "设置 → 控制 → 框中新增容器框物理碰撞开关，同级容器相碰时推开另一容器及内部全部内容。涂鸦框不参与，按住 V 拖动可临时穿越。",
+      "修复双击新建文本节点后未自动进入编辑模式的问题，适用于选择、涂鸦和切割鼠标模式。",
+    ],
+  },
+  {
     version: "2.2",
     title: "直线涂鸦、快捷容器与查询",
     changes: [

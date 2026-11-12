@@ -197,20 +197,185 @@ it("grows a real hyperedge only on right drag from its center, with one undo ste
   }
 });
 beforeEach(() => {
+  Settings.enableContainerCollision = false;
   vi.clearAllMocks();
   Settings.containerAutoExpand = false;
   Settings.containerNBoundary = false;
 });
+describe("container-to-container physical collisions", () => {
+  function setup() {
+    Settings.enableContainerCollision = true;
+    const p = fixture();
+    const box = (x: number, bounded = true) => {
+      const d = new Doodle(p, {
+        bounded,
+        frame: new Rectangle(new Vector(x, 0), new Vector(200, 200)),
+      });
+      p.stage.push(d);
+      return d;
+    };
+    return { p, box };
+  }
+  it("pushes the other container with nested containers and nodes, then supports undo and redo", () => {
+    const { p, box } = setup();
+    const a = box(0),
+      b = box(250),
+      c = box(550);
+    const inner = new Doodle(p, {
+      bounded: true,
+      frame: new Rectangle(new Vector(270, 20), new Vector(140, 140)),
+    });
+    const child = node(p, "子", new Vector(290, 50));
+    child.forceAdjustSizeByText();
+    inner.adopt(child);
+    b.adopt(inner);
+    p.stage.push(inner, child);
+    p.stageManager.updateReferences();
+    const offset = child.rectangle.location.subtract(b.frame.location);
+    const original = serialize(p.stage);
+    p.historyManager.recordStep();
+    a.move(new Vector(150, 0));
+    expect(a.frame.isCollideWith(b.frame)).toBe(false);
+    expect(b.frame.isCollideWith(c.frame)).toBe(false);
+    expect(child.rectangle.location.subtract(b.frame.location)).toEqual(offset);
+    expect(inner.parentSection).toBe(b);
+    const after = serialize(p.stage);
+    p.historyManager.recordStep();
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(original);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(after);
+  });
+  it("excludes decorative frames and supports disabling the setting", () => {
+    const { box } = setup();
+    const a = box(0),
+      decorative = box(250, false);
+    a.move(new Vector(150, 0));
+    expect(decorative.frame.left).toBe(250);
+    const b = box(700);
+    Settings.enableContainerCollision = false;
+    b.move(new Vector(-450, 0));
+    expect(b.frame.left).toBe(250);
+  });
+  it("rolls back a move or resize against a locked container without moving children", () => {
+    const { p, box } = setup();
+    const a = box(0),
+      b = box(250);
+    const child = node(p, "子", new Vector(40, 50));
+    a.adopt(child);
+    p.stage.push(child);
+    b.locked = true;
+    const original = serialize(p.stage);
+    a.move(new Vector(200, 0));
+    expect(serialize(p.stage)).toEqual(original);
+    expect(() => a.resizeFrame(new Rectangle(new Vector(-50, 0), new Vector(400, 200)))).toThrow("容器碰撞");
+    expect(serialize(p.stage)).toEqual(original);
+  });
+  it("pushes even when a fast move would pass completely through a container", () => {
+    const { box } = setup();
+    const a = box(0),
+      b = box(250);
+    a.move(new Vector(1000, 0));
+    expect(b.frame.left).toBeGreaterThanOrEqual(a.frame.right);
+  });
+  it("temporarily bypasses collisions during a V drag and keeps multi-container offsets", () => {
+    const { p, box } = setup();
+    const a = box(0),
+      b = box(250),
+      c = box(600);
+    a.isSelected = b.isSelected = true;
+    p.entityMoveManager.dragSelection(new Vector(200, 0), false);
+    expect(b.frame.left - a.frame.left).toBe(250);
+    expect(b.frame.isCollideWith(c.frame)).toBe(false);
+    p.controller.pressingKeySet.add("v");
+    const before = c.frame.clone();
+    p.entityMoveManager.dragSelection(new Vector(500, 0), false);
+    expect(c.frame).toEqual(before);
+    p.controller.pressingKeySet.delete("v");
+    a.isSelected = false;
+    p.entityMoveManager.dragSelection(new Vector(-500, 0), false);
+    expect(b.frame.isCollideWith(c.frame)).toBe(false);
+  });
+  it("keeps every selected object in place if a group hits a locked obstacle", () => {
+    const { p, box } = setup();
+    const a = box(0),
+      b = box(250);
+    b.locked = true;
+    const child = node(p, "外部节点", new Vector(1000, 500));
+    p.stage.push(child);
+    a.isSelected = child.isSelected = true;
+    const before = serialize(p.stage);
+    p.entityMoveManager.dragSelection(new Vector(200, 0), false);
+    expect(serialize(p.stage)).toEqual(before);
+  });
+  it("refuses a push without space in the parent and keeps sibling membership", () => {
+    const { p, box } = setup();
+    const parent = new Doodle(p, {
+      bounded: true,
+      frame: new Rectangle(Vector.getZero(), new Vector(460, 216)),
+    });
+    p.stage.push(parent);
+    const a = box(8),
+      b = box(250);
+    a.frame.location.y = b.frame.location.y = 8;
+    parent.adopt(a);
+    parent.adopt(b);
+    const before = serialize(p.stage);
+    a.move(new Vector(160, 0));
+    expect(serialize(p.stage)).toEqual(before);
+    expect(a.parentSection).toBe(parent);
+    expect(b.parentSection).toBe(parent);
+  });
+  it("pushes a neighbor during auto expansion and leaves decorative geometry alone", () => {
+    const { box } = setup();
+    const a = box(0),
+      b = box(250),
+      decoration = box(260, false);
+    Settings.containerAutoExpand = true;
+    const before = decoration.frame.clone();
+    a.expandForContent(new Rectangle(new Vector(160, 50), new Vector(200, 50)));
+    expect(a.frame.right).toBeGreaterThan(360);
+    expect(a.frame.isCollideWith(b.frame)).toBe(false);
+    expect(decoration.frame).toEqual(before);
+  });
+  it("does not move siblings when dragging a nested container past its parent's boundary", () => {
+    const { p, box } = setup();
+    const parent = new Doodle(p, {
+      bounded: true,
+      frame: new Rectangle(Vector.getZero(), new Vector(800, 600)),
+    });
+    p.stage.push(parent);
+    const a = box(40),
+      b = box(400);
+    a.frame.location.y = b.frame.location.y = 100;
+    parent.adopt(a);
+    parent.adopt(b);
+    const before = serialize(p.stage);
+    a.move(new Vector(1000, 0));
+    expect(serialize(p.stage)).toEqual(before);
+  });
+  it("handles a fast move across 100 containers without recursive collision propagation", () => {
+    const { box } = setup();
+    const a = box(0);
+    const others = Array.from({ length: 100 }, (_, i) => box(250 + i * 250));
+    a.move(new Vector(26000, 0));
+    const frames = [a, ...others].map((n) => n.frame);
+    for (let i = 0; i < frames.length; i++)
+      for (let j = i + 1; j < frames.length; j++) expect(frames[i].isCollideWith(frames[j])).toBe(false);
+  });
+});
+
 describe("real PG doodles and fixed containers", () => {
   it("packs selected real nodes into a bounded Ctrl+G container, preserves edges and supports undo/redo and reload", async () => {
     const p = fixture();
-    const a = node(p, "a", new Vector(200, 200)), b = node(p, "b", new Vector(350, 250));
+    const a = node(p, "a", new Vector(200, 200)),
+      b = node(p, "b", new Vector(350, 250));
     const edge = new LineEdge(p, { associationList: [a, b] });
     p.stage.push(a, b, edge);
     p.stageManager.updateReferences();
     p.historyManager.recordStep();
     a.isSelected = b.isSelected = true;
-    const container = await p.sectionPackManager.packSelectedEntitiesToSection(true) as Doodle;
+    const container = (await p.sectionPackManager.packSelectedEntitiesToSection(true)) as Doodle;
     expect(container).toBeInstanceOf(Doodle);
     expect(container.bounded).toBe(true);
     expect(container.children).toEqual([a, b]);
@@ -251,7 +416,7 @@ describe("real PG doodles and fixed containers", () => {
     p.stageManager.add(a);
     outer.adopt(a);
     a.isSelected = true;
-    const inner = await p.sectionPackManager.packSelectedEntitiesToSection(true) as Doodle;
+    const inner = (await p.sectionPackManager.packSelectedEntitiesToSection(true)) as Doodle;
     expect(inner.parentSection).toBe(outer);
     expect(outer.children).toEqual([inner]);
     expect(a.parentSection).toBe(inner);
@@ -533,12 +698,17 @@ describe("real PG doodles and fixed containers", () => {
   });
   it("allows V dragging a selection spanning a container boundary", () => {
     Settings.containerNBoundary = true;
-    const p = fixture(), frame = cage(p);
-    const a = node(p, "inside", new Vector(210, 215)), b = node(p, "outside", new Vector(900, 215));
-    for (const n of [a, b]) { p.stageManager.add(n); n.isSelected = true; }
+    const p = fixture(),
+      frame = cage(p);
+    const a = node(p, "inside", new Vector(210, 215)),
+      b = node(p, "outside", new Vector(900, 215));
+    for (const n of [a, b]) {
+      p.stageManager.add(n);
+      n.isSelected = true;
+    }
     expect(a.parentSection).toBe(frame);
     expect(b.parentSection).toBeNull();
-    const before = [a, b].map(n => n.rectangle.center.clone());
+    const before = [a, b].map((n) => n.rectangle.center.clone());
     p.entityMoveManager.beginPointerDrag(a, before[0]);
     p.controller.pressingKeySet.add("v");
     const delta = new Vector(12, 0);

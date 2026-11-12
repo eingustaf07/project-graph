@@ -285,6 +285,7 @@ export const settingsIcons = {
   maxFpsUnfocused: Timer,
   aiContextWindow: Gauge,
   snapNewNodesToGrid: AlignJustify,
+  enableContainerCollision: SquareDashed,
   enableSmartTreeArrange: AlignJustify,
   smartTreeArrangeMode: AlignJustify,
   smartTreeArrangeDirection: ArrowRight,

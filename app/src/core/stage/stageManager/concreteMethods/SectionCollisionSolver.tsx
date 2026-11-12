@@ -26,11 +26,13 @@ export class SectionCollisionSolver {
    * @param visited      本次求解链中已处理过的 Section uuid（防止循环）
    */
   solveOverlaps(grownSection: Section, visited: Set<string> = new Set()): void {
+    // Fixed containers have their own atomic solver; decorative frames never participate.
+    if (grownSection.isDoodle) return;
     if (!Settings.isEnableSectionCollision || this.project.entityMoveManager?.ignoresDragCollisions) return;
     if (visited.has(grownSection.uuid)) return;
     visited.add(grownSection.uuid);
 
-    const siblings = this.getSiblingsSections(grownSection);
+    const siblings = this.getSiblingsSections(grownSection).filter((sibling) => !sibling.isDoodle);
     const grownRect = grownSection.collisionBox.getRectangle();
 
     for (const sibling of siblings) {

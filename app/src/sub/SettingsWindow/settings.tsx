@@ -418,7 +418,13 @@ export const categories = {
       "newNodeScaleByCamera",
       "newNodeScaleByCameraOffset",
     ],
-    section: ["isEnableSectionCollision", "autoEnterSectionEditMode", "containerAutoExpand", "containerNBoundary"],
+    section: [
+      "isEnableSectionCollision",
+      "enableContainerCollision",
+      "autoEnterSectionEditMode",
+      "containerAutoExpand",
+      "containerNBoundary",
+    ],
     edge: [
       "allowAddCycleEdge",
       "enableDragNodeShakeDetachFromEdge",

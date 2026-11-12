@@ -194,6 +194,9 @@ contextMenu:
   confirm: 確定
   cancel: 取消
 settings:
+  enableContainerCollision:
+    title: 容器框之間物理碰撞
+    description: 同層容器碰到時推開對方及其內容，塗鴉框不參與。按住 V 拖曳暫時穿越；鎖定容器或空間不足時保留原位置。
   enableSmartTreeArrange:
     title: 啟用智慧規整樹形布局（實驗）
     description: 選根節點後按 Ctrl+Alt+L 或使用右鍵選單，可整次復原。虛線保留為關聯邊；環路、多父及群組內節點暫不支援。快捷鍵可自訂。

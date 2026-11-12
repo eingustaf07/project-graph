@@ -6,7 +6,9 @@ import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { ContainerNodeDrag } from "./ContainerNodeDrag";
-import type { Doodle } from "@/core/stage/stageObject/entity/Doodle";
+import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
+import { solveContainerCollisions } from "./ContainerCollision";
+import { translateClipboardEntities } from "@/core/service/dataManageService/copyEngine/clipboardPosition";
 import type { Rectangle } from "@graphif/shapes";
 import { Vector } from "@graphif/data-structures";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
@@ -27,6 +29,9 @@ export class EntityMoveManager {
   private collisionIndex?: DragCollisionIndex;
   private collisionIndexDirty = false;
   private translatingBatch = false;
+  get isMovingContainerBatch() {
+    return this.translatingBatch;
+  }
   get resizedContainerDuringDrag() {
     return this.containerDrag?.resizedByImpact ?? false;
   }
@@ -60,6 +65,16 @@ export class EntityMoveManager {
       for (const entity of entities) this.moveEntityUtils(entity, delta, adjustSections);
       return;
     }
+    const before = new Map(
+      Settings.enableContainerCollision && !this.ignoresDragCollisions
+        ? entities
+            .filter((n): n is Doodle => n instanceof Doodle && n.bounded)
+            .map((n) => [n, n.frame.clone()] as const)
+        : [],
+    );
+    const locations = before.size
+      ? new Map(entities.map((n) => [n, n.collisionBox.getRectangle().location.clone()]))
+      : new Map<Entity, Vector>();
     try {
       this.translatingBatch = true;
       const group = this.pointerMoving ? this.containerDrag?.constrainBatch(entities, delta) : undefined;
@@ -69,6 +84,18 @@ export class EntityMoveManager {
         for (const entity of entities) this.moveEntityUtils(entity, delta, adjustSections);
       }
       this.translatingBatch = false;
+      if (!solveContainerCollisions(this.project, before)) {
+        for (const entity of entities) {
+          if (entity instanceof Doodle) continue;
+          let parent = entity.parentSection;
+          while (parent && !(parent instanceof Doodle && before.has(parent))) parent = parent.parentSection;
+          if (!parent)
+            translateClipboardEntities(
+              [entity],
+              locations.get(entity)!.subtract(entity.collisionBox.getRectangle().location),
+            );
+        }
+      }
       const wasMoving = this.isMovingWithinContainer;
       this.isMovingWithinContainer = true;
       try {

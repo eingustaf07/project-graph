@@ -116,6 +116,7 @@ export const settingsSchema = z.object({
   compatibilityMode: z.boolean().default(false),
   isEnableEntityCollision: projectToolSettingSchemas.isEnableEntityCollision,
   isEnableSectionCollision: projectToolSettingSchemas.isEnableSectionCollision,
+  enableContainerCollision: z.boolean().default(true),
   autoNamerTemplate: z.string().default("..."),
   autoNamerSectionTemplate: z.string().default("Section_{{i}}"),
   autoNamerDetailsTemplate: z.string().default(""),
@@ -277,7 +278,12 @@ export const settingsSchema = z.object({
   enableCollision: z.boolean().default(true),
   enableDragAlignToGrid: z.boolean().default(false),
   mouseLeftMode: z
-    .union([z.literal("selectAndMove"), z.literal("accumulateSelection"), z.literal("draw"), z.literal("connectAndCut")])
+    .union([
+      z.literal("selectAndMove"),
+      z.literal("accumulateSelection"),
+      z.literal("draw"),
+      z.literal("connectAndCut"),
+    ])
     .default("selectAndMove"),
   doubleClickEmptySpaceAction: z.union([z.literal("createTextNode"), z.literal("none")]).default("createTextNode"),
   soundEnabled: z.boolean().default(true),

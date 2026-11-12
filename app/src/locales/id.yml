@@ -146,6 +146,9 @@ contextMenu:
   cancel: Batal
 
 settings:
+  enableContainerCollision:
+    title: Tabrakan antarwadah
+    description: Dorong wadah saudara beserta isinya. Bingkai dekoratif dikecualikan. Tahan V saat menyeret untuk melewati tabrakan. Posisi awal dipertahankan jika wadah terkunci atau ruang tidak cukup.
   enableSmartTreeArrange:
     title: Aktifkan penataan pohon cerdas (eksperimental)
     description: Pilih akar lalu tekan Ctrl+Alt+L atau gunakan menu konteks. Bisa diurungkan sekali. Tautan putus-putus tetap sebagai asosiasi; siklus, banyak induk dan simpul dalam grup ditolak. Pintasan dapat diubah.

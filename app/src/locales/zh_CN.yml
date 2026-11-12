@@ -164,6 +164,9 @@ contextMenu:
   cancel: 取消
 
 settings:
+  enableContainerCollision:
+    title: 容器框之间物理碰撞
+    description: 同级容器相碰时推开另一容器及其内部内容，涂鸦框不参与。按住 V 拖动时临时穿越；锁定容器或父容器空间不足时保留原位置。
   snapNewNodesToGrid:
     title: 新节点吸附到背景方格
     description: 同时显示背景横线和竖线时，新节点选择移动距离最小的角吸附到网格交点，树形分支保留间距。

@@ -129,6 +129,9 @@ about:
     a team culture that combines logical rationality with humor and fun.
 
 settings:
+  enableContainerCollision:
+    title: Container collisions
+    description: Push sibling containers together with their contents. Decorative frames are excluded. Hold V while dragging to bypass collisions. Locked obstacles or insufficient space preserve the original position.
   snapNewNodesToGrid:
     title: Snap new nodes to the background grid
     description: Align the nearest rectangle corner to a grid intersection while both horizontal and vertical lines are visible. Keep tree branches spaced apart.
