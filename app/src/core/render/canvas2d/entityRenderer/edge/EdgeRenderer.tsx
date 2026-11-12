@@ -76,40 +76,47 @@ export class EdgeRenderer {
       }
     }
 
+    if (source.uuid !== target.uuid) {
+      const points = Settings.lineStyle === "vertical" ? edge.orthogonalPath : [edge.bodyLine.start, edge.bodyLine.end];
+      if (points.length > 1) this.renderEndpointDots(points[0], points.at(-1)!, edge.color);
+    }
     // 选中的高亮效果
     if (edge.isSelected) {
+      const selectedPath = Settings.lineStyle === "vertical" ? edge.orthogonalPath : undefined;
       this.project.collisionBoxRenderer.render(
         edge.collisionBox,
         this.project.stageStyleManager.currentStyle.CollideBoxSelected,
       );
       // 还要标注起始点和终止点
       this.project.shapeRenderer.renderCircle(
-        this.project.renderer.transformWorld2View(edge.sourceLocation),
+        this.project.renderer.transformWorld2View(selectedPath?.[0] ?? edge.sourceLocation),
         10 * this.project.camera.currentScale,
         Color.Transparent,
         this.project.stageStyleManager.currentStyle.CollideBoxSelected,
         2 * this.project.camera.currentScale,
       );
       this.project.shapeRenderer.renderCircle(
-        this.project.renderer.transformWorld2View(edge.targetLocation),
+        this.project.renderer.transformWorld2View(selectedPath?.at(-1) ?? edge.targetLocation),
         10 * this.project.camera.currentScale,
         Color.Transparent,
         this.project.stageStyleManager.currentStyle.CollideBoxSelected,
         2 * this.project.camera.currentScale,
       );
       // 画一个虚线
-      this.project.curveRenderer.renderDashedLine(
-        this.project.renderer.transformWorld2View(edge.sourceLocation),
-        this.project.renderer.transformWorld2View(edge.targetLocation),
-        this.project.stageStyleManager.currentStyle.CollideBoxSelected,
-        2 * this.project.camera.currentScale,
-        10 * this.project.camera.currentScale,
-      );
+      if (Settings.lineStyle !== "vertical")
+        this.project.curveRenderer.renderDashedLine(
+          this.project.renderer.transformWorld2View(edge.sourceLocation),
+          this.project.renderer.transformWorld2View(edge.targetLocation),
+          this.project.stageStyleManager.currentStyle.CollideBoxSelected,
+          2 * this.project.camera.currentScale,
+          10 * this.project.camera.currentScale,
+        );
     }
   }
 
   renderCrEdge(edge: CubicCatmullRomSplineEdge) {
     renderCrEdge(this.project, edge, this.renderArrowHead.bind(this));
+    this.renderEndpointDots(edge.bodyLine.start, edge.bodyLine.end, edge.color);
   }
 
   renderArcEdge(edge: ArcEdge) {
@@ -127,6 +134,20 @@ export class EdgeRenderer {
         sourceDirection,
       );
     });
+    this.renderEndpointDots(edge.clippedStart, edge.clippedEnd, edge.color);
+  }
+  private renderEndpointDots(start: Vector, end: Vector, color: Color) {
+    const fill = color.equals(Color.Transparent)
+      ? this.project.stageStyleManager.currentStyle.StageObjectBorder
+      : color;
+    for (const point of [start, end])
+      this.project.shapeRenderer.renderCircle(
+        this.project.renderer.transformWorld2View(point),
+        2.5,
+        fill,
+        Color.Transparent,
+        0,
+      );
   }
 
   /**

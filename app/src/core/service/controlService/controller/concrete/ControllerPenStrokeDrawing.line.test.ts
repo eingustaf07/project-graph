@@ -135,7 +135,7 @@ describe("straight and colored drawing with real PG strokes", () => {
       try {
         await create.mouseDoubleClick(event(100, 100));
         expect(SoundService.playNodeCreated).toHaveBeenCalledTimes(1);
-        expect(add).toHaveBeenCalledWith(new Vector(150, 100), true, true);
+        expect(add).toHaveBeenCalledWith(new Vector(150, 100), true, true, true);
         expect(Settings.mouseLeftMode).toBe(mode);
         add.mockClear();
         await create.mouseDoubleClick(event(100, 100, { button: 2 }));

@@ -9,6 +9,8 @@ import { getMultiLineTextSize } from "@/utils/font";
 import { Color, Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
+import { getOrthogonalEdgePath } from "./OrthogonalEdgePath";
+import { Settings } from "@/core/service/Settings";
 
 @passExtraAtArg1
 @passObject
@@ -27,6 +29,9 @@ export class LineEdge extends Edge {
 
   get collisionBox(): CollisionBox {
     return EdgeCollisionBoxGetter.getCollisionBox(this);
+  }
+  get orthogonalPath() {
+    return getOrthogonalEdgePath(this, this.project);
   }
 
   /**
@@ -103,6 +108,19 @@ export class LineEdge extends Edge {
     if (this.source.uuid === this.target.uuid) {
       const textLocation = this.source.collisionBox.getRectangle().location.add(new Vector(0, -50));
       return new Rectangle(textLocation.subtract(textSize.divide(2)), textSize);
+    }
+    if (Settings.lineStyle === "vertical") {
+      const points = this.orthogonalPath;
+      let longest = 0,
+        center = this.bodyLine.midPoint();
+      for (let i = 1; i < points.length; i++) {
+        const length = points[i].distance(points[i - 1]);
+        if (length > longest) {
+          longest = length;
+          center = points[i].add(points[i - 1]).multiply(0.5);
+        }
+      }
+      return new Rectangle(center.subtract(textSize.divide(2)), textSize);
     }
     if (this._shiftingIndex !== 0) {
       return new Rectangle(this.shiftingMidPoint.subtract(textSize.divide(2)), textSize);

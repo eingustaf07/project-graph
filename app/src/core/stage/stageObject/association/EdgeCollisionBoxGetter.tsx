@@ -28,17 +28,19 @@ export namespace EdgeCollisionBoxGetter {
    * @param edge
    */
   export function getCollisionBox(edge: LineEdge): CollisionBox {
+    const style = Settings.lineStyle ?? currentStyle;
     if (edge.source.uuid === edge.target.uuid) {
       // 是一个自环，碰撞箱是圆形
       const sourceEntityRect = edge.source.collisionBox.getRectangle();
       return new CollisionBox([new Circle(sourceEntityRect.location, sourceEntityRect.size.y / 2)]);
     } else {
-      if (currentStyle === "bezier") {
+      if (style === "bezier") {
         return getBezierCollisionBox(edge);
-      } else if (currentStyle === "straight") {
+      } else if (style === "straight") {
         return getStraightCollisionBox(edge);
-      } else if (currentStyle === "vertical") {
-        return new CollisionBox([edge.bodyLine]);
+      } else if (style === "vertical") {
+        const points = edge.orthogonalPath;
+        return new CollisionBox(points.slice(1).map((point, i) => new Line(points[i], point)));
       } else {
         return new CollisionBox([edge.bodyLine]);
       }

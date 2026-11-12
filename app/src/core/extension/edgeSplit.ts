@@ -1,4 +1,5 @@
 import type { Project } from "@/core/Project";
+import { Settings } from "@/core/service/Settings";
 import { ArcEdge } from "@/core/stage/stageObject/association/ArcEdge";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { Vector } from "@graphif/data-structures";
@@ -29,6 +30,18 @@ export async function splitSelectedExtensionEdge(project: Project): Promise<stri
     return;
   }
   let midpoint = Vector.average(start, end);
+  if (edge instanceof LineEdge && Settings.lineStyle === "vertical") {
+    const path = edge.orthogonalPath;
+    const lengths = path.slice(1).map((p, i) => p.distance(path[i]));
+    let remaining = lengths.reduce((sum, n) => sum + n, 0) / 2;
+    for (let i = 0; i < lengths.length; i++) {
+      if (remaining <= lengths[i]) {
+        midpoint = path[i].add(path[i + 1].subtract(path[i]).multiply(lengths[i] ? remaining / lengths[i] : 0));
+        break;
+      }
+      remaining -= lengths[i];
+    }
+  }
   let firstOffset = 0,
     secondOffset = 0;
   if (edge instanceof ArcEdge && Math.abs(edge.offset) > 0.001) {

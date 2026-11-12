@@ -263,10 +263,19 @@ export class ControllerUtils {
     });
   }
 
-  async addTextNodeByLocation(location: Vector, selectCurrent: boolean = false, autoEdit: boolean = false) {
+  async addTextNodeByLocation(
+    location: Vector,
+    selectCurrent: boolean = false,
+    autoEdit: boolean = false,
+    preserveClickPosition = false,
+  ) {
     const sections = this.project.sectionMethods.getSectionsByInnerLocation(location);
     // 新建节点
-    const uuid = await this.project.nodeAdder.addTextNodeByClick(location, sections, selectCurrent);
+    const uuid = preserveClickPosition
+      ? await this.project.nodeAdder.addTextNodeByClick(location, sections, selectCurrent, true, {
+          preserveClickPosition: true,
+        })
+      : await this.project.nodeAdder.addTextNodeByClick(location, sections, selectCurrent);
     if (autoEdit) {
       // 自动进入编辑模式
       this.textNodeInEditModeByUUID(uuid);

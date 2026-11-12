@@ -34,6 +34,7 @@ export class NodeAdder {
     shouldRecordHistory = true,
     options?: {
       overrideFontScaleLevel?: number;
+      preserveClickPosition?: boolean;
     },
   ): Promise<string> {
     const autoFillColor = this.getAutoColor();
@@ -64,7 +65,7 @@ export class NodeAdder {
     }
     // 将node本身向左上角移动，使其居中
     node.moveTo(node.rectangle.location.subtract(node.rectangle.size.divide(2)));
-    this.project.stageManager.add(node);
+    this.project.stageManager.add(node, false, { snapToGrid: !options?.preserveClickPosition });
     this.project.sectionInOutManager.goInSections([node], addToSections);
 
     if (node.parentSection) {

@@ -352,9 +352,14 @@ export class StageManager {
     [...sections].sort((a, b) => b.sectionDepth - a.sectionDepth).forEach((s) => s.adjustLocationAndSize());
   }
 
-  add(stageObject: StageObject, skipUpdateReferences = false, placement?: { doodleOnly?: boolean }) {
+  add(
+    stageObject: StageObject,
+    skipUpdateReferences = false,
+    placement?: { doodleOnly?: boolean; snapToGrid?: boolean },
+  ) {
     if (stageObject instanceof Entity) captureNewDoodleEntity(this.project, stageObject, placement?.doodleOnly);
-    if (stageObject instanceof ConnectableEntity && Settings.snapNewNodesToGrid) this.snapCreatedNodes([stageObject]);
+    if (stageObject instanceof ConnectableEntity && Settings.snapNewNodesToGrid && placement?.snapToGrid !== false)
+      this.snapCreatedNodes([stageObject]);
     this.project.stage.push(stageObject);
     if (!skipUpdateReferences) {
       this.updateReferences();
@@ -1382,7 +1387,8 @@ export class StageManager {
   }
   selectHighlightedNodes(): number {
     if (!Settings.connectedNodeHighlightLocked) return 0;
-    const nodes = this.project.searchContentHighlightRenderer.getConnectedHighlightedNodes()
+    const nodes = this.project.searchContentHighlightRenderer
+      .getConnectedHighlightedNodes()
       .filter((node) => !node.isHiddenBySectionCollapse);
     if (!nodes.length) return 0;
     this.clearSelectAll();

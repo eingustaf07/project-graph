@@ -1,6 +1,8 @@
 import { ControllerContextMenuClass } from "@/core/service/controlService/controller/concrete/ControllerContextMenu";
 import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { EdgeRenderer } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRenderer";
+import { VerticalPolyEdgeRenderer } from "@/core/render/canvas2d/entityRenderer/edge/concrete/VerticalPolyEdgeRenderer";
+import { crossesRectangle } from "@/core/algorithm/orthogonalPath";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.hoisted(() =>
   vi.stubGlobal("document", {
@@ -45,7 +47,7 @@ vi.mock("@/core/service/feedbackService/SoundService", () => ({
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), warning: vi.fn() }) }));
 
-import { Vector } from "@graphif/data-structures";
+import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { TextNode } from "../../stageObject/entity/TextNode";
 import { Section } from "../../stageObject/entity/Section";
@@ -114,6 +116,91 @@ beforeEach(() => {
   settings.isEnableEntityCollision = false;
 });
 describe("vertical connection defaults with real PG objects", () => {
+  it("renders the same orthogonal segments that are clickable, with dots at both real endpoints", () => {
+    const { p, node } = fixture();
+    settings.lineStyle = "vertical";
+    try {
+      const a = node(0, 0),
+        b = node(0, 400),
+        middle = node(-20, 150);
+      const edge = new LineEdge(p, {
+        associationList: [a, b],
+        sourceRectangleRate: new Vector(0.5, 0.99),
+        targetRectangleRate: new Vector(0.5, 0.01),
+      });
+      p.stageManager.add(edge);
+      p.camera = { currentScale: 1 };
+      p.renderer.transformWorld2View = (v: Vector) => v;
+      p.curveRenderer = { renderSolidLine: vi.fn(), renderDashedLine: vi.fn() };
+      p.shapeRenderer = { renderCircle: vi.fn() };
+      p.stageStyleManager = { currentStyle: { StageObjectBorder: Color.White } };
+      p.verticalPolyEdgeRenderer = new VerticalPolyEdgeRenderer(p);
+      p.edgeRenderer = new EdgeRenderer(p);
+      p.edgeRenderer.renderArrowByType = vi.fn();
+      const path = edge.orthogonalPath;
+      expect(path.length).toBeGreaterThan(2);
+      for (let i = 1; i < path.length; i++) {
+        expect(crossesRectangle(path[i - 1], path[i], middle.rectangle)).toBe(false);
+        expect(edge.isIntersectsWithLocation(path[i - 1].add(path[i]).multiply(0.5))).toBe(true);
+      }
+      expect(edge.isIntersectsWithLocation(new Vector(a.rectangle.center.x, 200))).toBe(false);
+      p.edgeRenderer.renderLineEdge(edge);
+      expect(p.curveRenderer.renderSolidLine).toHaveBeenCalledTimes(path.length - 1);
+      expect(p.shapeRenderer.renderCircle).toHaveBeenCalledTimes(2);
+      expect(p.shapeRenderer.renderCircle.mock.calls.map((c: unknown[]) => c[0])).toEqual([path[0], path.at(-1)]);
+      p.collisionBoxRenderer = { render: vi.fn() };
+      p.stageStyleManager.currentStyle.CollideBoxSelected = Color.Green;
+      edge.isSelected = true;
+      p.edgeRenderer.renderLineEdge(edge);
+      expect(p.curveRenderer.renderDashedLine).not.toHaveBeenCalled();
+    } finally {
+      settings.lineStyle = "straight";
+    }
+  });
+  it("reuses world paths while panning and reroutes when an obstacle moves into the line", () => {
+    const { p, node } = fixture();
+    settings.lineStyle = "vertical";
+    try {
+      const a = node(0),
+        b = node(600),
+        obstacle = node(300, 500);
+      const edge = new LineEdge(p, { associationList: [a, b] });
+      p.stageManager.add(edge);
+      p.renderer.frameIndex = 1;
+      const initial = edge.orthogonalPath;
+      p.renderer.frameIndex = 2;
+      expect(edge.orthogonalPath).toBe(initial);
+      obstacle.rectangle.location = new Vector(300, 0);
+      p.renderer.frameIndex = 3;
+      const rerouted = edge.orthogonalPath;
+      expect(rerouted).not.toBe(initial);
+      expect(rerouted.slice(1).every((p, i) => !crossesRectangle(rerouted[i], p, obstacle.rectangle))).toBe(true);
+    } finally {
+      settings.lineStyle = "straight";
+    }
+  });
+  it("separates sibling trunks instead of painting their vertical segments on the same lane", () => {
+    const { p, node } = fixture();
+    settings.lineStyle = "vertical";
+    try {
+      const a = node(0),
+        b = node(400, -200),
+        c = node(400, 200);
+      const first = new LineEdge(p, { associationList: [a, b] });
+      const second = new LineEdge(p, { associationList: [a, c] });
+      p.stageManager.add(first);
+      p.stageManager.add(second);
+      const verticals = (points: Vector[]) =>
+        points.slice(1).flatMap((point, i) => (point.x === points[i].x && point.y !== points[i].y ? [point.x] : []));
+      const x = verticals(first.orthogonalPath),
+        y = verticals(second.orthogonalPath);
+      expect(x.length).toBeGreaterThan(0);
+      expect(y.length).toBeGreaterThan(0);
+      expect(x.some((value) => y.includes(value))).toBe(false);
+    } finally {
+      settings.lineStyle = "straight";
+    }
+  });
   it("pushes through 300 touching nodes without recursion or changing the side coordinate", () => {
     const { p, node } = fixture();
     settings.isEnableEntityCollision = true;
@@ -371,6 +458,21 @@ describe("text node collision with the user's collision and auto-align settings"
       const { p } = fixture();
       p.stage = deserialize(parsed.serializedStageObjects, p);
       p.stageManager.updateReferences();
+      if (process.env.PG_ORTHOGONAL_PROFILE) {
+        settings.lineStyle = "vertical";
+        p.renderer.frameIndex = 1;
+        const edges = p.stageManager.getLineEdges();
+        const start = performance.now();
+        for (const edge of edges) expect(edge.orthogonalPath.length).toBeGreaterThanOrEqual(2);
+        const coldMs = performance.now() - start;
+        p.renderer.frameIndex++;
+        const warm = performance.now();
+        for (const edge of edges) expect(edge.orthogonalPath.length).toBeGreaterThanOrEqual(2);
+        console.log(JSON.stringify({ edges: edges.length, coldMs, warmMs: performance.now() - warm }));
+        settings.lineStyle = "straight";
+        expect(readFileSync(file)).toEqual(beforeFile);
+        return;
+      }
       const nodes = p.stageManager.getConnectableEntity();
       const roots = nodes.filter((n: any) => p.graphMethods.nodeParentArray(n).length === 0);
       const trees = roots.map((root: any) => p.graphMethods.getSuccessorSet(root));

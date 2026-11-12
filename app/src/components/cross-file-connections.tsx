@@ -477,6 +477,9 @@ function Connections() {
                 markerEnd={link.direction === "undirected" ? undefined : "url(#" + marker + ")"}
               />
               {link.lineType === "double" && <path d={path} fill="none" stroke="var(--background)" strokeWidth="1.5" />}
+              {[start, end].map((point, i) => (
+                <circle key={i} cx={point.x} cy={point.y} r={2.5} fill={color} />
+              ))}
               {link.text && (
                 <text x={mid.x} y={mid.y - off / 2 - 5} fill={color} textAnchor="middle">
                   {link.text}

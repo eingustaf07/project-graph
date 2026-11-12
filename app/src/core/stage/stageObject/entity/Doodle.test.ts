@@ -395,6 +395,33 @@ describe("container-to-container physical collisions", () => {
 });
 
 describe("real PG doodles and fixed containers", () => {
+  it("centers a pointer-created node exactly while leaving grid snapping enabled for other creation paths", async () => {
+    const p: any = fixture();
+    const previous = {
+      snapNewNodesToGrid: Settings.snapNewNodesToGrid,
+      showBackgroundHorizontalLines: Settings.showBackgroundHorizontalLines,
+      showBackgroundVerticalLines: Settings.showBackgroundVerticalLines,
+    };
+    Object.assign(Settings, {
+      snapNewNodesToGrid: true,
+      showBackgroundHorizontalLines: true,
+      showBackgroundVerticalLines: true,
+    });
+    p.backgroundRenderer = { getCurrentGap: () => 100 };
+    try {
+      const adder = new NodeAdder(p),
+        point = new Vector(253, -147);
+      const id = await adder.addTextNodeByClick(point, [], true, true, { preserveClickPosition: true });
+      expect(p.stageManager.getTextNodeByUUID(id).rectangle.center).toEqual(point);
+      const other = await adder.addTextNodeByClick(new Vector(1503, 253), [], true);
+      const r = p.stageManager.getTextNodeByUUID(other).rectangle;
+      const onGrid = (v: number) => Math.abs(v / 100 - Math.round(v / 100)) < 1e-8;
+      expect([r.left, r.right].some(onGrid) && [r.top, r.bottom].some(onGrid)).toBe(true);
+      expect(Settings.snapNewNodesToGrid).toBe(true);
+    } finally {
+      Object.assign(Settings, previous);
+    }
+  });
   it("packs selected real nodes into a bounded Ctrl+G container, preserves edges and supports undo/redo and reload", async () => {
     const p = fixture();
     const a = node(p, "a", new Vector(200, 200)),

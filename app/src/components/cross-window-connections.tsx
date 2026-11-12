@@ -547,6 +547,9 @@ export default function CrossWindowConnections() {
               {row.link.lineType === "double" && (
                 <path d={path} fill="none" stroke="var(--background)" strokeWidth={2 * scale} />
               )}
+              {[a, b].map((point, i) => (
+                <circle key={i} cx={point.x} cy={point.y} r={2.5} fill={row.link.color ?? "var(--foreground)"} />
+              ))}
               <path
                 d={path}
                 fill="none"

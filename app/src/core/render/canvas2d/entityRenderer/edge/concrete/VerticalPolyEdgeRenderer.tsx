@@ -10,7 +10,6 @@ import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
 import { SvgUtils } from "@/core/render/svg/SvgUtils";
-import { Renderer } from "@/core/render/canvas2d/renderer";
 import { EdgeRendererClass } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRendererClass";
 
 /**
@@ -175,248 +174,45 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
   }
 
   public renderNormalState(edge: LineEdge): void {
-    // this.renderTest(edge);
-    // 直线绘制
-    if (edge.text.trim() === "") {
-      const verticalDirection = this.getVerticalDirection(edge);
-      if (verticalDirection.x === 0) {
-        // 左右偏离程度
-
-        const rate =
-          1 -
-          this.gaussianFunction(
-            edge.target.collisionBox.getRectangle().center.x - edge.source.collisionBox.getRectangle().center.x,
-          );
-        // 左右偏离距离 恒正
-        const distance = (rate * edge.target.collisionBox.getRectangle().size.x) / 2;
-        // 根据偏移距离计算附加高度  恒正
-        const h = (edge.target.collisionBox.getRectangle().size.x / 2) * (1 - rate);
-        // 终点
-        const p1 = new Vector(
-          edge.target.collisionBox.getRectangle().center.x +
-            distance *
-              (edge.source.collisionBox.getRectangle().center.x > edge.target.collisionBox.getRectangle().center.x
-                ? 1
-                : -1),
-          verticalDirection.y > 0
-            ? edge.target.collisionBox.getRectangle().top
-            : edge.target.collisionBox.getRectangle().bottom,
-        );
-        const length = (this.fixedLength + h) * (verticalDirection.y > 0 ? -1 : 1);
-        const p2 = p1.add(new Vector(0, length));
-
-        const p4 = new Vector(
-          edge.source.collisionBox.getRectangle().center.x,
-          verticalDirection.y > 0
-            ? edge.source.collisionBox.getRectangle().bottom
-            : edge.source.collisionBox.getRectangle().top,
-        );
-
-        const p3 = new Vector(p4.x, p2.y);
-        this.project.curveRenderer.renderSolidLineMultiple(
-          [
-            this.project.renderer.transformWorld2View(p1),
-            this.project.renderer.transformWorld2View(p2),
-            this.project.renderer.transformWorld2View(p3),
-            this.project.renderer.transformWorld2View(p4),
-          ],
-          new Color(204, 204, 204),
-          2 * this.project.camera.currentScale,
-        );
-
-        if (this.shouldRenderTargetArrow(edge)) {
-          this.project.edgeRenderer.renderArrowByType(
-            p1,
-            edge.bodyLine.start.clone(),
-            verticalDirection,
-            15,
-            edge.color,
-            edge.arrowType || "default",
-            2,
-          );
-        }
-      } else if (verticalDirection.y === 0) {
-        // 左右
-        const rate =
-          1 -
-          this.gaussianFunction(
-            edge.target.collisionBox.getRectangle().center.y - edge.source.collisionBox.getRectangle().center.y,
-          );
-        // 偏离距离 恒正
-        const distance = (rate * edge.target.collisionBox.getRectangle().size.y) / 2;
-        // 根据偏移距离计算附加高度
-        const h = (edge.target.collisionBox.getRectangle().size.y / 2) * (1 - rate);
-        // 终点
-        const p1 = new Vector(
-          verticalDirection.x > 0
-            ? edge.target.collisionBox.getRectangle().left
-            : edge.target.collisionBox.getRectangle().right,
-          edge.target.collisionBox.getRectangle().center.y +
-            distance *
-              (edge.source.collisionBox.getRectangle().center.y > edge.target.collisionBox.getRectangle().center.y
-                ? 1
-                : -1),
-        );
-        // length 是固定长度+h
-        const length = (this.fixedLength + h) * (verticalDirection.x > 0 ? -1 : 1);
-        const p2 = p1.add(new Vector(length, 0));
-
-        const p4 = new Vector(
-          verticalDirection.x > 0
-            ? edge.source.collisionBox.getRectangle().right
-            : edge.source.collisionBox.getRectangle().left,
-          edge.source.collisionBox.getRectangle().center.y,
-        );
-
-        const p3 = new Vector(p2.x, p4.y);
-
-        this.project.curveRenderer.renderSolidLineMultiple(
-          [
-            this.project.renderer.transformWorld2View(p1),
-            this.project.renderer.transformWorld2View(p2),
-            this.project.renderer.transformWorld2View(p3),
-            this.project.renderer.transformWorld2View(p4),
-          ],
-          new Color(204, 204, 204),
-          2 * this.project.camera.currentScale,
-        );
-
-        if (this.shouldRenderTargetArrow(edge)) {
-          this.project.edgeRenderer.renderArrowByType(
-            p1,
-            edge.bodyLine.start.clone(),
-            verticalDirection,
-            15,
-            edge.color,
-            edge.arrowType || "default",
-            2,
-          );
-        }
-      } else {
-        // 不会出现的情况
-      }
-
-      // 没有文字的边
-      // this.project.curveRenderer.renderSolidLine(
-      //  this.project.renderer.transformWorld2View(edge.bodyLine.start),
-      //  this.project.renderer.transformWorld2View(edge.bodyLine.end),
-      //   new Color(204, 204, 204),
-      //   2 * this.project.camera.currentScale,
-      // );
-    } else {
-      // 有文字的边
-      const midPoint = edge.bodyLine.midPoint();
-      const startHalf = new Line(edge.bodyLine.start, midPoint);
-      const endHalf = new Line(midPoint, edge.bodyLine.end);
-      this.project.textRenderer.renderTextFromCenter(
-        edge.text,
-        this.project.renderer.transformWorld2View(midPoint),
-        Renderer.FONT_SIZE * this.project.camera.currentScale,
-      );
-      const edgeTextRectangle = edge.textRectangle;
-
-      this.project.curveRenderer.renderSolidLine(
-        this.project.renderer.transformWorld2View(edge.bodyLine.start),
-        this.project.renderer.transformWorld2View(edgeTextRectangle.getLineIntersectionPoint(startHalf)),
-        new Color(204, 204, 204),
-        2 * this.project.camera.currentScale,
-      );
-      this.project.curveRenderer.renderSolidLine(
-        this.project.renderer.transformWorld2View(edge.bodyLine.end),
-        this.project.renderer.transformWorld2View(edgeTextRectangle.getLineIntersectionPoint(endHalf)),
-        new Color(204, 204, 204),
-        2 * this.project.camera.currentScale,
-      );
-      // 画箭头
-      if (this.shouldRenderTargetArrow(edge)) {
-        const size = 15;
-        const direction = edge.target.collisionBox
-          .getRectangle()
-          .getCenter()
-          .subtract(edge.source.collisionBox.getRectangle().getCenter())
-          .normalize();
-        const endPoint = edge.bodyLine.end.clone();
-        this.project.edgeRenderer.renderArrowByType(
-          endPoint,
-          edge.bodyLine.start.clone(),
-          direction,
-          size,
-          edge.color,
-          edge.arrowType || "default",
-          2,
-        );
-      }
+    const points = edge.orthogonalPath;
+    if (points.length < 2) return;
+    const color = edge.color.equals(Color.Transparent)
+      ? this.project.stageStyleManager.currentStyle.StageObjectBorder
+      : edge.color;
+    const scale = this.project.camera.currentScale;
+    const width = edge.edgeWidth * scale;
+    for (let i = 1; i < points.length; i++) {
+      const a = this.project.renderer.transformWorld2View(points[i - 1]);
+      const b = this.project.renderer.transformWorld2View(points[i]);
+      if (edge.lineType === "dashed") this.project.curveRenderer.renderDashedLine(a, b, color, width, 10 * scale);
+      else if (edge.lineType === "double") this.project.curveRenderer.renderDoubleLine(a, b, color, width, 5 * scale);
+      else this.project.curveRenderer.renderSolidLine(a, b, color, width);
     }
+    if (edge.text.trim())
+      this.project.textRenderer.renderMultiLineTextFromCenterWithStroke(
+        edge.text,
+        this.project.renderer.transformWorld2View(edge.textRectangle.center),
+        edge.textFontSize * scale,
+        color,
+        this.project.stageStyleManager.currentStyle.Background,
+      );
+    if (this.shouldRenderTargetArrow(edge))
+      this.project.edgeRenderer.renderArrowByType(
+        points.at(-1)!,
+        points[0],
+        points.at(-1)!.subtract(points.at(-2)!).normalize(),
+        15,
+        color,
+        edge.arrowType || "default",
+        edge.edgeWidth,
+      );
   }
-  public renderShiftingState(edge: LineEdge): void {
-    const shiftingMidPoint = edge.shiftingMidPoint;
-    // 从source.Center到shiftingMidPoint的线
-    const startLine = new Line(edge.source.collisionBox.getRectangle().center, shiftingMidPoint);
-    const endLine = new Line(shiftingMidPoint, edge.target.collisionBox.getRectangle().center);
-    const startPoint = edge.source.collisionBox.getRectangle().getLineIntersectionPoint(startLine);
-    const endPoint = edge.target.collisionBox.getRectangle().getLineIntersectionPoint(endLine);
 
-    if (edge.text.trim() === "") {
-      // 没有文字的边
-      this.project.curveRenderer.renderSolidLine(
-        this.project.renderer.transformWorld2View(startPoint),
-        this.project.renderer.transformWorld2View(shiftingMidPoint),
-        new Color(204, 204, 204),
-        2 * this.project.camera.currentScale,
-      );
-      this.project.curveRenderer.renderSolidLine(
-        this.project.renderer.transformWorld2View(shiftingMidPoint),
-        this.project.renderer.transformWorld2View(endPoint),
-        new Color(204, 204, 204),
-        2 * this.project.camera.currentScale,
-      );
-    } else {
-      // 有文字的边
-      this.project.textRenderer.renderTextFromCenter(
-        edge.text,
-        this.project.renderer.transformWorld2View(shiftingMidPoint),
-        Renderer.FONT_SIZE * this.project.camera.currentScale,
-      );
-      const edgeTextRectangle = edge.textRectangle;
-      const start2MidPoint = edgeTextRectangle.getLineIntersectionPoint(startLine);
-      const mid2EndPoint = edgeTextRectangle.getLineIntersectionPoint(endLine);
-      this.project.curveRenderer.renderSolidLine(
-        this.project.renderer.transformWorld2View(startPoint),
-        this.project.renderer.transformWorld2View(start2MidPoint),
-        new Color(204, 204, 204),
-        2 * this.project.camera.currentScale,
-      );
-      this.project.curveRenderer.renderSolidLine(
-        this.project.renderer.transformWorld2View(mid2EndPoint),
-        this.project.renderer.transformWorld2View(endPoint),
-        new Color(204, 204, 204),
-        2 * this.project.camera.currentScale,
-      );
-    }
-    if (this.shouldRenderTargetArrow(edge)) {
-      this.renderArrowHead(
-        edge,
-        edge.target.collisionBox.getRectangle().getCenter().subtract(shiftingMidPoint).normalize(),
-        endPoint,
-      );
-    }
+  public renderShiftingState(edge: LineEdge): void {
+    this.renderNormalState(edge);
   }
   private shouldRenderTargetArrow(edge: LineEdge): boolean {
     return !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint);
-  }
-  private renderArrowHead(edge: LineEdge, direction: Vector, endPoint = edge.bodyLine.end.clone()) {
-    const size = 15;
-    const edgeWidth = size / 8; // size = 8 * edgeWidth，此渲染器固定 edgeWidth=2 → size=16，但保持一致
-    const startPoint = edge.bodyLine.start.clone();
-    this.project.edgeRenderer.renderArrowByType(
-      endPoint,
-      startPoint,
-      direction,
-      size,
-      edge.color,
-      edge.arrowType || "default",
-      edgeWidth,
-    );
   }
 
   public renderCycleState(edge: LineEdge): void {
@@ -448,48 +244,34 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     }
   }
   public getNormalStageSvg(edge: LineEdge): React.ReactNode {
-    let textNode: React.ReactNode = <></>;
-    const edgeColor = edge.color.equals(Color.Transparent)
+    const points = edge.orthogonalPath;
+    if (points.length < 2) return null;
+    const color = edge.color.equals(Color.Transparent)
       ? this.project.stageStyleManager.currentStyle.StageObjectBorder
       : edge.color;
-
-    let lineBody: React.ReactNode;
-    if (edge.text.trim() === "") {
-      // 没有文字的边
-      lineBody = SvgUtils.line(edge.bodyLine.start, edge.bodyLine.end, edgeColor, 2);
-    } else {
-      // 有文字的边
-      const midPoint = edge.bodyLine.midPoint();
-      const startHalf = new Line(edge.bodyLine.start, midPoint);
-      const endHalf = new Line(midPoint, edge.bodyLine.end);
-      const edgeTextRectangle = edge.textRectangle;
-
-      textNode = SvgUtils.textFromCenter(edge.text, midPoint, Renderer.FONT_SIZE, edgeColor);
-      lineBody = (
-        <>
-          {SvgUtils.line(edge.bodyLine.start, edgeTextRectangle.getLineIntersectionPoint(startHalf), edgeColor, 2)}
-          {SvgUtils.line(edge.bodyLine.end, edgeTextRectangle.getLineIntersectionPoint(endHalf), edgeColor, 2)}
-        </>
-      );
-    }
-    // 加箭头
-    const arrowHead = this.shouldRenderTargetArrow(edge)
-      ? this.project.edgeRenderer.generateArrowHeadSvg(
-          edge.bodyLine.end.clone(),
-          edge.target.collisionBox
-            .getRectangle()
-            .getCenter()
-            .subtract(edge.source.collisionBox.getRectangle().getCenter())
-            .normalize(),
-          15,
-          edgeColor,
-        )
-      : null;
+    const end = points.at(-1)!;
     return (
       <>
-        {lineBody}
-        {textNode}
-        {arrowHead}
+        <polyline
+          points={points.map((p) => p.x + "," + p.y).join(" ")}
+          fill="none"
+          stroke={color.toString()}
+          strokeWidth={edge.edgeWidth}
+          strokeDasharray={edge.lineType === "dashed" ? "10 10" : undefined}
+        />
+        {edge.text.trim() &&
+          SvgUtils.textFromCenterWithStroke(
+            edge.text,
+            edge.textRectangle.center,
+            edge.textFontSize,
+            color,
+            this.project.stageStyleManager.currentStyle.Background,
+          )}
+        {this.shouldRenderTargetArrow(edge) &&
+          this.project.edgeRenderer.generateArrowHeadSvg(end, end.subtract(points.at(-2)!).normalize(), 15, color)}
+        {[points[0], end].map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={3} fill={color.toString()} />
+        ))}
       </>
     );
   }
