@@ -1855,6 +1855,12 @@ visualSettingsGroup:
     title: Pengaturan Latar Belakang
 
 keyBinds:
+  shrinkSelectedFrames:
+    title: Perkecil bingkai terpilih
+    description: Perkecil wadah atau bingkai dekoratif 10% dari pusatnya, dengan batas isi dan tabrakan. Gunakan minus pada papan ketik utama.
+  growSelectedFrames:
+    title: Perbesar bingkai terpilih
+    description: Perbesar wadah atau bingkai dekoratif 10% dari pusatnya. Gunakan plus pada papan ketik utama (Shift+=). Tombol numpad dikecualikan.
   doodleEraser:
     title: Mode penghapus
     description: Aktifkan penghapus tetikus; jeda sebentar setelah ER jika ERR juga tersedia.

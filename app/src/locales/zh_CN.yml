@@ -1592,6 +1592,12 @@ visualSettingsGroup:
     title: 背景设置
 
 keyBinds:
+  shrinkSelectedFrames:
+    title: 缩小选中的框
+    description: 以中心为基准缩小容器或涂鸦框 10%，遵守内容、边界和碰撞限制。默认使用主键盘减号。
+  growSelectedFrames:
+    title: 放大选中的框
+    description: 以中心为基准放大容器或涂鸦框 10%，遵守内容、边界和碰撞限制。默认使用主键盘加号（Shift+=），不接受小键盘加减号。
   doodleEraser:
     title: 橡皮模式
     description: 进入鼠标橡皮模式；ER 与原 ERR 同时可用时，按完 ER 稍等片刻。

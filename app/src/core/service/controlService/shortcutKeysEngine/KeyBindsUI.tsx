@@ -231,7 +231,9 @@ export namespace KeyBindsUI {
    */
   let registering: Promise<void> | undefined;
   export function registerAllUIKeyBinds(): Promise<void> {
-    registering ??= registerStoredUIKeyBinds().finally(() => { registering = undefined; });
+    registering ??= registerStoredUIKeyBinds().finally(() => {
+      registering = undefined;
+    });
     return registering;
   }
   async function registerStoredUIKeyBinds() {
@@ -490,7 +492,14 @@ export namespace KeyBindsUI {
   const heldLetterKeys = new Set<string>();
   let pendingTab: { project: Project | undefined; prefix: (KeyboardEvent | MouseEvent | WheelEvent)[] } | undefined;
   let copySequence:
-    | { key: string; prefixKey: string; nodeId: string; textId: string; project: Project; timer?: ReturnType<typeof setTimeout> }
+    | {
+        key: string;
+        prefixKey: string;
+        nodeId: string;
+        textId: string;
+        project: Project;
+        timer?: ReturnType<typeof setTimeout>;
+      }
     | undefined;
   function clearCopySequence() {
     if (!copySequence) return;
@@ -579,6 +588,17 @@ export namespace KeyBindsUI {
     for (const uiKeyBind of allUIKeyBinds) {
       if (!uiKeyBind.isEnabled) continue;
       if (uiKeyBind.isContinuous) continue;
+      if (
+        ["shrinkSelectedFrames", "growSelectedFrames"].includes(uiKeyBind.id) &&
+        userEventQueue.arrayList
+          .slice(-uiKeyBind.key.split(/\s+/).length)
+          .some(
+            (event) =>
+              event instanceof KeyboardEvent &&
+              (event.location === KeyboardEvent.DOM_KEY_LOCATION_NUMPAD || event.code.startsWith("Numpad")),
+          )
+      )
+        continue;
       if (matchEmacsKeyPress(uiKeyBind.key, userEventQueue.arrayList)) {
         const seqLength = uiKeyBind.key.trim().split(/\s+/).length;
         matched.push({ uiKeyBind, seqLength });
@@ -589,8 +609,7 @@ export namespace KeyBindsUI {
 
     const bridgeDelete = matched.find(
       ({ uiKeyBind, seqLength }) =>
-        uiKeyBind.id === "ext:com.mingliang.insert-node:bridge-delete" &&
-        seqLength === matched[0]?.seqLength,
+        uiKeyBind.id === "ext:com.mingliang.insert-node:bridge-delete" && seqLength === matched[0]?.seqLength,
     );
     // This extension calls the native deletion method itself. Running both callbacks
     // deletes the node, then deletes its newly selected parent in the same keypress.
@@ -665,8 +684,11 @@ export namespace KeyBindsUI {
         userEventQueue.clear();
         events.forEach((event) => userEventQueue.enqueue(event));
         copySequence = {
-          key: textBinding.key, prefixKey: executedPrefix.key,
-          nodeId: executedPrefix.id, textId, project: activeProject,
+          key: textBinding.key,
+          prefixKey: executedPrefix.key,
+          nodeId: executedPrefix.id,
+          textId,
+          project: activeProject,
         };
         restartCopySequenceTimer();
         return true;

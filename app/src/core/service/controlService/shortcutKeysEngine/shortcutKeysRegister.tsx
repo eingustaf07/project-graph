@@ -8,6 +8,10 @@ import { ViewFlashEffect } from "@/core/service/feedbackService/effectEngine/con
 import { ViewOutlineFlashEffect } from "@/core/service/feedbackService/effectEngine/concrete/ViewOutlineFlashEffect";
 import { Settings } from "@/core/service/Settings";
 import { arrangeSmartTree } from "@/core/service/controlService/autoLayoutEngine/SmartTreeArrange";
+import {
+  canResizeSelectedFrames,
+  resizeSelectedFrames,
+} from "@/core/service/controlService/autoLayoutEngine/resizeSelectedFrames";
 import { Themes } from "@/core/service/Themes";
 import { PenStrokeMethods } from "@/core/stage/stageManager/basicMethods/PenStrokeMethods";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
@@ -772,6 +776,20 @@ export const allKeyBinds: KeyBindItem[] = [
       project!.historyManager.recordStep();
     },
     defaultEnabled: false,
+  },
+  {
+    id: "shrinkSelectedFrames",
+    defaultKey: "-",
+    icon: Square,
+    when: canResizeSelectedFrames,
+    onPress: (project) => resizeSelectedFrames(project!, 0.9),
+  },
+  {
+    id: "growSelectedFrames",
+    defaultKey: "S-+",
+    icon: Square,
+    when: canResizeSelectedFrames,
+    onPress: (project) => resizeSelectedFrames(project!, 1.1),
   },
   /*------- 分组框边框样式 -------*/
   {

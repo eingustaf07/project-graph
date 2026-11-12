@@ -50,6 +50,7 @@ import { MultiTargetEdgeMove } from "@/core/stage/stageManager/concreteMethods/S
 import { NodeAdder } from "@/core/stage/stageManager/concreteMethods/StageNodeAdder";
 import { Doodle, containPastedEntities } from "./Doodle";
 import { fitDoodleBounds } from "@/core/algorithm/doodleBounds";
+import { resizeSelectedFrames } from "@/core/service/controlService/autoLayoutEngine/resizeSelectedFrames";
 import { CollisionBox } from "../collisionBox/collisionBox";
 import { Vector, Color } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
@@ -203,6 +204,34 @@ beforeEach(() => {
   Settings.containerNBoundary = false;
 });
 describe("container-to-container physical collisions", () => {
+  it("resizes selected frames around their centers and records one undo step", () => {
+    const p = fixture();
+    const a = cage(p);
+    a.isSelected = true;
+    const center = a.frame.center;
+    const before = serialize(p.stage);
+    p.historyManager.recordStep();
+    resizeSelectedFrames(p, 1.1);
+    expect(a.frame.width).toBeCloseTo(660);
+    expect(a.frame.center).toEqual(center);
+    const after = serialize(p.stage);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(after);
+  });
+  it("restores the whole operation if one selected container cannot shrink", () => {
+    const p = fixture();
+    const a = cage(p);
+    const b = new Doodle(p, { bounded: true, frame: new Rectangle(new Vector(1000, 0), new Vector(200, 200)) });
+    const child = node(p, "放不下", new Vector(1010, 10));
+    b.adopt(child);
+    p.stage.push(b, child);
+    a.isSelected = b.isSelected = true;
+    const before = serialize(p.stage);
+    expect(() => resizeSelectedFrames(p, 0.2)).toThrow();
+    expect(serialize(p.stage)).toEqual(before);
+  });
   function setup() {
     Settings.enableContainerCollision = true;
     const p = fixture();

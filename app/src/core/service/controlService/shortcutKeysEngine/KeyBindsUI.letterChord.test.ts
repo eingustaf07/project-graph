@@ -5,6 +5,8 @@ const fixture = vi.hoisted(() => ({
   saved: new Map<string, unknown>(),
   open: vi.fn(),
   normal: vi.fn(),
+  shrink: vi.fn(),
+  grow: vi.fn(),
   nodes: vi.fn(),
   text: vi.fn(),
   save: vi.fn(),
@@ -29,12 +31,24 @@ vi.mock("@/utils/store", () => ({
 }));
 vi.mock("./shortcutKeysRegister", () => ({
   allKeyBinds: [
+    { id: "shrinkSelectedFrames", defaultKey: "-", when: () => true, onPress: () => fixture.shrink() },
+    { id: "growSelectedFrames", defaultKey: "S-+", when: () => true, onPress: () => fixture.grow() },
     { id: "openAIPanel", defaultKey: "a+i", when: (project: unknown) => !!project, onPress: () => fixture.open() },
     { id: "normalShortcut", defaultKey: "C-f", when: () => true, onPress: () => fixture.normal() },
     { id: "copy", defaultKey: "C-c", when: (project: unknown) => !!project, onPress: () => fixture.nodes() },
     { id: "copyText", defaultKey: "C-c C-c", when: (project: unknown) => !!project, onPress: () => fixture.text() },
-    { id: "selectHighlighted", defaultKey: "S-c", when: (project: unknown) => !!project && fixture.highlightLocked, onPress: () => fixture.highlightSelect() },
-    { id: "copyHighlightedText", defaultKey: "S-c S-c", when: (project: unknown) => !!project && fixture.highlightLocked, onPress: () => fixture.highlightText() },
+    {
+      id: "selectHighlighted",
+      defaultKey: "S-c",
+      when: (project: unknown) => !!project && fixture.highlightLocked,
+      onPress: () => fixture.highlightSelect(),
+    },
+    {
+      id: "copyHighlightedText",
+      defaultKey: "S-c S-c",
+      when: (project: unknown) => !!project && fixture.highlightLocked,
+      onPress: () => fixture.highlightText(),
+    },
   ],
 }));
 import { Project } from "@/core/Project";
@@ -57,6 +71,8 @@ beforeEach(async () => {
   fixture.saved.clear();
   fixture.open.mockClear();
   fixture.normal.mockClear();
+  fixture.shrink.mockClear();
+  fixture.grow.mockClear();
   fixture.nodes.mockClear();
   fixture.text.mockClear();
   fixture.save.mockClear();
@@ -69,8 +85,32 @@ beforeEach(async () => {
   KeyBindsUI.uiStartListen();
 });
 
+it("resizes frames with main keyboard signs while excluding numpad signs and text inputs", async () => {
+  await down("-", { code: "NumpadSubtract", location: 3 });
+  expect(fixture.shrink).not.toHaveBeenCalled();
+  await up("-");
+  await down("-", { code: "Minus" });
+  expect(fixture.shrink).toHaveBeenCalledTimes(1);
+  await up("-");
+  await down("+", { code: "NumpadAdd", location: 3 });
+  await up("+");
+  await down("+", { code: "NumpadAdd", location: 3, shiftKey: true });
+  expect(fixture.grow).not.toHaveBeenCalled();
+  await up("+");
+  await down("+", { code: "Equal", shiftKey: true });
+  expect(fixture.grow).toHaveBeenCalledTimes(1);
+  await up("+");
+  const input = document.createElement("input");
+  document.body.append(input);
+  input.focus();
+  await down("-", { code: "Minus" });
+  expect(fixture.shrink).toHaveBeenCalledTimes(1);
+});
+
 describe("native and installed bridge deletion sharing a key", () => {
-  function setupDeletion(options: { bridgeFirst?: boolean; enabled?: boolean; eligible?: boolean; bridgeKey?: string } = {}) {
+  function setupDeletion(
+    options: { bridgeFirst?: boolean; enabled?: boolean; eligible?: boolean; bridgeKey?: string } = {},
+  ) {
     const remaining = new Set(["parent", "target", "child"]);
     let selected = "target";
     const removeSelected = vi.fn(() => {
@@ -81,34 +121,58 @@ describe("native and installed bridge deletion sharing a key", () => {
       await Promise.resolve();
       removeSelected();
     });
-    const registerCore = () => KeyBindsUI.registerOneUIKeyBind(
-      "deleteSelectedStageObjects", "backspace", true, removeSelected, undefined, false, () => true,
-    );
-    const registerBridge = () => KeyBindsUI.registerOneUIKeyBind(
-      "ext:com.mingliang.insert-node:bridge-delete", options.bridgeKey ?? "backspace",
-      options.enabled ?? true, bridge, undefined, false, () => options.eligible ?? true,
-    );
-    if (options.bridgeFirst) { registerBridge(); registerCore(); }
-    else { registerCore(); registerBridge(); }
+    const registerCore = () =>
+      KeyBindsUI.registerOneUIKeyBind(
+        "deleteSelectedStageObjects",
+        "backspace",
+        true,
+        removeSelected,
+        undefined,
+        false,
+        () => true,
+      );
+    const registerBridge = () =>
+      KeyBindsUI.registerOneUIKeyBind(
+        "ext:com.mingliang.insert-node:bridge-delete",
+        options.bridgeKey ?? "backspace",
+        options.enabled ?? true,
+        bridge,
+        undefined,
+        false,
+        () => options.eligible ?? true,
+      );
+    if (options.bridgeFirst) {
+      registerBridge();
+      registerCore();
+    } else {
+      registerCore();
+      registerBridge();
+    }
     return { remaining, removeSelected, bridge };
   }
 
-  it.each([false, true])("deletes the target once and retains both neighbours, extension registered first = %s", async (bridgeFirst) => {
-    const { remaining, removeSelected, bridge } = setupDeletion({ bridgeFirst });
-    await down("Backspace");
-    await up("Backspace");
-    expect(bridge).toHaveBeenCalledOnce();
-    expect(removeSelected).toHaveBeenCalledOnce();
-    expect([...remaining]).toEqual(["parent", "child"]);
-  });
+  it.each([false, true])(
+    "deletes the target once and retains both neighbours, extension registered first = %s",
+    async (bridgeFirst) => {
+      const { remaining, removeSelected, bridge } = setupDeletion({ bridgeFirst });
+      await down("Backspace");
+      await up("Backspace");
+      expect(bridge).toHaveBeenCalledOnce();
+      expect(removeSelected).toHaveBeenCalledOnce();
+      expect([...remaining]).toEqual(["parent", "child"]);
+    },
+  );
 
-  it.each([{ enabled: false }, { eligible: false }])("keeps native deletion available when the bridge cannot run: %j", async (options) => {
-    const { remaining, removeSelected, bridge } = setupDeletion(options);
-    await down("Backspace");
-    expect(bridge).not.toHaveBeenCalled();
-    expect(removeSelected).toHaveBeenCalledOnce();
-    expect([...remaining]).toEqual(["parent", "child"]);
-  });
+  it.each([{ enabled: false }, { eligible: false }])(
+    "keeps native deletion available when the bridge cannot run: %j",
+    async (options) => {
+      const { remaining, removeSelected, bridge } = setupDeletion(options);
+      await down("Backspace");
+      expect(bridge).not.toHaveBeenCalled();
+      expect(removeSelected).toHaveBeenCalledOnce();
+      expect([...remaining]).toEqual(["parent", "child"]);
+    },
+  );
 
   it("keeps separately assigned deletion shortcuts independent", async () => {
     const { removeSelected, bridge } = setupDeletion({ bridgeKey: "delete" });

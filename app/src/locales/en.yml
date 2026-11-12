@@ -1548,6 +1548,12 @@ keys:
   wheeldown: Scroll Wheel Down
 
 keyBinds:
+  shrinkSelectedFrames:
+    title: Shrink selected frames
+    description: Shrink container or decorative frames by 10% around their centers while respecting contents, bounds and collisions. Main keyboard minus by default.
+  growSelectedFrames:
+    title: Grow selected frames
+    description: Grow container or decorative frames by 10% around their centers. Main keyboard plus (Shift+=) by default. Numpad keys are excluded.
   doodleEraser:
     title: Eraser mode
     description: Enter mouse eraser mode; pause briefly after ER when ERR is also available.
