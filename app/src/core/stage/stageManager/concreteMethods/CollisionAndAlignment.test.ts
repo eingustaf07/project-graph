@@ -121,12 +121,16 @@ describe("vertical connection defaults with real PG objects", () => {
     try {
       const edgeRenderer = new EdgeRenderer({ verticalPolyEdgeRenderer: renderer } as any);
       expect((edgeRenderer as any).currentRenderer).toBe(renderer);
-    } finally { settings.lineStyle = previous; }
+    } finally {
+      settings.lineStyle = previous;
+    }
   });
   it.each(["connectConnectableEntity", "connectEntityFast", "addArcEdge", "addCrEdge"] as const)(
-    "uses the global vertical route for %s", (method) => {
+    "uses the global vertical route for %s",
+    (method) => {
       const { p, node } = fixture();
-      const a = node(0), b = node(600);
+      const a = node(0),
+        b = node(600);
       const previous = settings.lineStyle;
       settings.lineStyle = "vertical";
       try {
@@ -134,7 +138,9 @@ describe("vertical connection defaults with real PG objects", () => {
         const edges = p.stageManager.getAssociations();
         expect(edges).toHaveLength(1);
         expect(edges[0]).toBeInstanceOf(LineEdge);
-      } finally { settings.lineStyle = previous; }
+      } finally {
+        settings.lineStyle = previous;
+      }
     },
   );
 });
@@ -149,7 +155,9 @@ describe("section collision with real PG objects", () => {
   });
   it("bypasses sibling section pushes for a V multi-drag until V is released", () => {
     const { p, group, node } = fixture();
-    const a = group(0), b = group(900), extra = node(0, 600);
+    const a = group(0),
+      b = group(900),
+      extra = node(0, 600);
     a.child.isSelected = extra.isSelected = true;
     p.entityMoveManager.beginPointerDrag(a.child);
     const original = b.child.rectangle.location.clone();
@@ -486,7 +494,9 @@ describe("text node collision with the user's collision and auto-align settings"
   it("moves multiple selected text nodes through an unselected node without moving it", () => {
     const { p, node } = fixture();
     settings.isEnableEntityCollision = true;
-    const a = node(0), b = node(0, 300), obstacle = node(600);
+    const a = node(0),
+      b = node(0, 300),
+      obstacle = node(600);
     a.isSelected = b.isSelected = true;
     const initial = obstacle.rectangle.location.clone();
     p.entityMoveManager.beginPointerDrag(a);
@@ -687,8 +697,11 @@ describe("blank right click container gestures", () => {
     p.controller.resetCountdownTimer = vi.fn();
     p.loop = vi.fn();
     const controller = new ControllerContextMenuClass(p);
-    const event = (x: number, y = 0) => ({ button: 2, clientX: x, clientY: y } as MouseEvent);
-    const click = (x: number, y = 0) => { controller.mousedown(event(x,y)); controller.mouseup(event(x,y)); };
+    const event = (x: number, y = 0) => ({ button: 2, clientX: x, clientY: y }) as MouseEvent;
+    const click = (x: number, y = 0) => {
+      controller.mousedown(event(x, y));
+      controller.mouseup(event(x, y));
+    };
     return { p, node, controller, event, click };
   }
   it("suppresses the blank single click and creates one undoable container on double click", () => {
@@ -701,23 +714,46 @@ describe("blank right click container gestures", () => {
     const frame = p.stageManager.getSections()[0] as Doodle;
     expect(frame.bounded).toBe(true);
     expect(frame.frame.center).toEqual(new Vector(1000, 0));
+    expect(frame.frame.size).toEqual(new Vector(600, 450));
     expect(record).toHaveBeenCalledTimes(1);
     p.historyManager.undo();
     expect(p.stageManager.getSections()).toHaveLength(0);
     p.historyManager.redo();
     expect(p.stageManager.getSections()).toHaveLength(1);
   });
-  it.each(["rectangle", "circle"] as const)("centers the child and fits inside a %s parent", shape => {
+  it.each(["rectangle", "circle"] as const)("places the child at the pointer inside a %s parent", (shape) => {
     const { p, click } = setup();
-    const parent = new Doodle(p, { bounded: true, shape, frame: new Rectangle(new Vector(0,0), new Vector(500,400)) });
+    const parent = new Doodle(p, {
+      bounded: true,
+      shape,
+      frame: new Rectangle(new Vector(0, 0), new Vector(500, 400)),
+    });
     p.stageManager.add(parent);
     const original = parent.frame.clone();
-    click(210,190); click(210,190);
+    click(240, 190);
+    click(240, 190);
     const child = p.stageManager.getSections().find((s: Doodle) => s !== parent) as Doodle;
     expect(child.parentSection).toBe(parent);
-    expect(child.frame.center).toEqual(parent.frame.center);
+    expect(child.frame.center).toEqual(new Vector(240, 190));
     expect(child.frame.width).toBeLessThan(parent.frame.width);
     expect(child.frame.height).toBeLessThan(parent.frame.height);
+    expect(parent.frame).toEqual(original);
+  });
+  it("clamps the enlarged child at the parent's border without expanding its parent", () => {
+    const { p, click } = setup();
+    const parent = new Doodle(p, {
+      bounded: true,
+      frame: new Rectangle(new Vector(0, 0), new Vector(1000, 800)),
+    });
+    p.stageManager.add(parent);
+    const original = parent.frame.clone();
+    click(20, 20);
+    click(20, 20);
+    const child = p.stageManager.getSections().find((s: Doodle) => s !== parent) as Doodle;
+    expect(child.parentSection).toBe(parent);
+    expect(child.frame.size).toEqual(new Vector(600, 450));
+    expect(child.frame.left).toBe(8);
+    expect(child.frame.top).toBe(8);
     expect(parent.frame).toEqual(original);
   });
   it("does not treat a right-button pan as a blank click", () => {
@@ -733,9 +769,9 @@ describe("blank right click container gestures", () => {
   it("keeps an object's context menu and never creates a frame on its body", () => {
     const { p, node, click } = setup();
     const n = node(0);
-    click(n.rectangle.center.x,n.rectangle.center.y);
-    click(n.rectangle.center.x,n.rectangle.center.y);
+    click(n.rectangle.center.x, n.rectangle.center.y);
+    click(n.rectangle.center.x, n.rectangle.center.y);
     expect(p.stageManager.getSections()).toHaveLength(0);
-    expect(p.emit).toHaveBeenCalledWith("contextmenu",expect.anything());
+    expect(p.emit).toHaveBeenCalledWith("contextmenu", expect.anything());
   });
 });

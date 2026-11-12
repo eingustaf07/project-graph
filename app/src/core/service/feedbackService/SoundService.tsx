@@ -123,7 +123,7 @@ export namespace SoundService {
   const creationBuffers = new Map<string, AudioBuffer>();
 
   export function playNodeCreated() {
-    return playCreationTone("nodeCreated", 440);
+    return loadAndPlaySound(Settings.entityJumpSoundFile, "nodeCreated");
   }
 
   export function playDoodleCreated() {
@@ -131,7 +131,7 @@ export namespace SoundService {
   }
 
   export function playObjectsDeleted() {
-    return playCreationTone("objectsDeleted", 220);
+    return loadAndPlaySound(Settings.treeAdjustSoundFile, "objectsDeleted");
   }
 
   function effectEnabled(key: string) {
@@ -174,7 +174,7 @@ export namespace SoundService {
   }
 
   async function loadAndPlaySound(filePath: string, key = "custom") {
-    if (!Settings.soundEnabled || !effectEnabled(key)) {
+    if (!Settings.soundEnabled || Settings.soundVolume === 0 || !effectEnabled(key)) {
       return;
     }
     if (filePath.trim() === "") {

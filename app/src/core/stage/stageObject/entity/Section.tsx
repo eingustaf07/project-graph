@@ -371,7 +371,7 @@ export class Doodle extends Section {
   constructor(
     project: Project,
     {
-      frame = new Rectangle(Vector.getZero(), new Vector(400, 300)),
+      frame = new Rectangle(Vector.getZero(), new Vector(600, 450)),
       shape = "rectangle",
       bounded = false,
       erasures = [],
@@ -422,13 +422,19 @@ export class Doodle extends Section {
     if (this.shape === "circle") {
       const offset = location.subtract(this.frame.center);
       const size = offset.magnitude();
-      return size > 0 && !this.isPointErased(this.frame.center.add(offset.multiply(Math.min(this.frame.width,this.frame.height)/(2*size))));
+      return (
+        size > 0 &&
+        !this.isPointErased(
+          this.frame.center.add(offset.multiply(Math.min(this.frame.width, this.frame.height) / (2 * size))),
+        )
+      );
     }
-    const {left,right,top,bottom} = this.frame;
-    const x = Math.max(left,Math.min(right,location.x));
-    const y = Math.max(top,Math.min(bottom,location.y));
-    const nearest = [new Vector(left,y),new Vector(right,y),new Vector(x,top),new Vector(x,bottom)]
-      .sort((a,b) => a.distance(location)-b.distance(location))[0];
+    const { left, right, top, bottom } = this.frame;
+    const x = Math.max(left, Math.min(right, location.x));
+    const y = Math.max(top, Math.min(bottom, location.y));
+    const nearest = [new Vector(left, y), new Vector(right, y), new Vector(x, top), new Vector(x, bottom)].sort(
+      (a, b) => a.distance(location) - b.distance(location),
+    )[0];
     return !this.isPointErased(nearest);
   }
   override get collisionBox(): CollisionBox {

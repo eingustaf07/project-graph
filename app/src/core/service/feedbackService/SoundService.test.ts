@@ -6,6 +6,7 @@ const fixture = vi.hoisted(() => ({
   enabled: true,
   effectEnabled: {} as Record<string, boolean>,
   filePath: "sound.mp3",
+  paths: {} as Record<string, string>,
   listeners: [] as ((volume: number) => void)[],
   readFile: vi.fn(),
   gain: { gain: { value: 1, setTargetAtTime: vi.fn() }, connect: vi.fn() },
@@ -31,6 +32,7 @@ vi.mock("../Settings", () => ({
         if (key === "soundVolume") return fixture.volume;
         if (key === "soundEffectEnabled") return fixture.effectEnabled;
         if (key === "soundPitchVariationRange") return 150;
+        if (typeof key === "string" && key in fixture.paths) return fixture.paths[key];
         if (key === "watch")
           return (key: string, callback: (value: any) => void) => {
             if (key === "soundVolume") fixture.listeners.push(callback);
@@ -52,6 +54,7 @@ beforeEach(() => {
   fixture.enabled = true;
   fixture.effectEnabled = {};
   fixture.filePath = "sound.mp3";
+  fixture.paths = {};
   fixture.listeners = [];
   fixture.sources = [];
   fixture.state = "running";
@@ -86,12 +89,24 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("PG sound effects volume", () => {
-  it("plays a cached quiet deletion tone and respects its own switch, master mute and volume", async () => {
+  it("uses the configured jump file for node creation with the node creation switch", async () => {
+    fixture.paths = { entityJumpSoundFile: "jump.mp3", treeAdjustSoundFile: "adjust.mp3" };
+    const { SoundService } = await import("./SoundService");
+    await SoundService.playNodeCreated();
+    expect(fixture.readFile).toHaveBeenCalledWith("jump.mp3");
+    await SoundService.playObjectsDeleted();
+    expect(fixture.readFile).toHaveBeenCalledWith("adjust.mp3");
+    expect(fixture.sources.at(-1)?.buffer).toEqual({ duration: 1 });
+    const count = fixture.sources.length;
+    fixture.effectEnabled.nodeCreated = false;
+    await SoundService.playNodeCreated();
+    expect(fixture.sources).toHaveLength(count);
+  });
+  it("plays the configured deletion file and respects its own switch, master mute and volume", async () => {
     const { SoundService } = await import("./SoundService");
     await SoundService.playObjectsDeleted();
     const buffer = fixture.sources[0].buffer as AudioBuffer;
-    expect(buffer.duration).toBeCloseTo(0.16);
-    expect(Math.max(...buffer.getChannelData(0).map(Math.abs))).toBeLessThan(0.15);
+    expect(buffer).toEqual({ duration: 1 });
     expect(fixture.sources[0].connect).toHaveBeenCalledWith(fixture.gain);
     await SoundService.playObjectsDeleted();
     expect(fixture.sources[1].buffer).toBe(buffer);
@@ -129,9 +144,9 @@ describe("PG sound effects volume", () => {
     await SoundService.playNodeCreated();
     expect(fixture.sources).toHaveLength(4);
   });
-  it("plays a short gentle cached creation tone through the volume gain and respects mute", async () => {
+  it("keeps the doodle creation tone cached and respects mute", async () => {
     const { SoundService } = await import("./SoundService");
-    await SoundService.playNodeCreated();
+    await SoundService.playDoodleCreated();
     const buffer = fixture.sources[0].buffer as AudioBuffer;
     expect(buffer.duration).toBeCloseTo(0.16);
     const samples = buffer.getChannelData(0);
@@ -139,13 +154,13 @@ describe("PG sound effects volume", () => {
     expect(Math.abs(samples[samples.length - 1])).toBeLessThan(0.000001);
     expect(Math.max(...samples.map(Math.abs))).toBeLessThan(0.15);
     expect(fixture.sources[0].connect).toHaveBeenCalledWith(fixture.gain);
-    await SoundService.playNodeCreated();
+    await SoundService.playDoodleCreated();
     expect(fixture.sources[1].buffer).toBe(buffer);
     fixture.enabled = false;
-    await SoundService.playNodeCreated();
+    await SoundService.playDoodleCreated();
     fixture.enabled = true;
     fixture.volume = 0;
-    await SoundService.playNodeCreated();
+    await SoundService.playDoodleCreated();
     expect(fixture.sources).toHaveLength(2);
   });
   it("preserves original loudness by default and sends every effect through the shared gain", async () => {

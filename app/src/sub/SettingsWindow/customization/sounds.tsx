@@ -196,7 +196,9 @@ export default function SoundEffectsPage() {
       </div>
       <SettingField settingKey="soundVolume" />
       <SettingField settingKey={"soundPitchVariationRange"} />
-      <p className="text-muted-foreground text-sm">独立开关会自动保存；音效总开关关闭时，所有音效均静音。</p>
+      <p className="text-muted-foreground text-sm">
+        独立开关会自动保存；双击创建节点使用下方的“物体跳跃”音频，快捷键删除对象使用“格式化树形结构”音频。音效总开关关闭时，所有音效均静音。
+      </p>
       {[
         { key: "nodeCreated", name: "双击创建节点", play: SoundService.playNodeCreated },
         { key: "doodleCreated", name: "创建涂鸦或容器", play: SoundService.playDoodleCreated },
