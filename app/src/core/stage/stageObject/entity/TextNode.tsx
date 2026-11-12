@@ -460,6 +460,16 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   }
 
   private static readonly activeCollisions = new WeakSet<Project>();
+  public resolveNonTextDragCollisions() {
+    if (!this.shouldResolveEntityCollisions || boundedDoodleOf(this)) return;
+    for (const other of this.project.stageManager.getEntities())
+      if (
+        !(other instanceof TextNode) &&
+        !other.nearestLockedAncestorSection &&
+        !(other instanceof Section && other.locked)
+      )
+        this.collideWithOtherEntity(other);
+  }
 
   protected override updateOtherEntityLocationByMove(): void {
     if (this.project.entityMoveManager?.trackTextMove(this)) return;

@@ -8,6 +8,7 @@ import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { ContainerNodeDrag } from "./ContainerNodeDrag";
 import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { solveContainerCollisions } from "./ContainerCollision";
+import { pushNodesInDragDirection } from "./DirectionalNodeCollision";
 import { translateClipboardEntities } from "@/core/service/dataManageService/copyEngine/clipboardPosition";
 import type { Rectangle } from "@graphif/shapes";
 import { Vector } from "@graphif/data-structures";
@@ -29,6 +30,8 @@ export class EntityMoveManager {
   private collisionIndex?: DragCollisionIndex;
   private collisionIndexDirty = false;
   private translatingBatch = false;
+  private directionalNodeDrag = false;
+  private lastDragDirection = Vector.getZero();
   get isMovingContainerBatch() {
     return this.translatingBatch;
   }
@@ -45,7 +48,7 @@ export class EntityMoveManager {
 
   trackTextMove(node: TextNode) {
     this.collisionIndex?.update(node);
-    return this.translatingBatch;
+    return this.translatingBatch || this.directionalNodeDrag;
   }
 
   collisionCandidates(node: TextNode) {
@@ -141,19 +144,47 @@ export class EntityMoveManager {
 
   dragSelection(delta: Vector, withTree: boolean) {
     this.duringPointerMovement(() => {
-      if (withTree) this.moveEntitiesWithChildren(delta);
-      else this.moveSelectedEntities(delta);
+      if (!delta.isZero()) this.lastDragDirection = delta;
+      const roots = this.project.stageManager.getSelectedEntities().filter((n) => !this.hasSelectedDoodleAncestor(n));
+      const targets = withTree ? this.collectMoveTargets(roots, true) : roots;
+      this.withDirectionalNodeCollisions(targets, delta, () => this.moveBatch(targets, delta));
     });
+  }
+
+  private withDirectionalNodeCollisions(targets: Entity[], direction: Vector, move: () => void) {
+    const directional =
+      !direction.isZero() &&
+      Settings.isEnableEntityCollision &&
+      !this.ignoresDragCollisions &&
+      targets.length > 0 &&
+      targets.every((n) => n instanceof TextNode);
+    const before = new Map(
+      directional ? targets.map((n) => [n as TextNode, n.collisionBox.getRectangle().clone()] as const) : [],
+    );
+    try {
+      this.directionalNodeDrag = directional;
+      move();
+      if (directional) {
+        for (const node of before.keys()) node.resolveNonTextDragCollisions();
+        pushNodesInDragDirection(this.project, before, direction);
+      }
+    } finally {
+      this.directionalNodeDrag = false;
+    }
   }
 
   alignAfterPointerDrag() {
     this.duringPointerMovement(() => {
-      if (Settings.enableDragAutoAlign) this.project.autoAlign.alignAllSelected();
-      if (Settings.enableDragAlignToGrid) this.project.autoAlign.alignAllSelectedToGrid();
+      const selected = this.project.stageManager.getSelectedEntities();
+      this.withDirectionalNodeCollisions(selected, this.lastDragDirection, () => {
+        if (Settings.enableDragAutoAlign) this.project.autoAlign.alignAllSelected();
+        if (Settings.enableDragAlignToGrid) this.project.autoAlign.alignAllSelectedToGrid();
+      });
     });
   }
 
   beginPointerDrag(clicked: Entity, grabPoint?: Vector) {
+    this.lastDragDirection = Vector.getZero();
     this.containerDrag = Settings.containerNBoundary
       ? new ContainerNodeDrag(this.project, clicked, grabPoint)
       : undefined;

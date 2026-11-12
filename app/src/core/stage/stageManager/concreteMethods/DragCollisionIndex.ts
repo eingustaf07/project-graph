@@ -27,7 +27,7 @@ export class DragCollisionIndex {
     return keys;
   }
 
-  update(node: TextNode) {
+  update(node: TextNode, box = node.rectangle) {
     for (const key of this.memberships.get(node) ?? []) {
       const cell = this.cells.get(key)!;
       cell.delete(node);
@@ -35,7 +35,7 @@ export class DragCollisionIndex {
     }
     this.memberships.delete(node);
     this.oversized.delete(node);
-    const keys = this.keys(node.rectangle);
+    const keys = this.keys(box);
     if (!keys) {
       this.oversized.add(node);
       return;
@@ -58,5 +58,16 @@ export class DragCollisionIndex {
     return [...this.others, ...[...candidates].filter((other) => node.rectangle.isCollideWith(other.rectangle))].sort(
       (a, b) => this.order.get(a)! - this.order.get(b)!,
     );
+  }
+
+  queryBounds(box: Rectangle): TextNode[] {
+    const keys = this.keys(box);
+    const candidates = new Set<TextNode>(this.oversized);
+    if (keys) {
+      for (const key of keys) for (const node of this.cells.get(key) ?? []) candidates.add(node);
+    } else {
+      for (const node of this.memberships.keys()) candidates.add(node);
+    }
+    return [...candidates].sort((a, b) => this.order.get(a)! - this.order.get(b)!);
   }
 }

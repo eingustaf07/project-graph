@@ -114,6 +114,79 @@ beforeEach(() => {
   settings.isEnableEntityCollision = false;
 });
 describe("vertical connection defaults with real PG objects", () => {
+  it("pushes through 300 touching nodes without recursion or changing the side coordinate", () => {
+    const { p, node } = fixture();
+    settings.isEnableEntityCollision = true;
+    const first = node(0);
+    const chain = [first];
+    for (let i = 1; i < 300; i++) chain.push(node(chain[i - 1].rectangle.right));
+    first.isSelected = true;
+    p.entityMoveManager.dragSelection(new Vector(20, 0), false);
+    for (let i = 1; i < chain.length; i++) {
+      expect(chain[i].rectangle.left).toBeCloseTo(chain[i - 1].rectangle.right);
+      expect(chain[i].rectangle.top).toBe(0);
+    }
+  });
+  it("preserves chain order, side coordinates, undo and auto-alignment during a continuous push", () => {
+    const { p, node } = fixture();
+    settings.isEnableEntityCollision = true;
+    const chain = Array.from({ length: 20 }, (_, i) => node(i * 180, 0));
+    chain[0].isSelected = true;
+    const before = serialize(p.stage);
+    p.historyManager.recordStep();
+    for (let i = 0; i < 40; i++) p.entityMoveManager.dragSelection(new Vector(20, 0), false);
+    const savedAlign = settings.enableDragAutoAlign;
+    settings.enableDragAutoAlign = true;
+    p.entityMoveManager.alignAfterPointerDrag();
+    settings.enableDragAutoAlign = savedAlign;
+    for (let i = 1; i < chain.length; i++) {
+      expect(chain[i].rectangle.left).toBeGreaterThanOrEqual(chain[i - 1].rectangle.right - 1e-7);
+      expect(chain[i].rectangle.top).toBe(0);
+    }
+    const after = serialize(p.stage);
+    p.historyManager.recordStep();
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(after);
+  });
+  it("does not push a locked section's node aside and restores the drag", () => {
+    const { p, node, group } = fixture();
+    settings.isEnableEntityCollision = true;
+    const a = node(0);
+    const locked = group(400);
+    locked.section.locked = true;
+    p.stageManager.updateReferences();
+    a.isSelected = true;
+    const before = serialize(p.stage);
+    p.entityMoveManager.dragSelection(new Vector(400, 0), false);
+    expect(serialize(p.stage)).toEqual(before);
+  });
+  it.each([
+    [200, 0],
+    [-200, 0],
+    [0, 200],
+    [0, -200],
+  ])("pushes a row of text nodes along the drag (%s,%s) without side-stepping", (dx, dy) => {
+    const { p, node } = fixture();
+    settings.isEnableEntityCollision = true;
+    const horizontal = dx !== 0;
+    const sign = Math.sign(dx || dy);
+    const a = node(0, 0),
+      b = node(horizontal ? sign * 180 : 0, horizontal ? 0 : sign * 180);
+    const c = node(horizontal ? sign * 350 : 0, horizontal ? 0 : sign * 350);
+    const start = [a, b, c].map((n) => n.rectangle.location.clone());
+    a.isSelected = true;
+    p.entityMoveManager.dragSelection(new Vector(dx, dy), false);
+    for (const [i, n] of [a, b, c].entries()) {
+      expect(horizontal ? n.rectangle.top : n.rectangle.left).toBe(horizontal ? start[i].y : start[i].x);
+    }
+    expect(overlap(a, b)).toBe(false);
+    expect(overlap(b, c)).toBe(false);
+    expect(horizontal ? b.rectangle.left * sign : b.rectangle.top * sign).toBeGreaterThan(
+      horizontal ? start[1].x * sign : start[1].y * sign,
+    );
+  });
   it("restores the saved vertical renderer on construction", () => {
     const previous = settings.lineStyle;
     settings.lineStyle = "vertical";
