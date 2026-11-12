@@ -3,6 +3,16 @@ mod cli_desktop_acceptance;
 mod cmd;
 #[cfg(target_os = "windows")]
 mod windows_clipboard_files;
+#[cfg(target_os = "windows")]
+mod windows_clipboard_html;
+
+#[tauri::command]
+fn read_clipboard_table_html() -> Result<Option<String>, String> {
+    #[cfg(target_os = "windows")]
+    { windows_clipboard_html::read_html() }
+    #[cfg(not(target_os = "windows"))]
+    { Ok(None) }
+}
 
 #[tauri::command]
 fn read_clipboard_image_paths() -> Result<Vec<String>, String> {
@@ -145,6 +155,7 @@ pub fn run() {
             exit,
             take_pending_open_files,
             read_clipboard_image_paths,
+            read_clipboard_table_html,
             project_ownership::acquire_desktop_project_ownership,
             project_ownership::acquire_desktop_project_ownership_for_save,
             project_ownership::make_desktop_project_ownership_connectable,

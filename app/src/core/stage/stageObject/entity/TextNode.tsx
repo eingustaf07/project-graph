@@ -1,4 +1,5 @@
 import { creationGridGap } from "@/core/algorithm/creationGrid";
+import { layoutTable } from "@/core/algorithm/tableLayout";
 import type { Project } from "@/core/Project";
 import { Renderer } from "@/core/render/canvas2d/renderer";
 import { NodeMoveShadowEffect } from "@/core/service/feedbackService/effectEngine/concrete/NodeMoveShadowEffect";
@@ -29,6 +30,8 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   uuid: string;
   @serializable
   text: string;
+  @serializable
+  isTable?: boolean;
   @serializable
   public collisionBox: CollisionBox;
   @serializable
@@ -127,6 +130,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       fontFamily = "",
       fontWeight = "",
       borderStyle = "solid" as "solid" | "dashed" | "none",
+      isTable,
     }: {
       uuid?: string;
       text?: string;
@@ -139,6 +143,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       fontFamily?: string;
       fontWeight?: string;
       borderStyle?: "solid" | "dashed" | "none";
+      isTable?: boolean;
     },
     public unknown = false,
   ) {
@@ -153,6 +158,10 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     this.fontFamily = fontFamily;
     this.fontWeight = fontWeight;
     this.borderStyle = borderStyle;
+    // Ordinary nodes keep their existing serialized shape. MessagePack converts
+    // explicit undefined fields to null, so only table nodes carry this marker.
+    if (isTable === true) this.isTable = true;
+    else delete this.isTable;
     // 初始化字体大小缓存
     this.updateFontSizeCache();
     // if (this.text.length < TextNode.enableResizeCharCount) {
@@ -280,28 +289,68 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   /**
    * 调整后的矩形是当前文字加了一圈padding之后的大小
    */
+  private tableLayoutCache?: {
+    text: string;
+    fontSize: number;
+    family: string;
+    weight: string;
+    width?: number;
+    layout: ReturnType<typeof layoutTable>;
+  };
+
+  getTableLayout() {
+    const width = this.sizeAdjust === "manual" ? this.rectangle.width : undefined;
+    const family = this.fontFamily || Settings.defaultFontFamily;
+    const cached = this.tableLayoutCache;
+    if (
+      !cached ||
+      cached.text !== this.text ||
+      cached.fontSize !== this.getFontSize() ||
+      cached.family !== family ||
+      cached.weight !== this.fontWeight ||
+      cached.width !== width
+    )
+      this.tableLayoutCache = {
+        text: this.text,
+        fontSize: this.getFontSize(),
+        family,
+        weight: this.fontWeight,
+        width,
+        layout: layoutTable(this.text, this.getFontSize(), this.getPadding(), family, this.fontWeight, width),
+      };
+    return this.tableLayoutCache!.layout;
+  }
+
   private adjustSizeByText() {
-    const naturalSize = getMultiLineTextSize(
-      this.text,
-      this.getFontSize(),
-      1.5,
-      undefined,
-      this.fontFamily,
-      this.fontWeight,
-    );
-    const width = Math.min(naturalSize.x, this.getAutoMaxTextWidth());
-    const wrappedSize = getMultiLineTextSize(
-      this.text,
-      this.getFontSize(),
-      1.5,
-      width,
-      this.fontFamily,
-      this.fontWeight,
-    );
-    this.collisionBox.shapes[0] = new Rectangle(
-      this.rectangle.location.clone(),
-      new Vector(width, wrappedSize.y).add(Vector.same(this.getPadding()).multiply(2)),
-    );
+    if (this.isTable) {
+      const layout = this.getTableLayout();
+      this.collisionBox.shapes[0] = new Rectangle(
+        this.rectangle.location.clone(),
+        new Vector(layout.width, layout.height),
+      );
+    } else {
+      const naturalSize = getMultiLineTextSize(
+        this.text,
+        this.getFontSize(),
+        1.5,
+        undefined,
+        this.fontFamily,
+        this.fontWeight,
+      );
+      const width = Math.min(naturalSize.x, this.getAutoMaxTextWidth());
+      const wrappedSize = getMultiLineTextSize(
+        this.text,
+        this.getFontSize(),
+        1.5,
+        width,
+        this.fontFamily,
+        this.fontWeight,
+      );
+      this.collisionBox.shapes[0] = new Rectangle(
+        this.rectangle.location.clone(),
+        new Vector(width, wrappedSize.y).add(Vector.same(this.getPadding()).multiply(2)),
+      );
+    }
     this.constrainToFixedBoundary();
     this.resolveOverlaps();
     this.lastAutoSize = {
@@ -312,6 +361,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       maxCharWidth: Settings.textNodeMaxCharWidth,
       width: this.rectangle.width,
       height: this.rectangle.height,
+      isTable: this.isTable,
     };
   }
 
@@ -323,6 +373,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     maxCharWidth: number;
     width: number;
     height: number;
+    isTable?: boolean;
   };
 
   public refreshSizeByTextIfNeeded(): void {
@@ -330,6 +381,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     // Panning refreshes the whole stage. Unchanged nodes must not re-wrap text or run collision propagation.
     if (
       previous &&
+      previous.isTable === this.isTable &&
       previous.text === this.text &&
       previous.fontSize === this.getFontSize() &&
       previous.fontFamily === (this.fontFamily || Settings.defaultFontFamily) &&
@@ -357,6 +409,10 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     return Math.max(0, this.rectangle.size.x - this.getPadding() * 2);
   }
   private adjustHeightByText() {
+    if (this.isTable) {
+      this.adjustSizeByText();
+      return;
+    }
     const wrapWidth = this.rectangle.size.x - this.getPadding() * 2;
     const newTextSize = this.project.textRenderer.measureMultiLineTextSize(
       this.text,
@@ -417,6 +473,11 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     // todo：宽度能自定义控制，但是高度不能
     const newSize = newRectangle.size.add(delta);
     newSize.x = Math.max(75, newSize.x);
+    if (this.isTable) {
+      this.collisionBox.shapes[0] = new Rectangle(currentRect.location.clone(), newSize);
+      this.adjustSizeByText();
+      return;
+    }
     const newTextSize = this.project.textRenderer.measureMultiLineTextSize(
       this.text,
       this.getFontSize(),

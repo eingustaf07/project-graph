@@ -21,6 +21,7 @@ import { isDesktop } from "@/utils/platform";
 import { colorInvert, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { toast } from "sonner";
+import { editTableNode } from "@/core/service/dataManageService/tableEditor";
 import {
   autoChangeTextNodeToLatexNode,
   autoChangeTextNodeToReferenceBlock,
@@ -52,6 +53,10 @@ export class ControllerUtils {
    * @param clickedNode
    */
   editTextNode(clickedNode: TextNode, selectAll = true) {
+    if (clickedNode.isTable) {
+      void editTableNode(this.project, clickedNode);
+      return;
+    }
     this.project.controller.isCameraLocked = true;
     // 停止摄像机漂移
     this.project.camera.stopImmediately();

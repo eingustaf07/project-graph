@@ -228,6 +228,7 @@ export class AutoCompute {
   }
 
   isTextNodeLogic(node: TextNode): boolean {
+    if (node.isTable) return false;
     const names = [
       ...Object.keys(this.MapNameFunction),
       ...Object.keys(this.MapOtherFunction),

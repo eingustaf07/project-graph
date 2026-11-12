@@ -14,6 +14,7 @@ import { formatKeyBindSequenceToString } from "@/utils/keyDisplay";
 import { Color, colorInvert, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import i18next from "i18next";
+import { renderTableNode } from "./renderTableNode";
 
 @service("textNodeRenderer")
 export class TextNodeRenderer {
@@ -22,7 +23,7 @@ export class TextNodeRenderer {
 
   renderTextNode(node: TextNode) {
     // 检查是否是逻辑节点
-    const isLogicNode = this.project.autoComputeUtils.isNameIsLogicNode(node.text);
+    const isLogicNode = !node.isTable && this.project.autoComputeUtils.isNameIsLogicNode(node.text);
 
     // 节点身体矩形
     let fillColor = node.color;
@@ -87,7 +88,8 @@ export class TextNodeRenderer {
       this.renderLogicNodeWarningTrap(node);
     }
 
-    if (Settings.alwaysRenderNodeText || renderedFontSize > Settings.ignoreTextNodeTextRenderLessThanFontSize) {
+    if (node.isTable) renderTableNode(this.project, node);
+    else if (Settings.alwaysRenderNodeText || renderedFontSize > Settings.ignoreTextNodeTextRenderLessThanFontSize) {
       this.renderTextNodeTextLayer(node);
     }
 

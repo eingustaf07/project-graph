@@ -74,6 +74,9 @@ import { SearchContentHighlightRenderer } from "@/core/render/canvas2d/utilsRend
 import { setHighlightProjects } from "@/core/service/dataManageService/crossFileHighlight";
 import { URI } from "vscode-uri";
 import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/StageSectionInOutManager";
+import { commitTableEdit } from "../tableEditActions";
+import { parseTableText } from "@/core/algorithm/tableData";
+import { Encoder, Decoder } from "@msgpack/msgpack";
 
 function fixture() {
   const p: any = {
@@ -84,7 +87,7 @@ function fixture() {
     on: vi.fn(),
     off: vi.fn(),
     effects: { addEffect: vi.fn() },
-    syncAssociationManager: { onStageObjectDeleted: vi.fn() },
+    syncAssociationManager: { onStageObjectDeleted: vi.fn(), syncFrom: vi.fn() },
     renderer: { transformView2World: (v: Vector) => v.multiply(2).add(new Vector(-5000, 3000)) },
     textRenderer: {
       measureMultiLineTextSize: (text: string, size: number, width: number, height: number) =>
@@ -157,58 +160,123 @@ afterEach(() => {
 });
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
-  it.each(["line", -240, 240, 0] as const)("splits %s with real node creation, style preservation, one-step undo and reload", async (kind) => {
+  it("does not add a table marker to ordinary nodes or their file data", () => {
     const p = fixture();
-    const a = new TextNode(p, { text: "source", collisionBox: new CollisionBox([
-      new Rectangle(new Vector(0, 0), new Vector(100, 60)),
-    ]) });
-    const b = new TextNode(p, { text: "target", collisionBox: new CollisionBox([
-      new Rectangle(new Vector(800, 0), new Vector(100, 60)),
-    ]) });
-    const options = { associationList: [a, b], text: "keep label", lineType: "dashed", arrowType: "none",
-      sourceRectangleRate: new Vector(0.99, 0.5), targetRectangleRate: new Vector(0.01, 0.5) };
-    const edge = kind === "line" ? new LineEdge(p, options) : new ArcEdge(p, { ...options, offset: kind });
-    p.stage.push(a, b, edge);
-    p.stageManager.updateReferences();
-    p.historyManager = new HistoryManager(p);
-    const original = serialize(p.stage);
-    const middle = edge instanceof ArcEdge && kind !== 0 ? (() => {
-      const geo = edge.arcGeometry;
-      const angle = (geo.startAngle + geo.endAngle) / 2;
-      return geo.center.add(new Vector(Math.cos(angle), Math.sin(angle)).multiply(geo.radius));
-    })() : Vector.average(a.geometryCenter, b.geometryCenter);
-    edge.isSelected = true;
-    const uuid = await splitSelectedExtensionEdge(p);
-    const node = p.stageManager.getTextNodeByUUID(uuid!);
-    expect(node).toBeDefined();
-    expectPoint(node!.geometryCenter, middle);
-    expect(node!.isSelected).toBe(true);
-    expect(p.controllerUtils.textNodeInEditModeByUUID).toHaveBeenCalledWith(uuid);
-    const edges = p.stageManager.getAssociations() as (LineEdge | ArcEdge)[];
-    expect(edges).toHaveLength(2);
-    expect(edges[0].source).toBe(a);
-    expect(edges[0].target).toBe(node);
-    expect(edges[1].source).toBe(node);
-    expect(edges[1].target).toBe(b);
-    expect(edges.map((e) => e.text)).toEqual(["keep label", ""]);
-    expect(edges.every((e) => e.lineType === "dashed" && e.arrowType === "none")).toBe(true);
-    expect(edges[0].sourceRectangleRate).toEqual(options.sourceRectangleRate);
-    expect(edges[1].targetRectangleRate).toEqual(options.targetRectangleRate);
-    if (edge instanceof ArcEdge && typeof kind === "number" && kind !== 0) {
-      expect(edges[1]).toBeInstanceOf(ArcEdge);
-      for (const part of edges as ArcEdge[]) expect(part.arcGeometry.radius).toBeCloseTo(
-        (kind * kind + a.geometryCenter.distance(b.geometryCenter) ** 2 / 4) / (2 * Math.abs(kind as number)), 4,
-      );
-    }
-    const saved = serialize(p.stage);
-    p.historyManager.undo();
-    expect(serialize(p.stage)).toEqual(original);
-    p.historyManager.redo();
-    expect(serialize(p.stage)).toEqual(saved);
-    p.stage = deserialize(structuredClone(saved), p);
-    p.stageManager.updateReferences();
-    expect(p.stageManager.getAssociations()).toHaveLength(2);
+    const node = new TextNode(p, { text: "原有节点" });
+    expect(serialize(node)).not.toHaveProperty("isTable");
+    const restored = deserialize(new Decoder().decode(new Encoder().encode(serialize(node))), p);
+    expect(serialize(restored)).toEqual(serialize(node));
   });
+  it("pastes Excel cells ahead of its image and preserves editable data through history, file encoding and cross-document copy", async () => {
+    const p = fixture();
+    p.historyManager = new HistoryManager(p);
+    clipboard.text = '编号\t内容\r\n001\t"第一行\n第二行"\r\n';
+    const image = vi.spyOn(CopyEngineImage.prototype, "pasteImageFromTauriClipboard").mockResolvedValue(true);
+    await p.copyEngine.readSystemClipboardAndPaste(new Vector(200, 150));
+    expect(image).not.toHaveBeenCalled();
+    let node = p.stageManager.getTextNodes()[0];
+    const original = [
+      ["编号", "内容"],
+      ["001", "第一行\n第二行"],
+    ];
+    expect(node.isTable).toBe(true);
+    expect(node.getTableLayout().cells).toEqual(original);
+    expectPoint(node.geometryCenter, new Vector(200, 150));
+    const binary = new Encoder().encode(serialize(p.stage));
+    const restored = deserialize(new Decoder().decode(binary), p) as TextNode[];
+    expect(restored[0].isTable).toBe(true);
+    expect(restored[0].getTableLayout().cells).toEqual(original);
+    const cells = [
+      ["编号", "内容"],
+      ["002", "改后的值"],
+    ];
+    expect(commitTableEdit(p, node, cells)).toBe(true);
+    expect(commitTableEdit(p, node, cells)).toBe(false);
+    p.historyManager.undo();
+    expect(p.stageManager.getTextNodes()[0].getTableLayout().cells).toEqual(original);
+    p.historyManager.redo();
+    node = p.stageManager.getTextNodes()[0];
+    expect(node.getTableLayout().cells).toEqual(cells);
+    node.isSelected = true;
+    await p.copyEngine.copy("nodes");
+    const other = fixture();
+    other.historyManager = new HistoryManager(other);
+    await other.copyEngine.readSystemClipboardAndPaste(new Vector(-100, 80));
+    const pasted = other.stageManager.getTextNodes()[0];
+    expect(pasted.isTable).toBe(true);
+    expect(parseTableText(pasted.text)).toEqual(cells);
+    expectPoint(pasted.geometryCenter, new Vector(-100, 80));
+    other.historyManager.undo();
+    expect(other.stage).toHaveLength(0);
+  });
+  it.each(["line", -240, 240, 0] as const)(
+    "splits %s with real node creation, style preservation, one-step undo and reload",
+    async (kind) => {
+      const p = fixture();
+      const a = new TextNode(p, {
+        text: "source",
+        collisionBox: new CollisionBox([new Rectangle(new Vector(0, 0), new Vector(100, 60))]),
+      });
+      const b = new TextNode(p, {
+        text: "target",
+        collisionBox: new CollisionBox([new Rectangle(new Vector(800, 0), new Vector(100, 60))]),
+      });
+      const options = {
+        associationList: [a, b],
+        text: "keep label",
+        lineType: "dashed",
+        arrowType: "none",
+        sourceRectangleRate: new Vector(0.99, 0.5),
+        targetRectangleRate: new Vector(0.01, 0.5),
+      };
+      const edge = kind === "line" ? new LineEdge(p, options) : new ArcEdge(p, { ...options, offset: kind });
+      p.stage.push(a, b, edge);
+      p.stageManager.updateReferences();
+      p.historyManager = new HistoryManager(p);
+      const original = serialize(p.stage);
+      const middle =
+        edge instanceof ArcEdge && kind !== 0
+          ? (() => {
+              const geo = edge.arcGeometry;
+              const angle = (geo.startAngle + geo.endAngle) / 2;
+              return geo.center.add(new Vector(Math.cos(angle), Math.sin(angle)).multiply(geo.radius));
+            })()
+          : Vector.average(a.geometryCenter, b.geometryCenter);
+      edge.isSelected = true;
+      const uuid = await splitSelectedExtensionEdge(p);
+      const node = p.stageManager.getTextNodeByUUID(uuid!);
+      expect(node).toBeDefined();
+      expectPoint(node!.geometryCenter, middle);
+      expect(node!.isSelected).toBe(true);
+      expect(p.controllerUtils.textNodeInEditModeByUUID).toHaveBeenCalledWith(uuid);
+      const edges = p.stageManager.getAssociations() as (LineEdge | ArcEdge)[];
+      expect(edges).toHaveLength(2);
+      expect(edges[0].source).toBe(a);
+      expect(edges[0].target).toBe(node);
+      expect(edges[1].source).toBe(node);
+      expect(edges[1].target).toBe(b);
+      expect(edges.map((e) => e.text)).toEqual(["keep label", ""]);
+      expect(edges.every((e) => e.lineType === "dashed" && e.arrowType === "none")).toBe(true);
+      expect(edges[0].sourceRectangleRate).toEqual(options.sourceRectangleRate);
+      expect(edges[1].targetRectangleRate).toEqual(options.targetRectangleRate);
+      if (edge instanceof ArcEdge && typeof kind === "number" && kind !== 0) {
+        expect(edges[1]).toBeInstanceOf(ArcEdge);
+        for (const part of edges as ArcEdge[])
+          expect(part.arcGeometry.radius).toBeCloseTo(
+            (kind * kind + a.geometryCenter.distance(b.geometryCenter) ** 2 / 4) / (2 * Math.abs(kind as number)),
+            4,
+          );
+      }
+      const saved = serialize(p.stage);
+      p.historyManager.undo();
+      expect(serialize(p.stage)).toEqual(original);
+      p.historyManager.redo();
+      expect(serialize(p.stage)).toEqual(saved);
+      p.stage = deserialize(structuredClone(saved), p);
+      p.stageManager.updateReferences();
+      expect(p.stageManager.getAssociations()).toHaveLength(2);
+    },
+  );
   it("restores the original graph when node creation fails midway through a split", async () => {
     const p = fixture();
     const { edge } = addTree(p);
@@ -237,11 +305,17 @@ describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
     const p = fixture();
     const nodes = Array.from({ length: 5 }, (_, i) => new TextNode(p, { text: `member ${i}` }));
     const rates = nodes.map((_, i) => new Vector(i / 5, i / 10));
-    const relation = new MultiTargetUndirectedEdge(p, { associationList: nodes, rectRates: rates, text: "keep relation" });
+    const relation = new MultiTargetUndirectedEdge(p, {
+      associationList: nodes,
+      rectRates: rates,
+      text: "keep relation",
+    });
     p.stage.push(...nodes, relation);
     p.stageManager.updateReferences();
     p.historyManager = new HistoryManager(p);
-    nodes.slice(1, count + 1).forEach((node) => { node.isSelected = true; });
+    nodes.slice(1, count + 1).forEach((node) => {
+      node.isSelected = true;
+    });
     p.stageManager.deleteSelectedStageObjects();
     expect(p.stageManager.getEntities()).toHaveLength(5 - count);
     if (count < 4) {
@@ -299,7 +373,10 @@ describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
     await target.copyEngine.paste();
     expect(target.stageManager.getTextNodes().map((node) => node.text)).toEqual([a.text, b.text]);
     expect(target.stageManager.getAssociations()).toHaveLength(1);
-    expectPoint(bounds(target.stageManager.getEntities()).center, target.renderer.transformView2World(MouseLocation.vector()));
+    expectPoint(
+      bounds(target.stageManager.getEntities()).center,
+      target.renderer.transformView2World(MouseLocation.vector()),
+    );
   });
   it("copies highlighted text through the current highlight rule without selecting neighbours", async () => {
     const p = fixture();
@@ -320,13 +397,18 @@ describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
     expect(clipboard.write).not.toHaveBeenCalled();
   });
   it("copies only the current file when locked highlights extend into another file", async () => {
-    const source = fixture(), other = fixture();
+    const source = fixture(),
+      other = fixture();
     const { a, b } = addTree(source);
     const foreign = addTree(other);
     b.isSelected = foreign.a.isSelected = foreign.b.isSelected = false;
-    a.crossFileLinks = [{
-      id: crypto.randomUUID(), targetFile: other.uri.toString(), targetNode: foreign.a.uuid,
-    }];
+    a.crossFileLinks = [
+      {
+        id: crypto.randomUUID(),
+        targetFile: other.uri.toString(),
+        targetNode: foreign.a.uuid,
+      },
+    ];
     Settings.connectedNodeHighlightLocked = true;
     Settings.enableCrossFileConnections = true;
     setHighlightProjects([source, other]);

@@ -31,6 +31,8 @@ import {
 import { centerClipboardEntities } from "./clipboardPosition";
 import { waitForClipboardImages } from "./clipboardImages";
 import { containPastedEntities } from "@/core/stage/stageObject/entity/Doodle";
+import { ClipboardTableUnavailable, readClipboardTable } from "./clipboardTable";
+import { tableToText } from "@/core/algorithm/tableData";
 
 let latestCopyRequest = 0;
 let clipboardWriteTail: Promise<boolean> | undefined;
@@ -50,7 +52,8 @@ export class CopyEngine {
 
   async copyHighlightedText(): Promise<boolean> {
     if (!Settings.connectedNodeHighlightLocked) return false;
-    const nodes = this.project.searchContentHighlightRenderer.getConnectedHighlightedNodes()
+    const nodes = this.project.searchContentHighlightRenderer
+      .getConnectedHighlightedNodes()
       .filter((node) => !node.isHiddenBySectionCollapse);
     return this.copy("text", nodes);
   }
@@ -68,11 +71,12 @@ export class CopyEngine {
       // Snapshot before opening the chooser; a later selection must not change what is copied.
       const serialized = serialize(objects);
       const textNodes = entities
-        ? selected.filter((node): node is TextNode | Section | UrlNode =>
-            node instanceof TextNode || node instanceof Section || node instanceof UrlNode,
+        ? selected.filter(
+            (node): node is TextNode | Section | UrlNode =>
+              node instanceof TextNode || node instanceof Section || node instanceof UrlNode,
           )
         : objects.filter((object): object is TextNode => object instanceof TextNode);
-      const text = textNodes.map((node) => node instanceof UrlNode ? node.title : node.text).join("\n\n");
+      const text = textNodes.map((node) => (node instanceof UrlNode ? node.title : node.text)).join("\n\n");
       const choice = mode ?? (await chooseCopyMode());
       if (!choice) return false;
       if (choice === "text" && !text) {
@@ -265,8 +269,20 @@ export class CopyEngine {
       await this.pasteNodes(payload, location);
       return;
     }
-    // Screenshot apps and browsers can publish image and text formats together. Prefer the actual image.
     const imageErrors: unknown[] = [];
+    let table: string[][] | undefined;
+    try {
+      table = await readClipboardTable(text, web);
+    } catch (error) {
+      if (!(error instanceof ClipboardTableUnavailable)) throw error;
+      imageErrors.push(error);
+    }
+    if (table) {
+      const node = new TextNode(this.project, { text: tableToText(table), isTable: true });
+      await this.pasteNodes({ stageObjects: serialize([node]), attachments: {} }, location);
+      return;
+    }
+    // Screenshots without table data keep their existing image-first behavior.
     const imageReaders = web
       ? [
           () => this.copyEngineImage.pasteImageFromWebClipboard(location),
