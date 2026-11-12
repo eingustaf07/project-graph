@@ -19,6 +19,7 @@ const TEXT_RENDER_SIZE = 100;
  */
 @service("textRenderer")
 export class TextRenderer {
+  private readonly appliedFonts = new WeakMap<CanvasRenderingContext2D, { requested: string; actual: string }>();
   constructor(private readonly project: Project) {}
 
   private shouldRoundText(size: number): boolean {
@@ -106,17 +107,27 @@ export class TextRenderer {
     }
 
     const ctx = this.project.canvas.ctx;
-    const font = resolveFont(TEXT_RENDER_SIZE, fontFamily, fontWeight);
-    const fillStyle = color.toString();
-    if (ctx.textBaseline !== "middle") ctx.textBaseline = "middle";
-    if (ctx.textAlign !== "left") ctx.textAlign = "left";
-    if (ctx.font !== font) ctx.font = font;
-    if (ctx.fillStyle !== fillStyle) ctx.fillStyle = fillStyle;
+    this.setTextStyle(ctx, color, fontFamily, fontWeight);
     ctx.save();
     ctx.translate(left, location.y);
     ctx.scale(size / TEXT_RENDER_SIZE, size / TEXT_RENDER_SIZE);
     ctx.fillText(text, 0, TEXT_RENDER_SIZE / 2);
     ctx.restore();
+  }
+
+  private setTextStyle(ctx: CanvasRenderingContext2D, color: Color, fontFamily?: string, fontWeight?: string) {
+    const font = resolveFont(TEXT_RENDER_SIZE, fontFamily, fontWeight);
+    const fillStyle = color.toString();
+    if (ctx.textBaseline !== "middle") ctx.textBaseline = "middle";
+    if (ctx.textAlign !== "left") ctx.textAlign = "left";
+    // Windows Canvas normalizes font declarations (e.g. omits "normal"). Check the
+    // read-back value as other renderers can change the same context between nodes.
+    const last = this.appliedFonts.get(ctx);
+    if (last?.requested !== font || last.actual !== ctx.font) {
+      ctx.font = font;
+      this.appliedFonts.set(ctx, { requested: font, actual: ctx.font });
+    }
+    if (ctx.fillStyle !== fillStyle) ctx.fillStyle = fillStyle;
   }
 
   private prepareText(text: string): string {
@@ -331,6 +342,28 @@ export class TextRenderer {
     if (limitLines < textLineArray.length) {
       textLineArray = textLineArray.slice(0, limitLines);
       textLineArray[limitLines - 1] += "..."; // 最后一行加省略号
+    }
+    const { w, h } = this.project.renderer;
+    if (
+      layoutOwner &&
+      fontSize > 0 &&
+      Number.isFinite(fontSize) &&
+      location.x >= 0 &&
+      location.x + limitWidth <= w &&
+      location.y >= 0 &&
+      location.y + fontSize * (1.25 + (textLineArray.length - 1) * lineHeight) <= h
+    ) {
+      const ctx = this.project.canvas.ctx;
+      this.setTextStyle(ctx, color, fontFamily, fontWeight);
+      ctx.save();
+      ctx.translate(location.x, location.y);
+      ctx.scale(fontSize / TEXT_RENDER_SIZE, fontSize / TEXT_RENDER_SIZE);
+      for (let i = 0; i < textLineArray.length; i++) {
+        if (i > 0) ctx.translate(0, TEXT_RENDER_SIZE * lineHeight);
+        ctx.fillText(textLineArray[i], 0, TEXT_RENDER_SIZE / 2);
+      }
+      ctx.restore();
+      return;
     }
     for (const line of textLineArray) {
       this.drawText(line, location.add(new Vector(0, currentY)), fontSize, color, fontFamily, fontWeight);

@@ -13,10 +13,12 @@ vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsM
 vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: { play: {} } }));
 vi.mock("@/utils/platform", () => ({ isMac: false, isIpad: false }));
 vi.mock("@/utils/externalOpen", () => ({ openBrowserOrFileByEntity: vi.fn() }));
+vi.mock("@/components/ui/dialog", () => ({ Dialog: { input: vi.fn() } }));
 vi.mock("./ControllerCamera/mac", () => ({ ControllerCameraMac: class {} }));
 import type { Project } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { ControllerCameraClass } from "./ControllerCamera";
+import { ControllerSectionEditClass } from "./ControllerSectionEdit";
 import { StageManager } from "@/core/stage/stageManager/StageManager";
 import { SectionMethods } from "@/core/stage/stageManager/basicMethods/SectionMethods";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
@@ -52,7 +54,7 @@ function fixture() {
   const p = {
     stage: [],
     attachments: new Map(),
-    canvas: { element: document.createElement("canvas") },
+    canvas: { element: document.createElement("canvas"), clientToView: (x: number, y: number) => new Vector(x, y) },
     controller: {
       isCameraLocked: false,
       pressingKeySet: new Set(),
@@ -96,8 +98,11 @@ it("starts ten pans on a large tree without resizing unchanged nodes or moving c
   Settings.isEnableEntityCollision = true;
   for (let i = 0; i < 10; i++) {
     down(control);
+    expect(control.isRightPanning).toBe(false);
     control.mousemove({ clientX: -980, clientY: -990 } as MouseEvent);
+    expect(control.isRightPanning).toBe(true);
     control.mouseup({ button: 2 } as MouseEvent);
+    expect(control.isRightPanning).toBe(false);
   }
   expect(recompute).not.toHaveBeenCalled();
   expect(JSON.stringify(serialize(p.stage))).toBe(before);
@@ -140,6 +145,32 @@ it("right-drags the second canvas without moving the first or repeating backgrou
   expect(first.p.camera.location).toEqual(Vector.getZero());
   expect(second.p.camera.location).toEqual(new Vector(-20, 0));
   expect(lookup).toHaveBeenCalledTimes(1);
+});
+
+it("skips hover scans only during a confirmed pan and restores picking on release", () => {
+  const { p, control } = fixture();
+  const update = vi.fn(), clear = vi.fn();
+  const connection = { isUsing: true };
+  Object.assign(p, { mouseInteraction: { updateByMouseMove: update, clearHover: clear } });
+  Object.assign(p.controller, { camera: control, nodeConnection: connection });
+  const edit = new ControllerSectionEditClass(p);
+  const move = { clientX: -975, clientY: -990 } as MouseEvent;
+  try {
+    down(control);
+    control.mousemove(move);
+    edit.mousemove(move);
+    expect(update).toHaveBeenCalledOnce();
+    connection.isUsing = false;
+    control.mousemove(move);
+    for (let i = 0; i < 40; i++) edit.mousemove(move);
+    expect(clear).toHaveBeenCalledOnce();
+    expect(update).toHaveBeenCalledOnce();
+    edit.mouseup({ button: 2, clientX: -975, clientY: -990 } as MouseEvent);
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenLastCalledWith(p.renderer.transformView2World(new Vector(-975, -990)));
+  } finally {
+    edit.dispose();
+  }
 });
 
 it("still refreshes changed auto nodes and their parent while keeping manual widths", () => {

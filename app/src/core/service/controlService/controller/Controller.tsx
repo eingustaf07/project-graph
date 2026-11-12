@@ -22,6 +22,7 @@ import { CursorNameEnum } from "@/types/cursors";
 import { isMac } from "@/utils/platform";
 import { Settings } from "../../Settings";
 import { HyperedgeCenterDrag } from "./HyperedgeCenterDrag";
+import { CanvasPointerCapture } from "./CanvasPointerCapture";
 
 /**
  * 控制器，控制鼠标、键盘事件
@@ -118,7 +119,9 @@ export class Controller {
    * @param this.project.canvas.element
    */
   readonly hyperedgeCenterDrag: HyperedgeCenterDrag;
+  private readonly pointerCapture: CanvasPointerCapture;
   constructor(private readonly project: Project) {
+    this.pointerCapture = new CanvasPointerCapture(project.canvas.element, (position) => this.pointerleave(position));
     this.hyperedgeCenterDrag = new HyperedgeCenterDrag(project);
     window.addEventListener("blur", this.clearTransferKey);
     window.addEventListener("keydown", this.pressTransferKey, true);
@@ -146,6 +149,7 @@ export class Controller {
       });
   }
   dispose() {
+    this.pointerCapture.dispose();
     this.hyperedgeCenterDrag.dispose();
     window.removeEventListener("blur", this.clearTransferKey);
     window.removeEventListener("keydown", this.pressTransferKey, true);
@@ -196,7 +200,8 @@ export class Controller {
     this.resetCountdownTimer();
   }
 
-  private pointerleave(_event: PointerEvent) {
+  private pointerleave(_event: { clientX: number; clientY: number }) {
+    if (this.pointerCapture.active) return;
     if (!this.isMouseDown.some(Boolean)) return;
     for (let i = 0; i < this.isMouseDown.length; i++) {
       this.isMouseDown[i] = false;

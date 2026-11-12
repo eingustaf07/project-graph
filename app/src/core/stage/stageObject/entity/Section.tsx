@@ -378,13 +378,14 @@ export class Doodle extends Section {
     project: Project,
     {
       frame = new Rectangle(Vector.getZero(), new Vector(1800, 1200)),
+      color = Color.White.clone(),
       shape = "rectangle",
       bounded = false,
       erasures = [],
       ...options
     }: DoodleOptions = {},
   ) {
-    super(project, { ...options, isCollapsed: false });
+    super(project, { ...options, color, isCollapsed: false });
     this.frame = frame;
     this.shape = shape;
     this.bounded = bounded;

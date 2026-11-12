@@ -8,9 +8,9 @@ import { crossesRectangle, orthogonalPath } from "@/core/algorithm/orthogonalPat
 
 type Context = {
   tick: number | undefined;
-  topology: string;
+  topology: ReturnType<typeof snapshotPorts>[];
   boxes: Map<object, Rectangle>;
-  edges: LineEdge[];
+  fastPaths: WeakMap<LineEdge, { source: Rectangle; target: Rectangle; points: Vector[] }>;
   paths: Map<string, Vector[]>;
   changed: { node: object; rect: Rectangle }[];
   used: Set<string>;
@@ -22,6 +22,23 @@ type Context = {
 };
 const contexts = new WeakMap<Project, Context>();
 const bounds = new WeakMap<Vector[], Rectangle>();
+
+function snapshotPorts(e: LineEdge) {
+  return {
+    edge: e,
+    source: e.source,
+    target: e.target,
+    sx: e.sourceRectangleRate.x,
+    sy: e.sourceRectangleRate.y,
+    tx: e.targetRectangleRate.x,
+    ty: e.targetRectangleRate.y,
+    shift: e.shiftingIndex,
+  };
+}
+
+function sameRectangle(a: Rectangle, b: Rectangle | undefined) {
+  return b !== undefined && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height;
+}
 
 function rectangleOf(entity: Entity): Rectangle {
   const rectangle = "rectangle" in entity ? entity.rectangle : undefined;
@@ -55,60 +72,79 @@ export function getOrthogonalEdgePath(edge: LineEdge, project: Project): Vector[
     const entities = project.stageManager
       .getEntities()
       .filter((n) => !n.isHiddenBySectionCollapse && !("children" in n));
-    const boxes = new Map<object, Rectangle>(entities.map((n) => [n, rectangleOf(n).clone()]));
     const edges = project.stageManager.getLineEdges();
-    const topology = JSON.stringify([
-      edges.map((e) => [
-        e.uuid,
-        e.source.uuid,
-        e.target.uuid,
-        e.sourceRectangleRate,
-        e.targetRectangleRate,
-        e.shiftingIndex,
-      ]),
-    ]);
-    const changed = [...boxes]
-      .filter(([node, r]) => {
-        const old = context?.boxes.get(node);
-        return !old || old.left !== r.left || old.top !== r.top || old.width !== r.width || old.height !== r.height;
-      })
-      .map(([node, rect]) => ({ node, rect }));
-    const paths =
-      context?.topology === topology
-        ? new Map([...context.paths].filter(([key]) => context!.used.has(key)))
-        : new Map<string, Vector[]>();
-    let outgoing = context?.outgoing,
-      incoming = context?.incoming;
-    if (!outgoing || !incoming || context?.topology !== topology) {
-      outgoing = new Map();
-      incoming = new Map();
-      for (const edge of edges) {
-        const from = outgoing.get(edge.source) ?? [];
-        from.push(edge);
-        outgoing.set(edge.source, from);
-        const to = incoming.get(edge.target) ?? [];
-        to.push(edge);
-        incoming.set(edge.target, to);
+    const previous = context;
+    const sameTopology =
+      previous !== undefined &&
+      edges.length === previous.topology.length &&
+      edges.every((e, i) => {
+        const old = previous.topology[i];
+        return (
+          old.edge === e &&
+          old.source === e.source &&
+          old.target === e.target &&
+          old.sx === e.sourceRectangleRate.x &&
+          old.sy === e.sourceRectangleRate.y &&
+          old.tx === e.targetRectangleRate.x &&
+          old.ty === e.targetRectangleRate.y &&
+          old.shift === e.shiftingIndex
+        );
+      });
+    if (
+      sameTopology &&
+      previous.boxes.size === entities.length &&
+      entities.every((n) => sameRectangle(rectangleOf(n), previous.boxes.get(n)))
+    ) {
+      previous.tick = tick;
+      context = previous;
+    } else {
+      const boxes = new Map<object, Rectangle>(entities.map((n) => [n, rectangleOf(n).clone()]));
+      const changed = [...boxes]
+        .filter(([node, r]) => {
+          const old = context?.boxes.get(node);
+          return !old || old.left !== r.left || old.top !== r.top || old.width !== r.width || old.height !== r.height;
+        })
+        .map(([node, rect]) => ({ node, rect }));
+      const paths =
+        context && sameTopology
+          ? new Map([...context.paths].filter(([key]) => context!.used.has(key)))
+          : new Map<string, Vector[]>();
+      let outgoing = context?.outgoing,
+        incoming = context?.incoming;
+      if (!outgoing || !incoming || !sameTopology) {
+        outgoing = new Map();
+        incoming = new Map();
+        for (const edge of edges) {
+          const from = outgoing.get(edge.source) ?? [];
+          from.push(edge);
+          outgoing.set(edge.source, from);
+          const to = incoming.get(edge.target) ?? [];
+          to.push(edge);
+          incoming.set(edge.target, to);
+        }
       }
+      context = {
+        tick,
+        topology: sameTopology ? previous.topology : edges.map(snapshotPorts),
+        boxes,
+        fastPaths: new WeakMap(),
+        paths,
+        changed,
+        outgoing,
+        incoming,
+        geometryChanged: boxes.size !== context?.boxes.size || changed.length > 0,
+        failed: new Set([...(context?.failed ?? [])].filter((key) => paths.has(key))),
+        used: new Set(),
+        validated: new Set(),
+      };
+      contexts.set(project, context);
     }
-    context = {
-      tick,
-      topology,
-      boxes,
-      edges,
-      paths,
-      changed,
-      outgoing,
-      incoming,
-      geometryChanged: boxes.size !== context?.boxes.size || changed.length > 0,
-      failed: new Set([...(context?.failed ?? [])].filter((key) => paths.has(key))),
-      used: new Set(),
-      validated: new Set(),
-    };
-    contexts.set(project, context);
   }
+  // A camera change does not change world paths. Still check endpoints because a drag can move them within one frame.
   const source = rectangleOf(edge.source),
     target = rectangleOf(edge.target);
+  const fast = context.fastPaths.get(edge);
+  if (fast && sameRectangle(source, fast.source) && sameRectangle(target, fast.target)) return fast.points;
   const cacheKey = JSON.stringify([
     edge.uuid,
     edge.source.uuid,
@@ -136,6 +172,7 @@ export function getOrthogonalEdgePath(edge: LineEdge, project: Project): Vector[
         )))
   ) {
     context.validated.add(cacheKey);
+    context.fastPaths.set(edge, { source: source.clone(), target: target.clone(), points: cached });
     return cached;
   }
   const dx = target.center.x - source.center.x,
@@ -176,12 +213,14 @@ export function getOrthogonalEdgePath(edge: LineEdge, project: Project): Vector[
       context.validated.add(cacheKey);
       const path = [start, ...middle, end];
       context.paths.set(cacheKey, path);
+      context.fastPaths.set(edge, { source: source.clone(), target: target.clone(), points: path });
       context.failed.delete(cacheKey);
       return path;
     }
   }
   context.validated.add(cacheKey);
   context.paths.set(cacheKey, points);
+  context.fastPaths.set(edge, { source: source.clone(), target: target.clone(), points });
   if (routed.length) context.failed.delete(cacheKey);
   else context.failed.add(cacheKey);
   return points;

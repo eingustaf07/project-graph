@@ -41,23 +41,54 @@ export function orthogonalPath(start: Vector, end: Vector, obstacles: Rectangle[
     )
   )
     return [];
-  const clear = (a: Vector, b: Vector) => !obstacles.some((r) => crossesRectangle(a, b, r));
+  // The visibility search revisits the same row/column many times. Only rectangles crossing that
+  // coordinate can block a segment. Keep these lists local to one search so edits cannot stale them.
+  const rows = new Map<number, Rectangle[]>(),
+    columns = new Map<number, Rectangle[]>();
+  let searchingGrid = false;
+  let cachedReferences = 0;
+  const clear = (a: Vector, b: Vector) => {
+    if (!searchingGrid) return !obstacles.some((r) => crossesRectangle(a, b, r));
+    const vertical = a.x === b.x;
+    const cache = vertical ? columns : rows;
+    const coordinate = vertical ? a.x : a.y;
+    let candidates = cache.get(coordinate);
+    if (!candidates) {
+      candidates = obstacles.filter((r) =>
+        vertical
+          ? coordinate > r.left + 1e-7 && coordinate < r.right - 1e-7
+          : coordinate > r.top + 1e-7 && coordinate < r.bottom - 1e-7,
+      );
+      if (cache.size < 256 && cachedReferences + candidates.length <= 65536) {
+        cache.set(coordinate, candidates);
+        cachedReferences += candidates.length;
+      }
+    }
+    return !candidates.some((r) => crossesRectangle(a, b, r));
+  };
   const valid = (points: Vector[]) => points.slice(1).every((p, i) => clear(points[i], p));
   const middleX = (start.x + end.x) / 2,
     middleY = (start.y + end.y) / 2;
   const simple = [
     [start, new Vector(middleX + lane, start.y), new Vector(middleX + lane, end.y), end],
     [start, new Vector(start.x, middleY + lane), new Vector(end.x, middleY + lane), end],
-  ].filter(valid);
-  if (simple.length) return simplify(simple[0]);
+  ].find(valid);
+  if (simple) return simplify(simple);
+  searchingGrid = true;
   const xs = [...new Set([start.x, end.x, middleX + lane, ...obstacles.flatMap((r) => [r.left - 12, r.right + 12])])];
   const ys = [...new Set([start.y, end.y, middleY + lane, ...obstacles.flatMap((r) => [r.top - 12, r.bottom + 12])])];
-  const candidates = [
-    ...xs.map((x) => [start, new Vector(x, start.y), new Vector(x, end.y), end]),
-    ...ys.map((y) => [start, new Vector(start.x, y), new Vector(end.x, y), end]),
-  ].filter(valid);
-  const cost = (points: Vector[]) => points.slice(1).reduce((sum, p, i) => sum + p.distance(points[i]), 0);
-  if (candidates.length) return simplify(candidates.sort((a, b) => cost(a) - cost(b))[0]);
+  const dx = Math.abs(end.x - start.x),
+    dy = Math.abs(end.y - start.y);
+  const lanes = [
+    ...xs.map((x) => ({ xAxis: true, at: x, cost: Math.abs(start.x - x) + dy + Math.abs(end.x - x) })),
+    ...ys.map((y) => ({ xAxis: false, at: y, cost: Math.abs(start.y - y) + dx + Math.abs(end.y - y) })),
+  ].sort((a, b) => a.cost - b.cost);
+  for (const lane of lanes) {
+    const points = lane.xAxis
+      ? [start, new Vector(lane.at, start.y), new Vector(lane.at, end.y), end]
+      : [start, new Vector(start.x, lane.at), new Vector(end.x, lane.at), end];
+    if (valid(points)) return simplify(points);
+  }
   xs.sort((a, b) => a - b);
   ys.sort((a, b) => a - b);
   const width = xs.length;

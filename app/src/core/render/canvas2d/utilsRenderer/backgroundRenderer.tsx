@@ -1,4 +1,4 @@
-import { Color, Vector } from "@graphif/data-structures";
+import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { Project, service } from "@/core/Project";
 
@@ -17,17 +17,21 @@ export class BackgroundRenderer {
     const gridColor = this.project.stageStyleManager.currentStyle.GridNormal;
     const mainColor = this.project.stageStyleManager.currentStyle.GridHeavy;
 
+    const normal = new Path2D();
+    const main = new Path2D();
     for (const y of this.getLocationYIterator(viewRect, currentGap)) {
       for (const x of this.getLocationXIterator(viewRect, currentGap)) {
-        this.project.shapeRenderer.renderCircle(
-          this.project.renderer.transformWorld2View(new Vector(x, y)),
-          1,
-          x === 0 || y === 0 ? mainColor : gridColor,
-          Color.Transparent,
-          0,
-        );
+        const point = this.project.renderer.transformWorld2View(new Vector(x, y));
+        const path = x === 0 || y === 0 ? main : normal;
+        path.moveTo(point.x + 1, point.y);
+        path.arc(point.x, point.y, 1, 0, 2 * Math.PI);
       }
     }
+    const ctx = this.project.canvas.ctx;
+    ctx.fillStyle = gridColor.toString();
+    ctx.fill(normal);
+    ctx.fillStyle = mainColor.toString();
+    ctx.fill(main);
   }
 
   /**

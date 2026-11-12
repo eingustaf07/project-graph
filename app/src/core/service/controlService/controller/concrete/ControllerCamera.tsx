@@ -25,6 +25,14 @@ export class ControllerCameraClass extends ControllerClass {
   // 是否正在使用
   public isUsingMouseGrabMove = false;
   private rightPanStarted = false;
+  get isRightPanning() {
+    return (
+      this.rightPanStarted &&
+      this.isUsingMouseGrabMove &&
+      this.project.controller.isMouseDown[2] &&
+      !this.project.controller.nodeConnection.isUsing
+    );
+  }
   private lastMousePressLocation: Vector[] = [Vector.getZero(), Vector.getZero(), Vector.getZero()];
   /**
    * 是否正在使用空格+左键 拖动视野

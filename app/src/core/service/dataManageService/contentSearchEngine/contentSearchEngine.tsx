@@ -177,6 +177,12 @@ export class ContentSearch {
 
     const filter = taskFilter(searchString);
     for (const node of objectsToSearch) {
+      if (searchString === "/问题") {
+        if ((node instanceof TextNode || node instanceof Section) && /[?？]$/.test(node.text.trimEnd())) {
+          this.searchResultNodes.push(node);
+        }
+        continue;
+      }
       if (searchString === "/空") {
         if (
           (node instanceof TextNode || node instanceof Section) &&
@@ -319,7 +325,8 @@ export class ContentSearch {
   }
 
   public getReplacementStatus(query: string) {
-    if (taskFilter(query) || query === "/空") return { count: 0, lockedCount: 0, hasCurrent: false, atEnd: false };
+    if (taskFilter(query) || query === "/空" || query === "/问题")
+      return { count: 0, lockedCount: 0, hasCurrent: false, atEnd: false };
     const matches = findReplacementMatches(this.getReplacementTargets(), query, this.isCaseSensitive);
     return {
       count: matches.filter((match) => !match.target.locked).length,
@@ -330,7 +337,7 @@ export class ContentSearch {
   }
 
   public replaceText(query: string, replacement: string, all: boolean) {
-    if (taskFilter(query) || query === "/空") return { count: 0, objectCount: 0, lockedCount: 0 };
+    if (taskFilter(query) || query === "/空" || query === "/问题") return { count: 0, objectCount: 0, lockedCount: 0 };
     const targets = this.getReplacementTargets();
     const matches = findReplacementMatches(targets, query, this.isCaseSensitive);
     const current = all ? undefined : this.currentReplacementMatch(matches);

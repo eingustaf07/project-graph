@@ -133,7 +133,7 @@ function DrawingTools({ project, drawing, showToolbar }: { project: Project; dra
   const [bounded, setBounded] = useState(false);
   const [name, setName] = useState("");
   const titleDraftChanged = useRef(false);
-  const [color, setColor] = useState("#16a085");
+  const [color, setColor] = useState("#ffffff");
   const [selected, setSelected] = useState<Doodle>();
   const [editingId, setEditingId] = useState<string>();
   const [titleEditingId, setTitleEditingId] = useState<string>();

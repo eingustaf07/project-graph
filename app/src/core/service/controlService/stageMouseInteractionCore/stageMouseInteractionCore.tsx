@@ -53,6 +53,13 @@ export class MouseInteraction {
     return this._hoverMultiTargetEdges.length > 0 ? this._hoverMultiTargetEdges[0] : undefined;
   }
 
+  clearHover(): void {
+    this._hoverEdges = [];
+    this._hoverSections = [];
+    this._hoverConnectPoints = [];
+    this._hoverMultiTargetEdges = [];
+  }
+
   /**
    * mousemove 事件触发此函数
    * 要确保此函数只会被外界的一个地方调用，因为mousemove事件会频繁触发

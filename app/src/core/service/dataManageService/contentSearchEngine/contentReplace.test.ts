@@ -161,6 +161,24 @@ describe("literal text replacement planning", () => {
 });
 
 describe("find/replace in the current Project", () => {
+  it("finds question-ending nodes and frames within scope without replacing their contents", () => {
+    const chinese = node("为什么？");
+    const english = Object.assign(node("How?  \n"), { isSelected: true });
+    const frame = Object.assign(new fixtureClasses.Section(), { text: "框标题？ " });
+    const middle = node("为什么？还有解释");
+    const plain = node("内容中提及 /问题");
+    const edge = Object.assign(new fixtureClasses.Edge(), { text: "连线？" });
+    const { search, recordStep } = createProject(chinese, english, frame, middle, plain, edge);
+    search.startSearch("/问题", false);
+    expect(search.searchResultNodes).toEqual([chinese, english, frame]);
+    expect(search.getReplacementStatus("/问题").hasCurrent).toBe(false);
+    expect(search.replaceText("/问题", "替换", true).count).toBe(0);
+    expect(plain.text).toBe("内容中提及 /问题");
+    expect(recordStep).not.toHaveBeenCalled();
+    search.searchScope = SearchScope.SELECTED;
+    search.startSearch("/问题", false);
+    expect(search.searchResultNodes).toEqual([english]);
+  });
   it("finds empty and default-numbered text nodes with /空 without changing them", () => {
     const empty = node("");
     const whitespace = node("  \n ");

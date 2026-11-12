@@ -40,10 +40,26 @@ export class ControllerSectionEditClass extends ControllerClass {
     return;
   };
 
+  private hoverSuspended = false;
+
   mousemove = (event: MouseEvent) => {
+    if (this.project.controller.camera.isRightPanning) {
+      if (!this.hoverSuspended) this.project.mouseInteraction.clearHover();
+      this.hoverSuspended = true;
+      return;
+    }
+    this.updateHover(event);
+  };
+
+  mouseup = (event: MouseEvent) => {
+    if (event.button === 2 && this.hoverSuspended) this.updateHover(event);
+  };
+
+  private updateHover(event: MouseEvent) {
+    this.hoverSuspended = false;
     const worldLocation = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
     this.project.mouseInteraction.updateByMouseMove(worldLocation);
-  };
+  }
 
   keydown = (event: KeyboardEvent) => {
     if (event.key === "Enter") {
