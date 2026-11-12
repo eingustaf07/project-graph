@@ -32,7 +32,7 @@ vi.mock("@/utils/store", () => ({
 vi.mock("./shortcutKeysRegister", () => ({
   allKeyBinds: [
     { id: "shrinkSelectedFrames", defaultKey: "-", when: () => true, onPress: () => fixture.shrink() },
-    { id: "growSelectedFrames", defaultKey: "S-+", when: () => true, onPress: () => fixture.grow() },
+    { id: "growSelectedFrames", defaultKey: "=", when: () => true, onPress: () => fixture.grow() },
     { id: "openAIPanel", defaultKey: "a+i", when: (project: unknown) => !!project, onPress: () => fixture.open() },
     { id: "normalShortcut", defaultKey: "C-f", when: () => true, onPress: () => fixture.normal() },
     { id: "copy", defaultKey: "C-c", when: (project: unknown) => !!project, onPress: () => fixture.nodes() },
@@ -97,14 +97,42 @@ it("resizes frames with main keyboard signs while excluding numpad signs and tex
   await down("+", { code: "NumpadAdd", location: 3, shiftKey: true });
   expect(fixture.grow).not.toHaveBeenCalled();
   await up("+");
-  await down("+", { code: "Equal", shiftKey: true });
+  await down("=", { code: "Equal" });
   expect(fixture.grow).toHaveBeenCalledTimes(1);
+  await up("=");
+  await down("+", { code: "Equal" });
+  expect(fixture.grow).toHaveBeenCalledTimes(2);
   await up("+");
   const input = document.createElement("input");
   document.body.append(input);
   input.focus();
   await down("-", { code: "Minus" });
   expect(fixture.shrink).toHaveBeenCalledTimes(1);
+  await down("=", { code: "Equal" });
+  await down("+", { code: "Equal" });
+  expect(fixture.grow).toHaveBeenCalledTimes(2);
+});
+
+it.each([true, false])("migrates only the former frame grow default and preserves enabled=%s", async (isEnabled) => {
+  fixture.saved.set("growSelectedFrames", { key: "S-+", isEnabled });
+  fixture.saved.set("unrelated", { key: "backspace", isEnabled: true });
+  await KeyBindsUI.registerAllUIKeyBinds();
+  expect(fixture.saved.get("growSelectedFrames")).toEqual({ key: "=", isEnabled });
+  expect(KeyBindsUI.getUIKeyBind("growSelectedFrames")).toMatchObject({ key: "=", isEnabled });
+  expect(fixture.saved.get("unrelated")).toEqual({ key: "backspace", isEnabled: true });
+});
+
+it("keeps custom frame grow bindings without an extra plus alias", async () => {
+  fixture.saved.set("growSelectedFrames", { key: "C-j", isEnabled: true });
+  await KeyBindsUI.registerAllUIKeyBinds();
+  expect(fixture.saved.get("growSelectedFrames")).toEqual({ key: "C-j", isEnabled: true });
+  await down("=", { code: "Equal" });
+  await up("=");
+  await down("+", { code: "Equal" });
+  await up("+");
+  expect(fixture.grow).not.toHaveBeenCalled();
+  await down("j", { code: "KeyJ", ctrlKey: true });
+  expect(fixture.grow).toHaveBeenCalledOnce();
 });
 
 describe("native and installed bridge deletion sharing a key", () => {

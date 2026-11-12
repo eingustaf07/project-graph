@@ -266,6 +266,10 @@ export namespace KeyBindsUI {
         key = keybind.defaultKey;
         await store.set(keybind.id, { key, isEnabled });
       }
+      if (keybind.id === "growSelectedFrames" && key === "S-+") {
+        key = keybind.defaultKey;
+        await store.set(keybind.id, { key, isEnabled });
+      }
 
       KeyBindsUI.registerOneUIKeyBind(
         keybind.id,
@@ -599,7 +603,17 @@ export namespace KeyBindsUI {
           )
       )
         continue;
-      if (matchEmacsKeyPress(uiKeyBind.key, userEventQueue.arrayList)) {
+      const lastEvent = userEventQueue.arrayList.at(-1);
+      const plainFramePlus =
+        uiKeyBind.id === "growSelectedFrames" &&
+        uiKeyBind.key === "=" &&
+        lastEvent instanceof KeyboardEvent &&
+        lastEvent.key === "+" &&
+        !lastEvent.shiftKey &&
+        !lastEvent.ctrlKey &&
+        !lastEvent.altKey &&
+        !lastEvent.metaKey;
+      if (plainFramePlus || matchEmacsKeyPress(uiKeyBind.key, userEventQueue.arrayList)) {
         const seqLength = uiKeyBind.key.trim().split(/\s+/).length;
         matched.push({ uiKeyBind, seqLength });
       }

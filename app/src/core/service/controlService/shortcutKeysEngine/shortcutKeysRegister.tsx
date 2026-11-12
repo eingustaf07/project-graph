@@ -786,7 +786,7 @@ export const allKeyBinds: KeyBindItem[] = [
   },
   {
     id: "growSelectedFrames",
-    defaultKey: "S-+",
+    defaultKey: "=",
     icon: Square,
     when: canResizeSelectedFrames,
     onPress: (project) => resizeSelectedFrames(project!, 1.1),
