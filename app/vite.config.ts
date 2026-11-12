@@ -63,10 +63,16 @@ export default defineConfig({
   // 只有名字以LR_开头的环境变量才会被注入到前端
   // import.meta.env.LR_xxx
   envPrefix: "LR_",
+  optimizeDeps: {
+    exclude: ["@graphif/serializer", "@graphif/data-structures", "@graphif/shapes"],
+  },
 
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@graphif/serializer": path.resolve(__dirname, "../packages/serializer/src/index.ts"),
+      "@graphif/data-structures": path.resolve(__dirname, "../packages/data-structures/src/index.ts"),
+      "@graphif/shapes": path.resolve(__dirname, "../packages/shapes/src/index.ts"),
     },
   },
 
