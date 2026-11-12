@@ -25,7 +25,12 @@ vi.mock("@/core/service/Settings", () => ({ Settings: settings }));
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
 vi.mock("@/core/service/feedbackService/SoundService", () => ({ SoundService: { play: {} } }));
 vi.mock("@/core/stage/stageObject/tools/entityDetailsManager", () => ({ DetailsManager: class {} }));
-import { crossFileHighlighted, invalidateCrossFileHighlight, setHighlightProjects } from "./crossFileHighlight";
+import {
+  crossFileHighlighted,
+  invalidateCrossFileHighlight,
+  setHighlightProjects,
+  setRemoteHighlightGraphs,
+} from "./crossFileHighlight";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import type { Project } from "@/core/Project";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
@@ -39,6 +44,8 @@ import { encode, decode } from "@msgpack/msgpack";
 import { URI } from "vscode-uri";
 import {
   addCrossFileConnection,
+  addCrossFileConnectionToReference,
+  fileKey,
   editCrossFileConnection,
   removeCrossFileConnection,
   resolveCrossFileTarget,
@@ -64,6 +71,54 @@ function fixture(file = "file:///C:/graphs/a.prg") {
 beforeEach(() => {
   settings.enableCrossFileConnections = true;
   settings.viewerMode = false;
+});
+
+it("creates a remote reference using the same source-only history and file format", () => {
+  const a = fixture(),
+    b = fixture("file:///D:/b.prg");
+  const link = addCrossFileConnectionToReference(a.endpoint, { file: b.p.uri.toString(), nodeId: b.node.uuid });
+  expect(a.node.crossFileLinks).toEqual([link]);
+  expect(b.node.crossFileLinks).toBeUndefined();
+  a.p.historyManager.undo();
+  expect(endpointNode(a.endpoint)?.crossFileLinks).toBeUndefined();
+  a.p.historyManager.redo();
+  expect(endpointNode(a.endpoint)?.crossFileLinks).toEqual([link]);
+  const copy = deserialize(decode(encode(serialize(a.p.stage))), a.p);
+  expect(copy[0].crossFileLinks).toEqual([link]);
+});
+
+it("honors direct, whole component and chain highlighting from another window", () => {
+  const a = fixture(),
+    b = fixture("file:///D:/b.prg");
+  const tail = new TextNode(b.p, { text: "tail" });
+  b.p.stageManager.add(tail);
+  b.p.stageManager.add(new LineEdge(b.p, { associationList: [b.node, tail] }));
+  const link = addCrossFileConnection(a.endpoint, b.endpoint);
+  Object.assign(b.p, { searchContentHighlightRenderer: { crossFileRoots: () => new Set() } });
+  setHighlightProjects([b.p]);
+  setRemoteHighlightGraphs([
+    {
+      file: fileKey(a.p.uri.toString()),
+      nodes: [a.node.uuid],
+      members: [],
+      directed: [],
+      roots: [a.node.uuid],
+      links: [{ source: a.node.uuid, link }],
+    },
+  ]);
+  try {
+    Object.assign(settings, { connectedNodeHighlightScope: "direct" });
+    expect(crossFileHighlighted(b.p)).toEqual([b.node]);
+    Object.assign(settings, { connectedNodeHighlightScope: "all" });
+    expect(crossFileHighlighted(b.p)).toEqual([b.node, tail]);
+    Object.assign(settings, { connectedNodeHighlightScope: "chain" });
+    expect(crossFileHighlighted(b.p)).toEqual([b.node, tail]);
+    setRemoteHighlightGraphs([]);
+    expect(crossFileHighlighted(b.p)).toBeUndefined();
+  } finally {
+    setRemoteHighlightGraphs([]);
+    setHighlightProjects([]);
+  }
 });
 
 it("records source-only connections, preserves geometry and survives binary restore, undo and redo", () => {

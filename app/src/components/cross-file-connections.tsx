@@ -8,6 +8,7 @@ import { URI } from "vscode-uri";
 import {
   invalidateCrossFileHighlight,
   setHighlightProjects,
+  remoteIncomingFiles,
 } from "@/core/service/dataManageService/crossFileHighlight";
 import { Project, ProjectState } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
@@ -22,6 +23,7 @@ import {
   type NodeEndpoint,
 } from "@/core/service/dataManageService/CrossFileConnections";
 import { Button } from "./ui/button";
+import CrossWindowConnections from "./cross-window-connections";
 import { toast } from "sonner";
 import { PanelsTopLeft, Search, X } from "lucide-react";
 
@@ -66,27 +68,48 @@ export function endpointAtPoint(projects: readonly Project[], x: number, y: numb
 }
 
 function SearchButton() {
-  return <Button size="icon" variant="ghost" aria-label="查询" title="查询节点和框"
-    onClick={() => void import("@/sub/FindWindow").then(({ default: FindWindow }) => FindWindow.open())
-      .catch((error) => toast.error(String(error)))}>
-    <Search />
-  </Button>;
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      aria-label="查询"
+      title="查询节点和框"
+      onClick={() =>
+        void import("@/sub/FindWindow")
+          .then(({ default: FindWindow }) => FindWindow.open())
+          .catch((error) => toast.error(String(error)))
+      }
+    >
+      <Search />
+    </Button>
+  );
 }
 
 function SearchOnlyToolbar() {
   const active = useAtomValue(activeResourceTabAtom);
   const [mode, setMode] = useState(Settings.mouseLeftMode);
   useEffect(() => Settings.watch("mouseLeftMode", setMode), []);
-  return isSelectionMode(mode) && active instanceof Project ? createPortal(
-    <div className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border">
-      <SearchButton />
-    </div>, document.body) : null;
+  return isSelectionMode(mode) && active instanceof Project
+    ? createPortal(
+        <div className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border">
+          <SearchButton />
+        </div>,
+        document.body,
+      )
+    : null;
 }
 
 export default function CrossFileConnections() {
   const [enabled, setEnabled] = useState(Settings.enableCrossFileConnections);
   useEffect(() => Settings.watch("enableCrossFileConnections", setEnabled), []);
-  return enabled ? <Connections /> : <SearchOnlyToolbar />;
+  return enabled ? (
+    <>
+      <Connections />
+      <CrossWindowConnections />
+    </>
+  ) : (
+    <SearchOnlyToolbar />
+  );
 }
 
 function Connections() {
@@ -103,6 +126,12 @@ function Connections() {
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Row>();
   const [incoming, setIncoming] = useState<Record<string, string[]>>({});
+  const [, refreshRemoteFiles] = useState(0);
+  useEffect(() => {
+    const changed = () => refreshRemoteFiles((n) => n + 1);
+    window.addEventListener("pg-cross-window-graphs", changed);
+    return () => window.removeEventListener("pg-cross-window-graphs", changed);
+  }, []);
   useEffect(() => Settings.watch("viewerMode", setViewer), []);
   useEffect(() => Settings.watch("mouseLeftMode", setMode), []);
   useEffect(() => {
@@ -127,7 +156,9 @@ function Connections() {
     let saved: Record<string, string[]> = {};
     try {
       saved = JSON.parse(localStorage.getItem("pg-cross-file-index") ?? "{}") ?? {};
-    } catch {}
+    } catch (error) {
+      toast.error("关联文件列表缓存无法读取：" + String(error));
+    }
     for (const p of open) {
       p.on("stage-commit", invalidate);
       p.on("state-change", invalidate);
@@ -183,23 +214,34 @@ function Connections() {
         if (indexChanged)
           try {
             localStorage.setItem("pg-cross-file-index", JSON.stringify(saved));
-          } catch {}
+          } catch (error) {
+            toast.error("关联文件列表缓存无法保存：" + String(error));
+          }
         setIncoming({ ...saved });
       }
-      const result = links.map(({source,node,link,target,destination}) => {
-        let a = endpointOnScreen(source,node);
-        let b = target && endpointOnScreen(target,destination);
+      const result = links.map(({ source, node, link, target, destination }) => {
+        let a = endpointOnScreen(source, node);
+        let b = target && endpointOnScreen(target, destination);
         if (a && b && target && destination) {
-          const from=a, to=b;
-          const boundary = (p:Project,n:ConnectableEntity,center:Point,towards:Point) => {
-            const corner=p.canvas.viewToClient(p.renderer.transformWorld2View(n.collisionBox.getRectangle().location));
-            const dx=towards.x-center.x,dy=towards.y-center.y;
-            const ratio=Math.min(dx ? Math.abs((center.x-corner.x)/dx) : Infinity,dy ? Math.abs((center.y-corner.y)/dy) : Infinity,0.49);
-            return {x:center.x+dx*ratio,y:center.y+dy*ratio};
+          const from = a,
+            to = b;
+          const boundary = (p: Project, n: ConnectableEntity, center: Point, towards: Point) => {
+            const corner = p.canvas.viewToClient(
+              p.renderer.transformWorld2View(n.collisionBox.getRectangle().location),
+            );
+            const dx = towards.x - center.x,
+              dy = towards.y - center.y;
+            const ratio = Math.min(
+              dx ? Math.abs((center.x - corner.x) / dx) : Infinity,
+              dy ? Math.abs((center.y - corner.y) / dy) : Infinity,
+              0.49,
+            );
+            return { x: center.x + dx * ratio, y: center.y + dy * ratio };
           };
-          a=boundary(source.project,node,from,to); b=boundary(target.project,destination,to,from);
+          a = boundary(source.project, node, from, to);
+          b = boundary(target.project, destination, to, from);
         }
-        return {source,node,link,target,a,b,label:link.text??""};
+        return { source, node, link, target, a, b, label: link.text ?? "" };
       });
       setRows((old) =>
         old.length === result.length &&
@@ -363,6 +405,7 @@ function Connections() {
       if (row.source.project === active) add(row.link.targetFile);
       if (fileKey(row.link.targetFile) === current) add(row.source.project.uri.toString());
     }
+    remoteIncomingFiles(current).forEach(add);
     for (const [uri, targets] of Object.entries(incoming))
       if (
         !projectsRef.current.some((p) => fileKey(p.uri.toString()) === fileKey(uri)) &&
@@ -399,9 +442,10 @@ function Connections() {
             end = link.direction === "reverse" ? a : b;
           const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
           const off = link.curve ? Math.min(48, Math.hypot(end.x - start.x, end.y - start.y) / 8) : 0;
-          const path = lineStyle === "vertical"
-            ? ["M", start.x, start.y, "L", mid.x, start.y, "L", mid.x, end.y, "L", end.x, end.y].join(" ")
-            : ["M", start.x, start.y, ...(off ? ["Q", mid.x, mid.y - off] : ["L"]), end.x, end.y].join(" ");
+          const path =
+            lineStyle === "vertical"
+              ? ["M", start.x, start.y, "L", mid.x, start.y, "L", mid.x, end.y, "L", end.x, end.y].join(" ")
+              : ["M", start.x, start.y, ...(off ? ["Q", mid.x, mid.y - off] : ["L"]), end.x, end.y].join(" ");
           const color = link.color ?? "currentColor";
           const marker = "cross-arrow-" + (source.project.id + link.id).replace(/[^a-zA-Z0-9_-]/g, "_");
           return (

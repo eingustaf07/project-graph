@@ -22,24 +22,32 @@ export function endpointNode(endpoint: NodeEndpoint): ConnectableEntity | undefi
 }
 
 export function addCrossFileConnection(source: NodeEndpoint, target: NodeEndpoint): CrossFileNodeLink {
+  const to = endpointNode(target);
+  if (!to || target.project.closing) throw new Error("节点已删除或文件已关闭，请重新选择");
+  return addCrossFileConnectionToReference(source, { file: target.project.uri.toString(), nodeId: to.uuid });
+}
+
+export function addCrossFileConnectionToReference(
+  source: NodeEndpoint,
+  target: { file: string; nodeId: string },
+): CrossFileNodeLink {
   if (!Settings.enableCrossFileConnections || Settings.viewerMode)
     throw new Error("跨文件连接未启用，或当前为只读模式");
-  if (source.project.closing || target.project.closing) throw new Error("文件正在关闭，请重新选择");
+  if (source.project.closing) throw new Error("文件正在关闭，请重新选择");
   const sourceFile = fileKey(source.project.uri.toString());
-  const targetFile = fileKey(target.project.uri.toString());
+  const targetFile = fileKey(target.file);
   if (!sourceFile || !targetFile) throw new Error("请先将两个临时草稿保存为本地 .prg 文件");
   if (sourceFile === targetFile) throw new Error("请选择另一个文件中的节点；同文件请使用原有连线方式");
-  const from = endpointNode(source),
-    to = endpointNode(target);
-  if (!from || !to) throw new Error("节点已删除或文件已关闭，请重新选择");
+  const from = endpointNode(source);
+  if (!from || !target.nodeId) throw new Error("节点已删除或文件已关闭，请重新选择");
   if (source.project.sectionMethods.isObjectBeLockedBySection(from)) throw new Error("起点节点已锁定");
-  if (from.crossFileLinks?.some((link) => fileKey(link.targetFile) === targetFile && link.targetNode === to.uuid))
+  if (from.crossFileLinks?.some((link) => fileKey(link.targetFile) === targetFile && link.targetNode === target.nodeId))
     throw new Error("这两个节点之间已存在相同方向的跨文件连接");
   const link = {
     curve: Settings.lineStyle !== "vertical" && Settings.rightClickConnectEdgeType === "arc",
     id: crypto.randomUUID(),
-    targetFile: target.project.uri.toString(),
-    targetNode: to.uuid,
+    targetFile: target.file,
+    targetNode: target.nodeId,
   };
   from.crossFileLinks = [...(from.crossFileLinks ?? []), link];
   source.project.historyManager.recordStep();
