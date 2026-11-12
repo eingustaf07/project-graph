@@ -2,7 +2,7 @@ import { Project, service } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { ArcEdge } from "@/core/stage/stageObject/association/ArcEdge";
-import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { Settings } from "@/core/service/Settings";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle, Line } from "@graphif/shapes";
 
@@ -27,17 +27,6 @@ export class AutoLayoutFastTree {
     return Rectangle.getBoundingRectangle(childRectangle.concat([node.collisionBox.getRectangle()]));
   }
   /**
-   * 将一个子树 看成一个外接矩形，移动这个外接矩形左上角到某一个位置
-   * @param treeRoot
-   * @param targetLocation
-   * @param skipDashed 是否跳过虚线边
-   */
-  private moveTreeRectTo(treeRoot: ConnectableEntity, targetLocation: Vector, skipDashed = false) {
-    const treeRect = this.getTreeBoundingRectangle(treeRoot, skipDashed);
-    this.project.entityMoveManager.moveWithChildren(treeRoot, targetLocation.subtract(treeRect.leftTop), skipDashed);
-  }
-
-  /**
    * 获取根节点的所有第一层子节点，并根据指定方向进行排序
    * @param node 根节点
    * @param childNodes 子节点列表
@@ -61,90 +50,33 @@ export class AutoLayoutFastTree {
     }
   }
 
-  /**
-   * 排列多个子树，支持从上到下或从左到右排列
-   * 从上到下排列多个子树，除了第一个子树，其他子树都相对于第一个子树的外接矩形进行位置调整
-   * @param trees 要排列的子树数组
-   * @param direction 要排列的是哪一侧的子树群
-   * @param gap 子树之间的间距
-   * @param skipDashed 是否跳过虚线边
-   * @returns
-   */
   private alignTrees(
     trees: ConnectableEntity[],
     direction: "top" | "bottom" | "left" | "right",
-    gap = 10,
-    skipDashed = false,
+    gapBetween: (previous: ConnectableEntity, next: ConnectableEntity) => number,
+    skipDashed: boolean,
   ) {
-    if (trees.length === 0 || trees.length === 1) {
-      return;
-    }
-    const firstTree = trees[0];
-    const firstTreeRect = this.getTreeBoundingRectangle(firstTree, skipDashed);
-
-    // 根据方向设置初始位置
-    let currentPosition: Vector;
-    if (direction === "right") {
-      // ok
-      currentPosition = firstTreeRect.leftBottom.add(new Vector(0, gap));
-      trees.sort((a, b) => a.collisionBox.getRectangle().top - b.collisionBox.getRectangle().top);
-    } else if (direction === "left") {
-      currentPosition = firstTreeRect.rightBottom.add(new Vector(0, gap));
-      trees.sort((a, b) => a.collisionBox.getRectangle().top - b.collisionBox.getRectangle().top);
-    } else if (direction === "bottom") {
-      // ok
-      currentPosition = firstTreeRect.rightTop.add(new Vector(gap, 0));
-      trees.sort((a, b) => a.collisionBox.getRectangle().left - b.collisionBox.getRectangle().left);
-    } else {
-      // top
-      currentPosition = firstTreeRect.rightBottom.add(new Vector(gap, 0));
-      trees.sort((a, b) => a.collisionBox.getRectangle().left - b.collisionBox.getRectangle().left);
-    }
-
-    // 记录前一棵子树所属的分组框，用于检测分组框切换，避免重叠
-    let prevParentSection = trees[0].parentSection;
+    if (trees.length < 2) return;
+    const first = this.getTreeBoundingRectangle(trees[0], skipDashed);
+    const horizontal = direction === "left" || direction === "right";
+    let end = horizontal ? first.bottom : first.right;
 
     for (let i = 1; i < trees.length; i++) {
       const tree = trees[i];
-
-      // 根据方向更新下一个位置
-      const treeRect = this.getTreeBoundingRectangle(tree, skipDashed);
-
-      // ==== 如果当前子树进入了新的分组框（与前一棵子树不在同一个分组框内），
-      // 需要额外留出分组框标题栏和 padding 的高度，避免重叠
-      const currParentSection = tree.parentSection;
-      const sectionTopOverhead = 80; // 30 padding + 50 title bar
-      const sectionBottomOverhead = 30; // bottom padding
-      let extraGap = 0;
-      if (currParentSection !== prevParentSection) {
-        if (currParentSection && currParentSection.text !== "") {
-          extraGap += sectionTopOverhead;
-        }
-        if (prevParentSection && prevParentSection.text !== "") {
-          extraGap += sectionBottomOverhead;
-        }
+      const previous = trees[i - 1];
+      const rect = this.getTreeBoundingRectangle(tree, skipDashed);
+      let start = end + gapBetween(previous, tree);
+      if (tree.parentSection !== previous.parentSection) {
+        if (tree.parentSection?.text) start += 80;
+        if (previous.parentSection?.text) start += 30;
       }
-      // ====
-
-      if (direction === "right") {
-        currentPosition.y += extraGap;
-        this.moveTreeRectTo(tree, currentPosition, skipDashed);
-        currentPosition.y += treeRect.height + gap;
-      } else if (direction === "bottom") {
-        currentPosition.x += extraGap;
-        this.moveTreeRectTo(tree, currentPosition, skipDashed);
-        currentPosition.x += treeRect.width + gap;
-      } else if (direction === "left") {
-        currentPosition.y += extraGap;
-        this.moveTreeRectTo(tree, currentPosition.subtract(new Vector(treeRect.width, 0)), skipDashed);
-        currentPosition.y += treeRect.height + gap;
-      } else if (direction === "top") {
-        currentPosition.x += extraGap;
-        this.moveTreeRectTo(tree, currentPosition.subtract(new Vector(0, treeRect.height)), skipDashed);
-        currentPosition.x += treeRect.width + gap;
-      }
-
-      prevParentSection = currParentSection;
+      const target = horizontal
+        ? new Vector(direction === "right" ? first.left : first.right - rect.width, start)
+        : new Vector(start, direction === "bottom" ? first.top : first.bottom - rect.height);
+      const delta = target.subtract(rect.leftTop);
+      if (Math.abs(delta.x) > 1e-8 || Math.abs(delta.y) > 1e-8)
+        this.project.entityMoveManager.moveWithChildren(tree, delta, skipDashed);
+      end = start + (horizontal ? rect.height : rect.width);
     }
   }
 
@@ -226,6 +158,7 @@ export class AutoLayoutFastTree {
 
     // 计算需要移动的偏移量
     const offset = targetLocation.subtract(childsRectangle.center);
+    if (Math.abs(offset.x) < 1e-8 && Math.abs(offset.y) < 1e-8) return;
 
     // 移动所有子节点及其子树
     for (const child of childList) {
@@ -689,14 +622,11 @@ export class AutoLayoutFastTree {
       }
       // 排列这些子节点，然后调整子树位置到根节点旁边
 
-      // 计算动态距离
-      let treesGap = 20;
-      let fatherChildNearGap = 50;
-      if (node instanceof TextNode) {
-        treesGap = treesGap * 2 ** (node.fontScaleLevel / 2);
-        fatherChildNearGap = fatherChildNearGap * 2 ** (node.fontScaleLevel / 2);
-      }
-      const fatherChildNormalGap = fatherChildNearGap * 3;
+      const levelGap = Settings.smartTreeLevelGap;
+      const siblingGap = (previous: ConnectableEntity, next: ConnectableEntity) =>
+        childrenByParent.has(previous) || childrenByParent.has(next)
+          ? Math.max(Settings.smartTreeNodeGap, Settings.smartTreeSubtreeGap)
+          : Settings.smartTreeNodeGap;
 
       // 根据连线文字尺寸增加父子间距
       const rightEdgeTextWidth = this.getMaxEdgeTextDimension(outRightEdges, "horizontal");
@@ -704,35 +634,27 @@ export class AutoLayoutFastTree {
       const topEdgeTextHeight = this.getMaxEdgeTextDimension(outTopEdges, "vertical");
       const bottomEdgeTextHeight = this.getMaxEdgeTextDimension(outBottomEdges, "vertical");
 
-      this.alignTrees(rightChildList, "right", treesGap, true);
+      this.alignTrees(rightChildList, "right", siblingGap, true);
       this.adjustChildrenTreesByRootNodeLocation(
         node,
         rightChildList,
-        fatherChildNormalGap + rightEdgeTextWidth,
+        levelGap + rightEdgeTextWidth,
         "rightCenter",
         true,
       );
 
-      this.alignTrees(topChildList, "top", treesGap, true);
-      const topGap = (topChildList.length === 1 ? fatherChildNearGap : fatherChildNormalGap) + topEdgeTextHeight;
+      this.alignTrees(topChildList, "top", siblingGap, true);
+      const topGap = levelGap + topEdgeTextHeight;
       this.adjustChildrenTreesByRootNodeLocation(node, topChildList, topGap, "topCenter", true);
 
-      this.alignTrees(bottomChildList, "bottom", treesGap, true);
-      const bottomGap =
-        (bottomChildList.length === 1 ? fatherChildNearGap : fatherChildNormalGap) + bottomEdgeTextHeight;
+      this.alignTrees(bottomChildList, "bottom", siblingGap, true);
+      const bottomGap = levelGap + bottomEdgeTextHeight;
       this.adjustChildrenTreesByRootNodeLocation(node, bottomChildList, bottomGap, "bottomCenter", true);
 
-      this.alignTrees(leftChildList, "left", treesGap, true);
-      this.adjustChildrenTreesByRootNodeLocation(
-        node,
-        leftChildList,
-        fatherChildNormalGap + leftEdgeTextWidth,
-        "leftCenter",
-        true,
-      );
+      this.alignTrees(leftChildList, "left", siblingGap, true);
+      this.adjustChildrenTreesByRootNodeLocation(node, leftChildList, levelGap + leftEdgeTextWidth, "leftCenter", true);
 
       // 检测并解决不同方向子树群之间的重叠问题
-      // 传入 treesGap 作为最小间距，确保推开后子树群之间保留足够的空白
       this.resolveSubtreeOverlaps(
         node,
         {
@@ -742,7 +664,7 @@ export class AutoLayoutFastTree {
           top: topChildList.length > 0 ? topChildList : undefined,
         },
         true,
-        treesGap,
+        Settings.smartTreeSubtreeGap,
       );
     };
 

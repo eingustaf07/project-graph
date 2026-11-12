@@ -335,9 +335,6 @@ export const categories = {
       "enableSmartTreeArrange",
       "smartTreeArrangeMode",
       "smartTreeArrangeDirection",
-      "smartTreeLevelGap",
-      "smartTreeNodeGap",
-      "smartTreeSubtreeGap",
     ],
   },
   automation: {
@@ -434,6 +431,9 @@ export const categories = {
       "enableDragEdgeRotateStructure",
     ],
     generateNode: [
+      "smartTreeLevelGap",
+      "smartTreeNodeGap",
+      "smartTreeSubtreeGap",
       "autoLayoutWhenTreeGenerate",
       "autoLayoutWhenSectionCollapseToggle",
       "enableTreeGenerateConnectByProbe",

@@ -17,6 +17,31 @@ import { RectangleRenderEffect } from "../../feedbackService/effectEngine/concre
 import { SoundService } from "../../feedbackService/SoundService";
 import { Settings } from "../../Settings";
 
+function positionBeforeTreeLayout(
+  child: TextNode,
+  parent: ConnectableEntity,
+  direction: "right" | "left" | "up" | "down",
+  sibling?: ConnectableEntity,
+) {
+  if (!Settings.autoLayoutWhenTreeGenerate) return;
+  // Adding the node triggers collisions before auto-layout. Place its measured box clear of its parent first.
+  const parentBox = parent.collisionBox.getRectangle();
+  const siblingBox = sibling?.collisionBox.getRectangle();
+  const childBox = child.rectangle;
+  const gap = Settings.smartTreeLevelGap;
+  if (direction === "right" || direction === "left") {
+    childBox.location = new Vector(
+      direction === "right" ? parentBox.right + gap : parentBox.left - gap - childBox.width,
+      siblingBox ? siblingBox.bottom + Settings.smartTreeNodeGap : parentBox.center.y - childBox.height / 2,
+    );
+  } else {
+    childBox.location = new Vector(
+      siblingBox ? siblingBox.right + Settings.smartTreeNodeGap : parentBox.center.x - childBox.width / 2,
+      direction === "down" ? parentBox.bottom + gap : parentBox.top - gap - childBox.height,
+    );
+  }
+}
+
 function isSelectedDirectedEdge(item: unknown): item is LineEdge | ArcEdge {
   return (item instanceof LineEdge || item instanceof ArcEdge) && item.isSelected;
 }
@@ -500,6 +525,7 @@ export class KeyboardOnlyTreeEngine {
 
     // 设置新节点的字体大小
     newNode.setFontScaleLevel(newFontScaleLevel);
+    positionBeforeTreeLayout(newNode, rootNode, direction, childSet.at(-1));
     this.project.stageManager.add(newNode);
 
     // 如果是在框里，则把新生长的节点也纳入到框里
@@ -682,6 +708,7 @@ export class KeyboardOnlyTreeEngine {
 
     // 设置新节点的字体大小
     newNode.setFontScaleLevel(newFontScaleLevel);
+    positionBeforeTreeLayout(newNode, parent, preDirection, currentSelectNode);
     this.project.stageManager.add(newNode);
     // 如果是在框里，则把新生长的节点也纳入到框里
     const fatherSection = parent.parentSection;

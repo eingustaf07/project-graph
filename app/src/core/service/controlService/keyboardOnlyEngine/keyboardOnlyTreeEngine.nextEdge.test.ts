@@ -16,6 +16,9 @@ vi.mock("@/core/service/Settings", () => ({
     textNodeMaxCharWidth: 15,
     historyManagerMode: "memoryEfficient",
     historySize: 100,
+    smartTreeLevelGap: 72,
+    smartTreeNodeGap: 27,
+    smartTreeSubtreeGap: 43,
     watch: () => () => {},
     defaultEdgeArrowType: "default",
     defaultEdgeLineType: "straight",
@@ -111,8 +114,9 @@ it.skipIf(!process.env.PG_NN_READ_FILE)(
   async () => {
     vi.useRealTimers();
     const bytes = await readFile(process.env.PG_NN_READ_FILE!);
-    const parsed = await parseProjectFile(new Uint8Array(bytes), new Decoder(), new Map());
     const { p, engine } = fixture();
+    p.attachments = new Map();
+    const parsed = await parseProjectFile(new Uint8Array(bytes), new Decoder(), p.attachments);
     p.stage = deserialize(parsed.serializedStageObjects, p);
     p.stageManager.updateReferences();
     p.graphMethods = new GraphMethods(p);
@@ -236,6 +240,60 @@ it("grows and requests editing once when two opposite arcs connect the parent to
   expect(p.stageManager.getArcEdges()).toHaveLength(2);
   expect(other.collisionBox.getRectangle().leftTop).toEqual(originalPosition);
   expect(p.controllerUtils.editTextNode).toHaveBeenCalledExactlyOnceWith(created, true);
+});
+
+it.each(["right", "left", "up", "down"] as const)("keeps measured spacing during %s growth", (direction) => {
+  const { p, engine, root, select } = fixture();
+  p.graphMethods = new GraphMethods(p);
+  p.entityMoveManager = new EntityMoveManager(p);
+  p.controller = { pressingKeySet: new Set() };
+  p.sectionCollisionSolver = { solveOverlaps: vi.fn() };
+  p.autoLayoutFastTree = new AutoLayoutFastTree(p);
+  vi.mocked(engine.getNodePreDirection).mockReturnValue(direction);
+  Settings.autoLayoutWhenTreeGenerate = true;
+  Settings.isEnableEntityCollision = true;
+  root.setFontScaleLevel(1);
+  const anchor = root.rectangle.location.clone();
+  const grow = (parent: TextNode, text: string): TextNode => {
+    select(parent.uuid);
+    engine.onDeepGenerateNode(text);
+    return p.stageManager.getTextNodes().find((n: TextNode) => n.text === text);
+  };
+  const horizontal = direction === "right" || direction === "left";
+  const distance = (parent: TextNode, child: TextNode) => {
+    const a = parent.rectangle,
+      b = child.rectangle;
+    if (direction === "right") return b.left - a.right;
+    if (direction === "left") return a.left - b.right;
+    if (direction === "up") return a.top - b.bottom;
+    return b.top - a.bottom;
+  };
+  const start = (n: TextNode) => (horizontal ? n.rectangle.top : n.rectangle.left);
+  const end = (n: TextNode) => (horizontal ? n.rectangle.bottom : n.rectangle.right);
+  const a = grow(root, "短");
+  expect(distance(root, a)).toBeCloseTo(72);
+  const b = grow(root, "多行文字\n第二行");
+  expect(distance(root, a)).toBeCloseTo(72);
+  expect(distance(root, b)).toBeCloseTo(72);
+  expect(start(b) - end(a)).toBeCloseTo(27);
+  const c = grow(a, "后代");
+  expect(distance(a, c)).toBeCloseTo(72);
+  expect(start(b) - Math.max(end(a), end(c))).toBeCloseTo(43);
+  expect(root.rectangle.location).toEqual(anchor);
+  const positions = () => [root, a, b, c].map((n) => n.rectangle.location.clone());
+  const before = positions();
+  for (let i = 0; i < 10; i++) p.autoLayoutFastTree.autoLayoutFastTreeMode(root);
+  expect(positions()).toEqual(before);
+  p.autoAlign = {
+    autoLayoutSelectedFastTreeMode: (n: TextNode, growth: boolean) =>
+      p.autoLayoutFastTree.autoLayoutFastTreeMode(n, growth),
+  };
+  select(b.uuid);
+  engine.onBroadGenerateNode();
+  const sibling = p.stageManager.getTextNodes().at(-1);
+  expect(distance(root, sibling)).toBeCloseTo(72);
+  expect(sibling.rectangle.isCollideWith(b.rectangle)).toBe(false);
+  expect(root.rectangle.location).toEqual(anchor);
 });
 
 it("opens the new node editor on the next event turn without scanning the tree when layout is off", () => {
