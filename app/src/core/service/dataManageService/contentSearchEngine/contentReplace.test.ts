@@ -97,7 +97,7 @@ const literalTarget = (text: string): ReplacementTarget => ({
   locked: false,
   write: vi.fn(),
 });
-function node(text: string, x = 0, y = 0) {
+function node(text: string, x = 0, y = 0): any {
   const item = new fixtureClasses.TextNode();
   item.text = text;
   item.collisionBox = new CollisionBox([new Rectangle(new Vector(x, y), new Vector(100, 60))]);
@@ -112,6 +112,9 @@ function createProject(...objects: any[]) {
     projectState: "saved",
   };
   project.stageManager = {
+    clearSelectAll: () => {
+      for (const object of project.stage) object.isSelected = false;
+    },
     getStageObjects: () => project.stage,
     getTextNodes: () => project.stage.filter((item: any) => item instanceof fixtureClasses.TextNode),
     updateReferences: vi.fn(),
@@ -169,7 +172,18 @@ describe("find/replace in the current Project", () => {
     const section = Object.assign(new fixtureClasses.Section(), { text: "Section_12" });
     const mixed = node(" SECTION-8 ");
     const named = Object.assign(new fixtureClasses.Section(), { text: "Section_12 工作计划" });
-    const { search, recordStep } = createProject(empty, whitespace, numbered, alternate, selected, literal, queryText, section, mixed, named);
+    const { search, recordStep } = createProject(
+      empty,
+      whitespace,
+      numbered,
+      alternate,
+      selected,
+      literal,
+      queryText,
+      section,
+      mixed,
+      named,
+    );
     search.startSearch("/空", false);
     expect(search.searchResultNodes).toEqual([empty, whitespace, numbered, alternate, selected, section, mixed]);
     expect(search.getReplacementStatus("/空").hasCurrent).toBe(false);
@@ -182,6 +196,26 @@ describe("find/replace in the current Project", () => {
     search.searchScope = SearchScope.ALL;
     search.startSearch("Node_123", false);
     expect(search.searchResultNodes).toEqual([numbered, literal]);
+  });
+  it("selects only the clicked result while hover leaves selection intact", () => {
+    const parent = node("父节点"),
+      first = node("节点一"),
+      second = node("节点二");
+    const edge = Object.assign(new fixtureClasses.Edge(), { source: parent, target: first, isSelected: true });
+    parent.isSelected = true;
+    const { project, search, recordStep } = createProject(parent, first, second, edge);
+    project.camera.bombMove = vi.fn();
+    search.startSearch("节点", false);
+    search.panToResult(first);
+    expect(parent.isSelected).toBe(true);
+    expect(first.isSelected).toBe(false);
+    search.panToResult(first, true);
+    expect(project.stage.filter((n: any) => n.isSelected)).toEqual([first]);
+    search.panToResult(second, true);
+    expect(project.stage.filter((n: any) => n.isSelected)).toEqual([second]);
+    search.panToResult(node("已删除的旧结果"), true);
+    expect(project.stage.filter((n: any) => n.isSelected)).toEqual([second]);
+    expect(recordStep).not.toHaveBeenCalled();
   });
   it("locates matches without animated effects and clears the locator when the search changes", () => {
     const first = node("节点一", 10, 20);

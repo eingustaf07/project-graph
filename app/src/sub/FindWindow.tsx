@@ -292,7 +292,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
               setTick((tick) => tick + 1);
               const node = project.stageManager.get(result.uuid);
               if (node) {
-                project.contentSearch.panToResult(node);
+                project.contentSearch.panToResult(node, true);
               }
             }}
           >

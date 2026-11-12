@@ -178,7 +178,10 @@ export class ContentSearch {
     const filter = taskFilter(searchString);
     for (const node of objectsToSearch) {
       if (searchString === "/空") {
-        if ((node instanceof TextNode || node instanceof Section) && /^(?:(?:node|section)[_\s-]?\d+)?$/i.test(node.text.trim())) {
+        if (
+          (node instanceof TextNode || node instanceof Section) &&
+          /^(?:(?:node|section)[_\s-]?\d+)?$/i.test(node.text.trim())
+        ) {
           this.searchResultNodes.push(node);
         }
         continue;
@@ -256,7 +259,12 @@ export class ContentSearch {
     this.project.camera.location = node.collisionBox.getRectangle().center.clone();
   }
 
-  public panToResult(node: StageObject) {
+  public panToResult(node: StageObject, select = false) {
+    if (select) {
+      if (!this.project.stage.includes(node)) return;
+      this.project.stageManager.clearSelectAll();
+      node.isSelected = true;
+    }
     this.locatedResult = { node, color: Color.Magenta };
     this.project.camera.bombMove(node.collisionBox.getRectangle().center);
   }
