@@ -466,7 +466,14 @@ export default function CrossWindowConnections() {
           },
           action,
         );
-      } else if (selected && ["Backspace", "Delete", "r", "g"].includes(e.key)) {
+      } else if (
+        selected &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !e.shiftKey &&
+        ["Backspace", "Delete", "r", "g"].includes(e.key)
+      ) {
         e.preventDefault();
         e.stopImmediatePropagation();
         if (e.key === "r")

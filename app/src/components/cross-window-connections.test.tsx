@@ -163,6 +163,17 @@ it.each([1, 1.5])(
         document.querySelector("svg[data-cross-window-edges] path[marker-end]")?.getAttribute("stroke-width"),
       ).toBe(String(2 * sourceScale));
       await act(() => line!.dispatchEvent(new MouseEvent("pointerdown", { button: 0, bubbles: true })));
+      for (const [key, modifiers] of [
+        ["g", { ctrlKey: true }],
+        ["h", { ctrlKey: true }],
+        ["Backspace", { altKey: true }],
+      ] as const) {
+        const event = new KeyboardEvent("keydown", { key, ...modifiers, bubbles: true, cancelable: true });
+        await act(() => window.dispatchEvent(event));
+        expect(event.defaultPrevented).toBe(false);
+        expect(sourceNode.crossFileLinks[0].direction).not.toBe("undirected");
+        await act(() => line!.dispatchEvent(new MouseEvent("pointerdown", { button: 0, bubbles: true })));
+      }
       const undirected = [...document.querySelectorAll("button")].find((b) => b.textContent === "无向")!;
       await act(async () => {
         undirected.click();
