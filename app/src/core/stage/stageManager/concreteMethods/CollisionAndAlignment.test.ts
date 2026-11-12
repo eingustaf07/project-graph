@@ -714,7 +714,7 @@ describe("blank right click container gestures", () => {
     const frame = p.stageManager.getSections()[0] as Doodle;
     expect(frame.bounded).toBe(true);
     expect(frame.frame.center).toEqual(new Vector(1000, 0));
-    expect(frame.frame.size).toEqual(new Vector(600, 450));
+    expect(frame.frame.size).toEqual(new Vector(1800, 1200));
     expect(record).toHaveBeenCalledTimes(1);
     p.historyManager.undo();
     expect(p.stageManager.getSections()).toHaveLength(0);
@@ -751,7 +751,7 @@ describe("blank right click container gestures", () => {
     click(20, 20);
     const child = p.stageManager.getSections().find((s: Doodle) => s !== parent) as Doodle;
     expect(child.parentSection).toBe(parent);
-    expect(child.frame.size).toEqual(new Vector(600, 450));
+    expect(child.frame.size).toEqual(new Vector(600, 480));
     expect(child.frame.left).toBe(8);
     expect(child.frame.top).toBe(8);
     expect(parent.frame).toEqual(original);

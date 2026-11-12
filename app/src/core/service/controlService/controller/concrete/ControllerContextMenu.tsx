@@ -88,10 +88,10 @@ export class ControllerContextMenuClass extends ControllerClass {
     const maxSide = parent && Math.min(parent.frame.width, parent.frame.height) * 0.6;
     const size = parent
       ? new Vector(
-          Math.min(600, parent.shape === "circle" ? maxSide! : parent.frame.width * 0.6),
-          Math.min(450, parent.shape === "circle" ? maxSide! : parent.frame.height * 0.6),
+          Math.min(1800, parent.shape === "circle" ? maxSide! : parent.frame.width * 0.6),
+          Math.min(1200, parent.shape === "circle" ? maxSide! : parent.frame.height * 0.6),
         )
-      : new Vector(600, 450);
+      : new Vector(1800, 1200);
     if (size.x < 16 || size.y < 16) return;
     const frame = new Rectangle(location.subtract(size.multiply(0.5)), size);
     if (parent) {

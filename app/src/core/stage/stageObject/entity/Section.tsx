@@ -372,7 +372,7 @@ export class Doodle extends Section {
   constructor(
     project: Project,
     {
-      frame = new Rectangle(Vector.getZero(), new Vector(600, 450)),
+      frame = new Rectangle(Vector.getZero(), new Vector(1800, 1200)),
       shape = "rectangle",
       bounded = false,
       erasures = [],
