@@ -762,6 +762,15 @@ export namespace KeyBindsUI {
         return;
       for (const binding of allUIKeyBinds) {
         if (
+          binding.isEnabled &&
+          /^[a-z]\+[=-]$/.test(binding.key) &&
+          binding.key.startsWith(event.key.toLowerCase() + "+") &&
+          (await binding.when(activeProject))
+        ) {
+          event.preventDefault();
+          return;
+        }
+        if (
           isDoublePressShortcut(binding.id) &&
           binding.isEnabled &&
           matchEmacsKeyPress(binding.key.split(/\s+/)[0], [event]) &&
@@ -772,16 +781,20 @@ export namespace KeyBindsUI {
         }
       }
     }
-    const letter = event.key.toLowerCase();
+    const letter = event.key === "+" && !event.shiftKey ? "=" : event.key.toLowerCase();
     if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey)
       heldLetterKeys.clear();
-    else if (/^[a-z]$/.test(letter) || letter === "tab") heldLetterKeys.add(letter);
+    else if (/^[a-z=-]$/.test(letter) || letter === "tab") heldLetterKeys.add(letter);
     const letterChords =
       !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey
         ? allUIKeyBinds.filter(
             (bind) =>
               bind.isEnabled &&
-              /^(?:[a-z]|tab)\+[a-z]$/.test(bind.key) &&
+              /^(?:[a-z]|tab)\+(?:[a-z]|=|-)$/i.test(bind.key) &&
+              !(
+                (event.location === KeyboardEvent.DOM_KEY_LOCATION_NUMPAD || event.code.startsWith("Numpad")) &&
+                /\+[=-]$/.test(bind.key)
+              ) &&
               heldLetterKeys.size === 2 &&
               bind.key.split("+").every((key) => heldLetterKeys.has(key)),
           )
@@ -876,7 +889,7 @@ export namespace KeyBindsUI {
     }
   }
   async function onKeyUp(event: KeyboardEvent) {
-    heldLetterKeys.delete(event.key.toLowerCase());
+    heldLetterKeys.delete(event.key === "+" ? "=" : event.key.toLowerCase());
     const tab = event.key.toLowerCase() === "tab" ? pendingTab : undefined;
     if (event.key.toLowerCase() === "tab") pendingTab = undefined;
     // 如果有文本输入元素获得焦点，不处理键盘事件

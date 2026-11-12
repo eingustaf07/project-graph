@@ -1,7 +1,8 @@
 import type { Project } from "@/core/Project";
 import type { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Settings } from "@/core/service/Settings";
-import { Vector, colorInvert } from "@graphif/data-structures";
+import { Vector } from "@graphif/data-structures";
+import { questionTextColor } from "../../questionColor";
 
 export function renderTableNode(project: Project, node: TextNode) {
   const layout = node.getTableLayout(),
@@ -11,8 +12,7 @@ export function renderTableNode(project: Project, node: TextNode) {
     height = node.rectangle.height * scale;
   const ctx = project.canvas.ctx;
   const lineColor = project.stageStyleManager.currentStyle.StageObjectBorder;
-  const textColor =
-    node.color.a === 1 ? colorInvert(node.color) : colorInvert(project.stageStyleManager.currentStyle.Background);
+  const textColor = questionTextColor(node.text, node.color, project.stageStyleManager.currentStyle.Background);
   const drawText =
     Settings.alwaysRenderNodeText || node.getFontSize() * scale > Settings.ignoreTextNodeTextRenderLessThanFontSize;
   ctx.save();

@@ -285,7 +285,15 @@ export default function KeyBindsPage() {
               </TooltipContent>
             </Tooltip>
             <KeyBind
-              allowLetterChord={["openAIPanel", "nextGrowthEdgeReverse", "nextGrowthEdgeUndirected"].includes(id)}
+              allowLetterChord={[
+                "openAIPanel",
+                "nextGrowthEdgeReverse",
+                "nextGrowthEdgeUndirected",
+                "growFrameLength",
+                "shrinkFrameLength",
+                "growFrameHeight",
+                "shrinkFrameHeight",
+              ].includes(id)}
               key={keyBindData?.key}
               defaultValue={keyBindData?.key}
               isContinuous={keyBind?.isContinuous}
@@ -796,6 +804,10 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
       "toggleSectionLock",
       "shrinkSelectedFrames",
       "growSelectedFrames",
+      "growFrameLength",
+      "shrinkFrameLength",
+      "growFrameHeight",
+      "shrinkFrameHeight",
     ],
   },
   {

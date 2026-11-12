@@ -27,7 +27,10 @@ export default function KeyBind({
 
   const endInputRef = useRef<() => void>(() => {});
   const heldLetters = useRef(new Set<string>());
-  const handleKeyUp = useCallback((event: KeyboardEvent) => heldLetters.current.delete(event.key.toLowerCase()), []);
+  const handleKeyUp = useCallback(
+    (event: KeyboardEvent) => heldLetters.current.delete(event.key === "+" ? "=" : event.key.toLowerCase()),
+    [],
+  );
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -39,9 +42,11 @@ export default function KeyBind({
         !event.altKey &&
         !event.shiftKey &&
         !event.metaKey &&
-        /^(?:[a-z]|tab)$/i.test(event.key)
+        /^(?:[a-z]|tab|=|-|\+)$/i.test(event.key) &&
+        event.location !== KeyboardEvent.DOM_KEY_LOCATION_NUMPAD &&
+        !event.code.startsWith("Numpad")
       ) {
-        const letter = event.key.toLowerCase();
+        const letter = event.key === "+" ? "=" : event.key.toLowerCase();
         if (heldLetters.current.size === 1 && !heldLetters.current.has(letter)) {
           const keys = [...heldLetters.current, letter];
           if (keys.includes("tab")) keys.sort((a) => (a === "tab" ? -1 : 1));

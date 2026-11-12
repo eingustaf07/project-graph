@@ -228,6 +228,7 @@ export const settingsIcons = {
   showBackgroundCartesian: Move3d,
   enableTagTextNodesBigDisplay: Tag,
   forceHideTextNodeBorder: Square,
+  questionMarkYellow: Palette,
   textNodeInitBorderStyle: SquareDashed,
   newNodeScaleByCamera: Scaling,
   newNodeScaleByCameraOffset: Scaling,

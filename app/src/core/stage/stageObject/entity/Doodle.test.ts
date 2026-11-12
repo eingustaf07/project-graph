@@ -204,6 +204,24 @@ beforeEach(() => {
   Settings.containerNBoundary = false;
 });
 describe("container-to-container physical collisions", () => {
+  it.each(["length", "height"] as const)("resizes only %s with stable center, contents and one-step undo", (axis) => {
+    const p = fixture(),
+      frame = cage(p);
+    frame.isSelected = true;
+    p.historyManager.recordStep();
+    const before = serialize(p.stage),
+      center = frame.frame.center.clone(),
+      size = frame.frame.size.clone();
+    resizeSelectedFrames(p, 1.1, axis);
+    expect(frame.frame.width).toBeCloseTo(size.x * (axis === "length" ? 1.1 : 1));
+    expect(frame.frame.height).toBeCloseTo(size.y * (axis === "height" ? 1.1 : 1));
+    expect(frame.frame.center).toEqual(center);
+    const after = serialize(p.stage);
+    p.historyManager.undo();
+    expect(serialize(p.stage)).toEqual(before);
+    p.historyManager.redo();
+    expect(serialize(p.stage)).toEqual(after);
+  });
   it("resizes selected frames around their centers and records one undo step", () => {
     const p = fixture();
     const a = cage(p);

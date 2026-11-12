@@ -7,6 +7,10 @@ const fixture = vi.hoisted(() => ({
   normal: vi.fn(),
   shrink: vi.fn(),
   grow: vi.fn(),
+  lengthGrow: vi.fn(),
+  lengthShrink: vi.fn(),
+  heightGrow: vi.fn(),
+  heightShrink: vi.fn(),
   nodes: vi.fn(),
   text: vi.fn(),
   save: vi.fn(),
@@ -33,6 +37,11 @@ vi.mock("./shortcutKeysRegister", () => ({
   allKeyBinds: [
     { id: "shrinkSelectedFrames", defaultKey: "-", when: () => true, onPress: () => fixture.shrink() },
     { id: "growSelectedFrames", defaultKey: "=", when: () => true, onPress: () => fixture.grow() },
+    { id: "growFrameLength", defaultKey: "l+=", when: () => true, onPress: () => fixture.lengthGrow() },
+    { id: "shrinkFrameLength", defaultKey: "l+-", when: () => true, onPress: () => fixture.lengthShrink() },
+    { id: "growFrameHeight", defaultKey: "h+=", when: () => true, onPress: () => fixture.heightGrow() },
+    { id: "shrinkFrameHeight", defaultKey: "h+-", when: () => true, onPress: () => fixture.heightShrink() },
+    { id: "heldLetterDoublePress", defaultKey: "h h", when: () => true, onPress: () => fixture.normal() },
     { id: "openAIPanel", defaultKey: "a+i", when: (project: unknown) => !!project, onPress: () => fixture.open() },
     { id: "normalShortcut", defaultKey: "C-f", when: () => true, onPress: () => fixture.normal() },
     { id: "copy", defaultKey: "C-c", when: (project: unknown) => !!project, onPress: () => fixture.nodes() },
@@ -73,6 +82,10 @@ beforeEach(async () => {
   fixture.normal.mockClear();
   fixture.shrink.mockClear();
   fixture.grow.mockClear();
+  fixture.lengthGrow.mockClear();
+  fixture.lengthShrink.mockClear();
+  fixture.heightGrow.mockClear();
+  fixture.heightShrink.mockClear();
   fixture.nodes.mockClear();
   fixture.text.mockClear();
   fixture.save.mockClear();
@@ -85,6 +98,36 @@ beforeEach(async () => {
   KeyBindsUI.uiStartListen();
 });
 
+it.each([
+  ["l", "lengthGrow", "lengthShrink"],
+  ["h", "heightGrow", "heightShrink"],
+] as const)(
+  "resizes only one axis with held %s and main signs without also running whole-frame scaling",
+  async (letter, grow, shrink) => {
+    await down(letter);
+    await down("=", { code: "Equal" });
+    expect(fixture[grow]).toHaveBeenCalledOnce();
+    expect(fixture.grow).not.toHaveBeenCalled();
+    await up("=");
+    await down("+", { code: "Equal" });
+    expect(fixture[grow]).toHaveBeenCalledTimes(2);
+    await up("+");
+    await down("-", { code: "Minus" });
+    expect(fixture[shrink]).toHaveBeenCalledOnce();
+    expect(fixture.shrink).not.toHaveBeenCalled();
+    await up("-");
+    await up(letter);
+    await down("=", { code: "Equal" });
+    expect(fixture.grow).toHaveBeenCalledOnce();
+  },
+);
+it("holding H for a size chord does not run the H H command on key repeat", async () => {
+  await down("h");
+  await down("h", { repeat: true });
+  expect(fixture.normal).not.toHaveBeenCalled();
+  await down("=", { code: "Equal" });
+  expect(fixture.heightGrow).toHaveBeenCalledOnce();
+});
 it("resizes frames with main keyboard signs while excluding numpad signs and text inputs", async () => {
   await down("-", { code: "NumpadSubtract", location: 3 });
   expect(fixture.shrink).not.toHaveBeenCalled();

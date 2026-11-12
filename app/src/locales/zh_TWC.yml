@@ -471,6 +471,9 @@ settings:
     description: '開啟後，標籤文字節點的顯示在攝影機縮小到廣袤的全域視野時，
 
       標籤會巨大化顯示，以便更容易辨識整個檔案的佈局分佈'
+  questionMarkYellow:
+    title: 問號結尾自動標黃
+    description: 開啟後，以中文或英文問號結尾的節點顯示為黃色，框標題以問號結尾時邊框顯示為黃色（忽略末尾空白）。舊檔案同樣生效，不修改原配色；關閉或去掉問號後恢復原色。框內第一次出現問號節點時，用其完整內容自動命名框，僅執行一次並保存狀態，後續不自動改名。
   forceHideTextNodeBorder:
     title: 強制隱藏文字節點邊框
     description: |
@@ -1799,6 +1802,18 @@ visualSettingsGroup:
   background:
     title: 背景設定
 keyBinds:
+  growFrameLength:
+    title: 增加框的長度（橫向）
+    description: 按住 L 再按主鍵盤加號，橫向增加 10%，縱向不變。
+  shrinkFrameLength:
+    title: 減小框的長度（橫向）
+    description: 按住 L 再按主鍵盤減號，橫向減小 10%，縱向不變。
+  growFrameHeight:
+    title: 增加框的寬度（縱向）
+    description: 按住 H 再按主鍵盤加號，縱向增加 10%，橫向不變。
+  shrinkFrameHeight:
+    title: 減小框的寬度（縱向）
+    description: 按住 H 再按主鍵盤減號，縱向減小 10%，橫向不變。
   shrinkSelectedFrames:
     title: 縮小選取的框
     description: 以中心為基準縮小容器或塗鴉框 10%，遵守內容、邊界和碰撞限制，預設使用主鍵盤減號。

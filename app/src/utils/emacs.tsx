@@ -40,6 +40,10 @@ export function parseSingleEmacsKey(key: string): {
   let shift = false;
   let meta = false;
 
+  if (/^(?:[a-z]|tab)\+(?:[a-z]|=|-)$/i.test(key)) {
+    return { key, alt, control, shift, meta };
+  }
+
   if (key === "-") {
     // 真就只是一个 减号，不是组合键
     return {

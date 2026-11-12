@@ -8,6 +8,7 @@ import { Color, colorInvert, mixColors, Vector } from "@graphif/data-structures"
 import { CubicBezierCurve, Rectangle } from "@graphif/shapes";
 import { paintWithErasures } from "../../eraserMask";
 import { isSectionTitleZoomedOut } from "../../sectionTitleZoom";
+import { questionDisplayColor } from "../../questionColor";
 
 @service("sectionRenderer")
 export class SectionRenderer {
@@ -50,7 +51,10 @@ export class SectionRenderer {
     this.project.shapeRenderer.renderRect(
       renderRectangle,
       section.color,
-      mixColors(this.project.stageStyleManager.currentStyle.StageObjectBorder, Color.Black, 0.5),
+      questionDisplayColor(
+        section.text,
+        mixColors(this.project.stageStyleManager.currentStyle.StageObjectBorder, Color.Black, 0.5),
+      ),
       2 * this.project.camera.currentScale,
       Renderer.NODE_ROUNDED_RADIUS * this.project.camera.currentScale,
     );
@@ -61,7 +65,7 @@ export class SectionRenderer {
         section.rectangle.size.add(Vector.same(4 * 2)).multiply(this.project.camera.currentScale),
       ),
       section.color,
-      this.project.stageStyleManager.currentStyle.StageObjectBorder,
+      questionDisplayColor(section.text, this.project.stageStyleManager.currentStyle.StageObjectBorder),
       2 * this.project.camera.currentScale,
       Renderer.NODE_ROUNDED_RADIUS * 1.5 * this.project.camera.currentScale,
     );
@@ -110,7 +114,7 @@ export class SectionRenderer {
           section.rectangle.size.multiply(this.project.camera.currentScale),
         ),
         Color.Transparent,
-        this.project.stageStyleManager.currentStyle.StageObjectBorder,
+        questionDisplayColor(section.text, this.project.stageStyleManager.currentStyle.StageObjectBorder),
         borderWidth,
         Renderer.NODE_ROUNDED_RADIUS * this.project.camera.currentScale,
         dashLength,
@@ -123,7 +127,7 @@ export class SectionRenderer {
           section.rectangle.size.multiply(this.project.camera.currentScale),
         ),
         Color.Transparent,
-        this.project.stageStyleManager.currentStyle.StageObjectBorder,
+        questionDisplayColor(section.text, this.project.stageStyleManager.currentStyle.StageObjectBorder),
         borderWidth,
         Renderer.NODE_ROUNDED_RADIUS * this.project.camera.currentScale,
       );
@@ -242,7 +246,7 @@ export class SectionRenderer {
     this.project.shapeRenderer.renderRect(
       new Rectangle(leftTopFontViewLocation, textSize).expandFromCenter(2),
       bgColor,
-      this.project.stageStyleManager.currentStyle.StageObjectBorder,
+      questionDisplayColor(section.text, this.project.stageStyleManager.currentStyle.StageObjectBorder),
       2 * this.project.camera.currentScale,
       2,
     );
@@ -282,9 +286,8 @@ export class SectionRenderer {
     }
     if (section instanceof Doodle) {
       const title = this.doodleTitleMetrics(section);
-      const color = section.color.a === 0
-        ? this.project.stageStyleManager.currentStyle.StageObjectBorder
-        : section.color;
+      const color =
+        section.color.a === 0 ? this.project.stageStyleManager.currentStyle.StageObjectBorder : section.color;
       paintWithErasures(
         this.project,
         section,
@@ -294,7 +297,7 @@ export class SectionRenderer {
             section.frame.size.multiply(this.project.camera.currentScale),
           );
           ctx.save();
-          ctx.strokeStyle = color.toString();
+          ctx.strokeStyle = questionDisplayColor(section.text, color).toString();
           ctx.lineWidth = Math.max(1, 2 * this.project.camera.currentScale);
           ctx.setLineDash([]);
           ctx.beginPath();

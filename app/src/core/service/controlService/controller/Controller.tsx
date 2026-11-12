@@ -37,6 +37,10 @@ export class Controller {
   // 检测正在按下的键
   readonly pressingKeySet: Set<string> = new Set();
   private clearTransferKey = () => this.pressingKeySet.delete("v");
+  private pressTransferKey = (event: KeyboardEvent) => {
+    if (!event.isComposing && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "v")
+      this.pressingKeySet.add("v");
+  };
   private releaseTransferKey = (event: KeyboardEvent) => {
     if (event.key.toLowerCase() === "v") this.clearTransferKey();
   };
@@ -117,7 +121,8 @@ export class Controller {
   constructor(private readonly project: Project) {
     this.hyperedgeCenterDrag = new HyperedgeCenterDrag(project);
     window.addEventListener("blur", this.clearTransferKey);
-    window.addEventListener("keyup", this.releaseTransferKey);
+    window.addEventListener("keydown", this.pressTransferKey, true);
+    window.addEventListener("keyup", this.releaseTransferKey, true);
     // 绑定事件
     this.project.canvas.element.addEventListener("keydown", this.keydown.bind(this));
     this.project.canvas.element.addEventListener("keyup", this.keyup.bind(this));
@@ -143,7 +148,8 @@ export class Controller {
   dispose() {
     this.hyperedgeCenterDrag.dispose();
     window.removeEventListener("blur", this.clearTransferKey);
-    window.removeEventListener("keyup", this.releaseTransferKey);
+    window.removeEventListener("keydown", this.pressTransferKey, true);
+    window.removeEventListener("keyup", this.releaseTransferKey, true);
     Object.values(this).forEach((v) => {
       if (v instanceof Controller) {
         v.dispose();

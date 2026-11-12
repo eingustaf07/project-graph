@@ -417,6 +417,9 @@ settings:
     description: |
       Saat diaktifkan, saat kamera diperkecil ke tampilan global yang luas,
       tag akan ditampilkan lebih besar untuk memudahkan identifikasi distribusi layout seluruh file
+  questionMarkYellow:
+    title: Kuning untuk tanda tanya di akhir
+    description: Node yang berakhir dengan ? atau ？ tampil kuning, dan judul bingkai yang berakhir dengan tanda tanya membuat garis bingkai kuning. Mengabaikan spasi akhir. Berlaku pada berkas lama tanpa mengubah warna tersimpan; nonaktifkan untuk memulihkan warna asli. Bingkai diberi nama dari node pertanyaan pertamanya satu kali saja dan statusnya disimpan dalam berkas.
   forceHideTextNodeBorder:
     title: Paksa Sembunyikan Batas Node Teks
     description: |
@@ -1855,6 +1858,18 @@ visualSettingsGroup:
     title: Pengaturan Latar Belakang
 
 keyBinds:
+  growFrameLength:
+    title: Perbesar panjang bingkai
+    description: Tahan L dan tekan plus utama untuk menambah ukuran horizontal 10% tanpa mengubah tinggi.
+  shrinkFrameLength:
+    title: Perkecil panjang bingkai
+    description: Tahan L dan tekan minus utama untuk mengurangi ukuran horizontal 10% tanpa mengubah tinggi.
+  growFrameHeight:
+    title: Perbesar tinggi bingkai
+    description: Tahan H dan tekan plus utama untuk menambah tinggi 10% tanpa mengubah panjang.
+  shrinkFrameHeight:
+    title: Perkecil tinggi bingkai
+    description: Tahan H dan tekan minus utama untuk mengurangi tinggi 10% tanpa mengubah panjang.
   shrinkSelectedFrames:
     title: Perkecil bingkai terpilih
     description: Perkecil wadah atau bingkai dekoratif 10% dari pusatnya, dengan batas isi dan tabrakan. Gunakan minus pada papan ketik utama.

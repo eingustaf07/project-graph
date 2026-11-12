@@ -22,6 +22,7 @@ vi.mock("@/core/service/Settings", () => ({
   },
 }));
 vi.mock("@graphif/serializer", () => ({ serialize: () => [], deserialize: () => [] }));
+vi.mock("@/core/service/dataManageService/questionFrameNames", () => ({ applyQuestionFrameNames: () => false }));
 
 import { HistoryManager } from "./StageHistoryManager";
 
@@ -40,6 +41,6 @@ describe("HistoryManager cleanup", () => {
 
     expect(dispose).toBeTypeOf("function");
     dispose?.call(manager);
-    expect(settings.unwatch).toHaveBeenCalledOnce();
+    expect(settings.unwatch).toHaveBeenCalledTimes(2);
   });
 });

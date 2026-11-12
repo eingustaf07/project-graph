@@ -5,6 +5,7 @@ import { cn } from "@udecode/cn";
 import { Delta, diff, patch } from "jsondiffpatch";
 import _ from "lodash";
 import { toast } from "sonner";
+import { applyQuestionFrameNames } from "@/core/service/dataManageService/questionFrameNames";
 
 abstract class HistoryManagerAbs {
   public abstract recordStep(): void;
@@ -390,6 +391,7 @@ export class HistoryManager extends HistoryManagerAbs {
   private memoryEfficient: HistorymanagerMemoryEfficient;
   private timeEfficient: HistoryManagerTimeEfficient;
   private readonly unwatchHistoryManagerMode: () => void;
+  private readonly unwatchQuestionColor: () => void;
 
   // 当前使用的历史管理器实例
   private currentManager: HistoryManagerAbs;
@@ -407,10 +409,15 @@ export class HistoryManager extends HistoryManagerAbs {
     this.unwatchHistoryManagerMode = Settings.watch("historyManagerMode", (newMode) => {
       this.switchMode(newMode === "timeEfficient");
     });
+    this.unwatchQuestionColor = Settings.watch("questionMarkYellow", () => {
+      if (applyQuestionFrameNames(this.project)) this.recordStep();
+    });
+    if (applyQuestionFrameNames(this.project)) this.recordStep();
   }
 
   dispose(): void {
     this.unwatchHistoryManagerMode();
+    this.unwatchQuestionColor();
   }
 
   developmentSnapshot() {
@@ -441,6 +448,7 @@ export class HistoryManager extends HistoryManagerAbs {
       this.batchDirty = true;
       return;
     }
+    applyQuestionFrameNames(this.project);
     this.currentManager.recordStep();
     this.project.emit("stage-commit");
   }

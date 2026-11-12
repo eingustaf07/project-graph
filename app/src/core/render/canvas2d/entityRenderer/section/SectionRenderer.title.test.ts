@@ -17,15 +17,26 @@ import { SectionRenderer } from "./SectionRenderer";
 import { Settings } from "@/core/service/Settings";
 import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 it("renders transparent Ctrl+G containers using the theme border without changing stored colors", () => {
-  const ctx: any = {save() {}, restore() {}, setLineDash() {}, beginPath() {}, rect() {}, stroke: vi.fn(), fillText: vi.fn()};
+  const ctx: any = {
+    save() {},
+    restore() {},
+    setLineDash() {},
+    beginPath() {},
+    rect() {},
+    stroke: vi.fn(),
+    fillText: vi.fn(),
+  };
   const border = Color.White;
   const p: any = {
-    canvas: {ctx}, camera: {currentScale: 1},
-    renderer: {w: 1000, h: 800, transformWorld2View: (v: Vector) => v},
-    stageStyleManager: {currentStyle: {StageObjectBorder: border}},
+    canvas: { ctx },
+    camera: { currentScale: 1 },
+    renderer: { w: 1000, h: 800, transformWorld2View: (v: Vector) => v },
+    stageStyleManager: { currentStyle: { StageObjectBorder: border } },
   };
   const d = Object.assign(new Doodle({} as any), {
-    text: "", shape: "rectangle", color: Color.Transparent,
+    text: "",
+    shape: "rectangle",
+    color: Color.Transparent,
     frame: new Rectangle(new Vector(10, 10), new Vector(400, 250)),
   });
   new SectionRenderer(p).render(d);
@@ -35,6 +46,50 @@ it("renders transparent Ctrl+G containers using the theme border without changin
 });
 import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+
+it.each(["rectangle", "circle"])(
+  "recolors an existing %s border without changing its title, saved color or original appearance when disabled",
+  (shape) => {
+    const ctx: any = {
+      save() {},
+      restore() {},
+      setLineDash() {},
+      beginPath() {},
+      rect() {},
+      arc() {},
+      stroke: vi.fn(),
+      fillText: vi.fn(),
+    };
+    const p: any = {
+      canvas: { ctx },
+      camera: { currentScale: 1 },
+      renderer: { w: 1000, h: 800, transformWorld2View: (v: Vector) => v },
+    };
+    const frame = Object.assign(new Doodle({} as any), {
+      text: "旧框？",
+      shape,
+      color: Color.Red,
+      frame: new Rectangle(new Vector(10, 10), new Vector(400, 250)),
+    });
+    const renderer = new SectionRenderer(p);
+    try {
+      Object.assign(Settings, { questionMarkYellow: true });
+      renderer.render(frame);
+      expect(ctx.strokeStyle).toBe(new Color(255, 235, 59, 1).toString());
+      expect(ctx.fillStyle).toBe(Color.Red.toString());
+      expect(frame.color).toBe(Color.Red);
+      Object.assign(Settings, { questionMarkYellow: false });
+      renderer.render(frame);
+      expect(ctx.strokeStyle).toBe(Color.Red.toString());
+      Object.assign(Settings, { questionMarkYellow: true });
+      frame.text = "已解答";
+      renderer.render(frame);
+      expect(ctx.strokeStyle).toBe(Color.Red.toString());
+    } finally {
+      Reflect.deleteProperty(Settings, "questionMarkYellow");
+    }
+  },
+);
 
 it.each(["rectangle", "circle"])("fits a zoomed-out %s title inside the shape", (shape) => {
   const config = {

@@ -451,6 +451,9 @@ settings:
     description: |
       开启后，标签文本节点的显示在摄像机缩小到广袤的全局视野时，
       标签会巨大化显示，以便更容易辨识整个文件的布局分布
+  questionMarkYellow:
+    title: 问号结尾自动标黄
+    description: 开启后，以中文或英文问号结尾的节点显示为黄色，框标题以问号结尾时边框显示为黄色（忽略末尾空白）。对已有文件同样生效，不修改原配色；关闭或去掉问号后恢复原色。框内第一次出现问号节点时，用其完整内容自动命名框，仅执行一次并保存状态，后续不自动改名。
   forceHideTextNodeBorder:
     title: 强制隐藏文本节点边框
     description: |
@@ -1592,6 +1595,18 @@ visualSettingsGroup:
     title: 背景设置
 
 keyBinds:
+  growFrameLength:
+    title: 增加框的长度（横向）
+    description: 按住 L 再按主键盘加号，横向增加 10%，纵向不变。
+  shrinkFrameLength:
+    title: 减小框的长度（横向）
+    description: 按住 L 再按主键盘减号，横向减小 10%，纵向不变。
+  growFrameHeight:
+    title: 增加框的宽度（纵向）
+    description: 按住 H 再按主键盘加号，纵向增加 10%，横向不变。
+  shrinkFrameHeight:
+    title: 减小框的宽度（纵向）
+    description: 按住 H 再按主键盘减号，纵向减小 10%，横向不变。
   shrinkSelectedFrames:
     title: 缩小选中的框
     description: 以中心为基准缩小容器或涂鸦框 10%，遵守内容、边界和碰撞限制。默认使用主键盘减号。

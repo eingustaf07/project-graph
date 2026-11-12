@@ -1077,6 +1077,9 @@ settings:
       default: Default (backup folder)
       sideBySide: Side-by-side (same folder)
       subfolder: Subfolder ({filename}_backup)
+  questionMarkYellow:
+    title: Yellow for trailing question marks
+    description: Display nodes ending in ? or ？ in yellow and highlight frame borders when their titles end in a question mark, ignoring trailing whitespace. Applies to existing files without changing saved colors. Disable or remove the question mark to restore original colors. Name each frame after its first question node once; remember this in the file and never automatically rename it again.
   forceHideTextNodeBorder:
     title: Force Hide Text Node Border
     description: |
@@ -1548,6 +1551,18 @@ keys:
   wheeldown: Scroll Wheel Down
 
 keyBinds:
+  growFrameLength:
+    title: Increase frame length horizontally
+    description: Hold L and press the main plus key to increase horizontal size by 10%, keeping vertical size.
+  shrinkFrameLength:
+    title: Decrease frame length horizontally
+    description: Hold L and press the main minus key to decrease horizontal size by 10%, keeping vertical size.
+  growFrameHeight:
+    title: Increase frame vertical size
+    description: Hold H and press the main plus key to increase vertical size by 10%, keeping horizontal size.
+  shrinkFrameHeight:
+    title: Decrease frame vertical size
+    description: Hold H and press the main minus key to decrease vertical size by 10%, keeping horizontal size.
   shrinkSelectedFrames:
     title: Shrink selected frames
     description: Shrink container or decorative frames by 10% around their centers while respecting contents, bounds and collisions. Main keyboard minus by default.

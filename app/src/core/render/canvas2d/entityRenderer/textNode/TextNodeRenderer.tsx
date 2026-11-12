@@ -15,6 +15,7 @@ import { Color, colorInvert, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import i18next from "i18next";
 import { renderTableNode } from "./renderTableNode";
+import { questionDisplayColor, questionTextColor } from "../../questionColor";
 
 @service("textNodeRenderer")
 export class TextNodeRenderer {
@@ -26,7 +27,7 @@ export class TextNodeRenderer {
     const isLogicNode = !node.isTable && this.project.autoComputeUtils.isNameIsLogicNode(node.text);
 
     // 节点身体矩形
-    let fillColor = node.color;
+    let fillColor = questionDisplayColor(node.text, node.color);
     const renderedFontSize = node.getFontSize() * this.project.camera.currentScale;
     if (
       !Settings.alwaysRenderNodeText &&
@@ -533,6 +534,7 @@ export class TextNodeRenderer {
    * @param node
    */
   private renderTextNodeTextLayer(node: TextNode) {
+    const textColor = questionTextColor(node.text, node.color, this.project.stageStyleManager.currentStyle.Background);
     // 编辑状态
     if (node.isEditing) {
       // 编辑状态下，在节点顶部显示"正在编辑模式"，底部显示换行和退出提示
@@ -601,9 +603,7 @@ export class TextNodeRenderer {
         "undefined",
         this.project.renderer.transformWorld2View(node.rectangle.center),
         fontSize,
-        node.color.a === 1
-          ? colorInvert(node.color)
-          : colorInvert(this.project.stageStyleManager.currentStyle.Background),
+        textColor,
       );
     } else if (this.project.autoComputeUtils.isNameIsLogicNode(node.text)) {
       // 检查下是不是逻辑节点
@@ -616,9 +616,7 @@ export class TextNodeRenderer {
             getLogicNodeRenderName(logicNodeName),
             this.project.renderer.transformWorld2View(node.rectangle.center),
             fontSize,
-            node.color.a === 1
-              ? colorInvert(node.color)
-              : colorInvert(this.project.stageStyleManager.currentStyle.Background),
+            textColor,
           );
         }
       }
@@ -653,9 +651,7 @@ export class TextNodeRenderer {
         ),
         fontSize,
         node.getTextWrapWidth() * this.project.camera.currentScale,
-        node.color.a === 1
-          ? colorInvert(node.color)
-          : colorInvert(this.project.stageStyleManager.currentStyle.Background),
+        textColor,
         1.5,
         undefined,
         node.fontFamily || undefined,

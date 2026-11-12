@@ -3,8 +3,9 @@ import { Renderer } from "@/core/render/canvas2d/renderer";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
 import { Settings } from "@/core/service/Settings";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
-import { colorInvert, Vector } from "@graphif/data-structures";
+import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { questionDisplayColor, questionTextColor } from "../../questionColor";
 
 @service("urlNodeRenderer")
 export class UrlNodeRenderer {
@@ -24,7 +25,7 @@ export class UrlNodeRenderer {
         this.project.renderer.transformWorld2View(urlNode.rectangle.location),
         urlNode.rectangle.size.multiply(this.project.camera.currentScale),
       ),
-      urlNode.color,
+      questionDisplayColor(urlNode.title, urlNode.color),
       this.project.stageStyleManager.currentStyle.StageObjectBorder,
       2 * this.project.camera.currentScale,
       Renderer.NODE_ROUNDED_RADIUS * this.project.camera.currentScale,
@@ -37,9 +38,7 @@ export class UrlNodeRenderer {
           urlNode.title,
           this.project.renderer.transformWorld2View(urlNode.rectangle.location.add(Vector.same(Renderer.NODE_PADDING))),
           titleFontSize,
-          urlNode.color.a === 1
-            ? colorInvert(urlNode.color)
-            : colorInvert(this.project.stageStyleManager.currentStyle.Background),
+          questionTextColor(urlNode.title, urlNode.color, this.project.stageStyleManager.currentStyle.Background),
         );
       }
       // 绘制分界线
@@ -48,9 +47,7 @@ export class UrlNodeRenderer {
         this.project.renderer.transformWorld2View(
           urlNode.rectangle.location.add(new Vector(urlNode.rectangle.size.x, UrlNode.titleHeight)),
         ),
-        urlNode.color.a === 1
-          ? colorInvert(urlNode.color)
-          : colorInvert(this.project.stageStyleManager.currentStyle.Background),
+        questionTextColor(urlNode.title, urlNode.color, this.project.stageStyleManager.currentStyle.Background),
         1 * this.project.camera.currentScale,
         4 * this.project.camera.currentScale,
       );
@@ -63,9 +60,7 @@ export class UrlNodeRenderer {
           ),
         ),
         Renderer.FONT_SIZE * 0.5 * this.project.camera.currentScale,
-        urlNode.color.a === 1
-          ? colorInvert(urlNode.color)
-          : colorInvert(this.project.stageStyleManager.currentStyle.Background),
+        questionTextColor(urlNode.title, urlNode.color, this.project.stageStyleManager.currentStyle.Background),
       );
     }
     // 绘制特效

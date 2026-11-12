@@ -77,6 +77,7 @@ export const settingsSchema = z.object({
   showBackgroundCartesian: z.boolean().default(true),
   enableTagTextNodesBigDisplay: z.boolean().default(true),
   forceHideTextNodeBorder: z.boolean().default(false),
+  questionMarkYellow: z.boolean().default(false),
   textNodeInitBorderStyle: z.union([z.literal("solid"), z.literal("dashed"), z.literal("none")]).default("solid"),
   showTreeDirectionHint: z.boolean().default(false),
   connectedNodeHighlightScope: z.union([z.literal("direct"), z.literal("all"), z.literal("chain")]).default("all"),

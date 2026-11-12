@@ -27,6 +27,7 @@ export class EntityMoveManager {
   public isMovingWithinContainer = false;
   private containerDrag?: ContainerNodeDrag;
   private pointerMoving = false;
+  private pointerDragging = false;
   private collisionIndex?: DragCollisionIndex;
   private collisionIndexDirty = false;
   private translatingBatch = false;
@@ -130,7 +131,7 @@ export class EntityMoveManager {
   }
 
   get ignoresDragCollisions() {
-    return this.pointerMoving && this.project.controller.pressingKeySet.has("v");
+    return (this.pointerDragging || this.pointerMoving) && this.project.controller.pressingKeySet.has("v");
   }
 
   private duringPointerMovement(move: () => void) {
@@ -184,6 +185,7 @@ export class EntityMoveManager {
   }
 
   beginPointerDrag(clicked: Entity, grabPoint?: Vector) {
+    this.pointerDragging = true;
     this.lastDragDirection = Vector.getZero();
     this.containerDrag = Settings.containerNBoundary
       ? new ContainerNodeDrag(this.project, clicked, grabPoint)
@@ -191,6 +193,7 @@ export class EntityMoveManager {
   }
 
   endPointerDrag() {
+    this.pointerDragging = false;
     this.containerDrag = undefined;
   }
 

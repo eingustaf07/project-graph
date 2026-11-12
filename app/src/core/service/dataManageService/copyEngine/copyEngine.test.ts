@@ -76,6 +76,7 @@ import { URI } from "vscode-uri";
 import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/StageSectionInOutManager";
 import { commitTableEdit } from "../tableEditActions";
 import { parseTableText } from "@/core/algorithm/tableData";
+import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { Encoder, Decoder } from "@msgpack/msgpack";
 
 function fixture() {
@@ -88,6 +89,7 @@ function fixture() {
     off: vi.fn(),
     effects: { addEffect: vi.fn() },
     syncAssociationManager: { onStageObjectDeleted: vi.fn(), syncFrom: vi.fn() },
+    sectionCollisionSolver: { solveOverlaps: vi.fn() },
     renderer: { transformView2World: (v: Vector) => v.multiply(2).add(new Vector(-5000, 3000)) },
     textRenderer: {
       measureMultiLineTextSize: (text: string, size: number, width: number, height: number) =>
@@ -138,6 +140,7 @@ function expectPoint(actual: Vector, expected: Vector) {
 }
 
 beforeEach(() => {
+  Settings.questionMarkYellow = false;
   vi.spyOn(CopyEngineImage.prototype, "pasteImagesFromFileClipboard").mockResolvedValue(false);
   Settings.clipboardPasteMode = "tauri";
   Settings.connectedNodeHighlightLocked = false;
@@ -160,6 +163,57 @@ afterEach(() => {
 });
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
+  it.each(["memoryEfficient", "timeEfficient"] as const)(
+    "names old frames from their first question only once, with persistent state and undo in %s",
+    (mode) => {
+      const p = fixture();
+      Settings.historyManagerMode = mode;
+      const first = new TextNode(p, { text: "第一个问题？" });
+      const next = new TextNode(p, { text: "后续问题?" });
+      const frame = new Section(p, { text: "原始框名", children: [first, next] });
+      p.stage.push(first, next, frame);
+      p.stageManager.updateReferences();
+      expect(serialize(frame)).not.toHaveProperty("questionTitleAssigned");
+      Settings.questionMarkYellow = true;
+      p.historyManager = new HistoryManager(p);
+      expect(frame.text).toBe(first.text);
+      expect(frame.questionTitleAssigned).toBe(true);
+      p.historyManager.undo();
+      expect(p.stageManager.getSections()[0].text).toBe("原始框名");
+      p.historyManager.redo();
+      const named = p.stageManager.getSections()[0];
+      expect(named.questionTitleAssigned).toBe(true);
+      named.rename("手动修改标题");
+      p.stageManager.getTextNodes()[0].rename("原问题修改了？");
+      p.historyManager.recordStep();
+      expect(named.text).toBe("手动修改标题");
+      const file = new Encoder().encode(serialize(p.stage));
+      p.stage = deserialize(new Decoder().decode(file), p);
+      p.stageManager.updateReferences();
+      p.historyManager = new HistoryManager(p);
+      expect(p.stageManager.getSections()[0].text).toBe("手动修改标题");
+      expect(p.stageManager.getSections()[0].questionTitleAssigned).toBe(true);
+      Settings.historyManagerMode = "memoryEfficient";
+    },
+  );
+  it("names a pure doodle frame when the first question fits inside it, without adopting or moving nodes", () => {
+    const p = fixture();
+    const first = new TextNode(p, { text: "涂鸦内的问题？" });
+    const frame = new Doodle(p, {
+      text: "",
+      frame: new Rectangle(new Vector(-100, -100), new Vector(2000, 1000)),
+      bounded: false,
+    });
+    p.stage.push(first, frame);
+    p.stageManager.updateReferences();
+    const before = first.rectangle.location.clone();
+    Settings.questionMarkYellow = true;
+    p.historyManager = new HistoryManager(p);
+    expect(frame.text).toBe(first.text);
+    expect(frame.children).toHaveLength(0);
+    expect(first.parentSection).toBeNull();
+    expect(first.rectangle.location).toEqual(before);
+  });
   it("does not add a table marker to ordinary nodes or their file data", () => {
     const p = fixture();
     const node = new TextNode(p, { text: "原有节点" });

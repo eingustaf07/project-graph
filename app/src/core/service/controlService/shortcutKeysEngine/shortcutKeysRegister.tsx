@@ -793,6 +793,34 @@ export const allKeyBinds: KeyBindItem[] = [
   },
   /*------- 分组框边框样式 -------*/
   {
+    id: "growFrameLength",
+    defaultKey: "l+=",
+    icon: Square,
+    when: canResizeSelectedFrames,
+    onPress: (project) => resizeSelectedFrames(project!, 1.1, "length"),
+  },
+  {
+    id: "shrinkFrameLength",
+    defaultKey: "l+-",
+    icon: Square,
+    when: canResizeSelectedFrames,
+    onPress: (project) => resizeSelectedFrames(project!, 0.9, "length"),
+  },
+  {
+    id: "growFrameHeight",
+    defaultKey: "h+=",
+    icon: Square,
+    when: canResizeSelectedFrames,
+    onPress: (project) => resizeSelectedFrames(project!, 1.1, "height"),
+  },
+  {
+    id: "shrinkFrameHeight",
+    defaultKey: "h+-",
+    icon: Square,
+    when: canResizeSelectedFrames,
+    onPress: (project) => resizeSelectedFrames(project!, 0.9, "height"),
+  },
+  {
     id: "setSectionBorderSolid",
     defaultKey: "",
     icon: Square,

@@ -723,6 +723,28 @@ describe("text node collision with the user's collision and auto-align settings"
     expect(overlap(a, obstacle)).toBe(false);
     p.entityMoveManager.endPointerDrag();
   });
+  it("keeps V collision bypass active between pointer events and restores it immediately on key release or drag end", () => {
+    const { p, node } = fixture();
+    settings.isEnableEntityCollision = true;
+    const dragged = node(0),
+      neighbor = node(600);
+    dragged.isSelected = true;
+    const origin = neighbor.rectangle.location.clone();
+    p.entityMoveManager.beginPointerDrag(dragged);
+    p.controller.pressingKeySet.add("v");
+    p.entityMoveManager.dragSelection(new Vector(600, 0), false);
+    expect(overlap(dragged, neighbor)).toBe(true);
+    dragged.resolveOverlaps();
+    expect(overlap(dragged, neighbor)).toBe(true);
+    expect(neighbor.rectangle.location).toEqual(origin);
+    p.controller.pressingKeySet.delete("v");
+    dragged.resolveOverlaps();
+    expect(overlap(dragged, neighbor)).toBe(false);
+    p.controller.pressingKeySet.add("v");
+    expect(p.entityMoveManager.ignoresDragCollisions).toBe(true);
+    p.entityMoveManager.endPointerDrag();
+    expect(p.entityMoveManager.ignoresDragCollisions).toBe(false);
+  });
   it("passes through a neighbor with V and resumes pushing during the same drag when V is released", () => {
     const { p, node } = fixture();
     const dragged = node(0);

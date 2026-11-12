@@ -15,14 +15,17 @@ export function canResizeSelectedFrames(project?: Project) {
   );
 }
 
-export function resizeSelectedFrames(project: Project, factor: number) {
+export function resizeSelectedFrames(project: Project, factor: number, axis: "both" | "length" | "height" = "both") {
   if (!canResizeSelectedFrames(project)) return;
   const frames = project.stageManager
     .getSelectedEntities()
     .filter((n): n is Doodle => n instanceof Doodle && !n.locked && !n.nearestLockedAncestorSection);
   const plans = frames
     .map((frame) => {
-      const size = new Vector(Math.max(40, frame.frame.width * factor), Math.max(40, frame.frame.height * factor));
+      const size = new Vector(
+        axis === "height" ? frame.frame.width : Math.max(40, frame.frame.width * factor),
+        axis === "length" ? frame.frame.height : Math.max(40, frame.frame.height * factor),
+      );
       return { frame, box: new Rectangle(frame.frame.center.subtract(size.multiply(0.5)), size) };
     })
     .filter(({ frame, box }) => !frame.frame.size.equals(box.size));

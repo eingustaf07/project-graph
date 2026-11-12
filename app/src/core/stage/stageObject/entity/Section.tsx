@@ -80,6 +80,8 @@ export class Section extends ConnectableEntity {
   @serializable
   text: string;
   @serializable
+  questionTitleAssigned?: true;
+  @serializable
   children: Entity[];
 
   /** 是否是折叠状态 */
@@ -103,6 +105,7 @@ export class Section extends ConnectableEntity {
     {
       uuid = crypto.randomUUID() as string,
       text = "",
+      questionTitleAssigned = undefined as true | undefined,
       collisionBox = new CollisionBox([new Rectangle(new Vector(0, 0), new Vector(0, 0))]),
       _collisionBoxNormal: collisionBoxNormal = undefined as CollisionBox | undefined,
       color = Color.Transparent,
@@ -131,6 +134,8 @@ export class Section extends ConnectableEntity {
 
     this.color = color;
     this.text = text;
+    if (questionTitleAssigned === true) this.questionTitleAssigned = true;
+    else delete this.questionTitleAssigned;
     this.locked = locked;
     this.isCollapsed = isCollapsed;
     this.details = details;

@@ -28,6 +28,7 @@ const settings = vi.hoisted(() => ({
   forceHideTextNodeBorder: false,
   enableTagTextNodesBigDisplay: false,
   textIntegerLocationAndSizeRender: false,
+  questionMarkYellow: false,
 }));
 vi.mock("@/core/service/Settings", () => ({ Settings: settings }));
 
@@ -71,12 +72,33 @@ function fixture(scale: number) {
 }
 
 beforeEach(() => {
+  settings.questionMarkYellow = false;
   settings.alwaysRenderNodeText = true;
   settings.ignoreTextNodeTextRenderLessThanFontSize = 5;
   settings.textIntegerLocationAndSizeRender = false;
 });
 
 describe("node labels at small canvas zoom", () => {
+  it("marks existing question nodes immediately, restores saved colors on toggle or rename, and keeps dark text readable", () => {
+    const { project, node } = fixture(1);
+    node.text = "旧文件的问题？";
+    node.color = Color.Red;
+    const renderer = new TextNodeRenderer(project);
+    renderer.renderTextNode(node);
+    expect(project.shapeRenderer.renderRect.mock.lastCall[1]).toBe(Color.Red);
+    settings.questionMarkYellow = true;
+    renderer.renderTextNode(node);
+    expect(project.shapeRenderer.renderRect.mock.lastCall[1].toString()).toBe(new Color(255, 235, 59, 1).toString());
+    expect(project.textRenderer.renderMultiLineText.mock.lastCall[4]).toBe(Color.Black);
+    expect(node.color).toBe(Color.Red);
+    node.text = "已经解答";
+    renderer.renderTextNode(node);
+    expect(project.shapeRenderer.renderRect.mock.lastCall[1]).toBe(Color.Red);
+    node.text = "新问题?";
+    settings.questionMarkYellow = false;
+    renderer.renderTextNode(node);
+    expect(project.shapeRenderer.renderRect.mock.lastCall[1]).toBe(Color.Red);
+  });
   it("reuses each node's line layout across zoom even when more than 1000 labels are visible", () => {
     settings.textIntegerLocationAndSizeRender = true;
     const { project, node } = fixture(0.26);
