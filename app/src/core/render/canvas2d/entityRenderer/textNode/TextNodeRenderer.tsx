@@ -658,6 +658,7 @@ export class TextNodeRenderer {
         undefined,
         node.fontFamily || undefined,
         node.fontWeight || undefined,
+        node,
       );
     }
   }

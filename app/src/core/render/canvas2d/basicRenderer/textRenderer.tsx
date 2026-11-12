@@ -281,6 +281,7 @@ export class TextRenderer {
     limitLines: number = Infinity,
     fontFamily?: string,
     fontWeight?: string,
+    layoutOwner?: object,
   ): void {
     this.renderTempMultiLineText(
       text,
@@ -292,6 +293,7 @@ export class TextRenderer {
       limitLines,
       fontFamily,
       fontWeight,
+      layoutOwner,
     );
   }
   renderTempMultiLineText(
@@ -304,8 +306,11 @@ export class TextRenderer {
     limitLines: number = Infinity,
     fontFamily?: string,
     fontWeight?: string,
+    layoutOwner?: object,
   ): void {
     if (text.trim().length === 0) return;
+    const layoutSize = fontSize;
+    const layoutWidth = limitWidth;
     if (this.shouldRoundText(fontSize)) {
       location = location.toInteger();
       fontSize = Math.round(fontSize);
@@ -314,7 +319,14 @@ export class TextRenderer {
     }
     text = this.prepareText(text);
     let currentY = 0; // 顶部偏移量
-    let textLineArray = this.textToTextArrayWrapCache(text, fontSize, limitWidth, fontFamily, fontWeight);
+    let textLineArray = this.textToTextArrayWrapCache(
+      text,
+      layoutOwner ? layoutSize : fontSize,
+      layoutOwner ? layoutWidth : limitWidth,
+      fontFamily,
+      fontWeight,
+      layoutOwner,
+    );
     // 限制行数
     if (limitLines < textLineArray.length) {
       textLineArray = textLineArray.slice(0, limitLines);
@@ -452,6 +464,7 @@ export class TextRenderer {
   }
 
   textArrayCache: LruCache<string, string[]> = new LruCache(1000);
+  private readonly ownedTextLayouts = new WeakMap<object, { key: string; lines: string[] }>();
 
   /**
    * 加了缓存后的多行文本渲染函数
@@ -465,11 +478,13 @@ export class TextRenderer {
     limitWidth: number,
     fontFamily?: string,
     fontWeight?: string,
+    owner?: object,
   ): string[] {
     const widthInEm = limitWidth / fontSize;
     const normalizedWidthInEm = Number.isFinite(widthInEm) ? Number(widthInEm.toPrecision(12)) : widthInEm;
     const cacheKey = JSON.stringify([text, normalizedWidthInEm, getFontIdentity(fontFamily, fontWeight)]);
-    const cacheValue = this.textArrayCache.get(cacheKey);
+    const owned = owner ? this.ownedTextLayouts.get(owner) : undefined;
+    const cacheValue = owner ? (owned?.key === cacheKey ? owned.lines : undefined) : this.textArrayCache.get(cacheKey);
     if (cacheValue) {
       return cacheValue;
     }
@@ -480,7 +495,8 @@ export class TextRenderer {
       fontFamily,
       fontWeight,
     );
-    this.textArrayCache.set(cacheKey, lines);
+    if (owner) this.ownedTextLayouts.set(owner, { key: cacheKey, lines });
+    else this.textArrayCache.set(cacheKey, lines);
     return lines;
   }
 

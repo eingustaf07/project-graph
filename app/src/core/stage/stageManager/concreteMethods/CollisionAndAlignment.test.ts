@@ -3,6 +3,8 @@ import { Doodle } from "@/core/stage/stageObject/entity/Doodle";
 import { EdgeRenderer } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRenderer";
 import { VerticalPolyEdgeRenderer } from "@/core/render/canvas2d/entityRenderer/edge/concrete/VerticalPolyEdgeRenderer";
 import { crossesRectangle } from "@/core/algorithm/orthogonalPath";
+import * as orthogonalRouting from "@/core/algorithm/orthogonalPath";
+import { getOrthogonalEdgeBounds } from "../../stageObject/association/OrthogonalEdgePath";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.hoisted(() =>
   vi.stubGlobal("document", {
@@ -116,6 +118,42 @@ beforeEach(() => {
   settings.isEnableEntityCollision = false;
 });
 describe("vertical connection defaults with real PG objects", () => {
+  it("reuses fallback paths and bounds while zooming and retries when an overlapping blocker disappears", () => {
+    const { p, node } = fixture();
+    settings.lineStyle = "vertical";
+    const routing = vi.spyOn(orthogonalRouting, "orthogonalPath");
+    try {
+      const a = node(0),
+        b = node(600),
+        blocker = node(a.rectangle.right - 10);
+      const edge = new LineEdge(p, {
+        associationList: [a, b],
+        sourceRectangleRate: new Vector(0.99, 0.5),
+        targetRectangleRate: new Vector(0.01, 0.5),
+      });
+      p.stageManager.add(edge);
+      p.renderer.frameIndex = 1;
+      const path = edge.orthogonalPath;
+      const box = getOrthogonalEdgeBounds(edge);
+      const coldCalls = routing.mock.calls.length;
+      expect(routing.mock.results[0].value).toEqual([]);
+      for (let i = 0; i < 10; i++) {
+        p.renderer.frameIndex++;
+        p.camera = { currentScale: 1 / (i + 1) };
+        expect(edge.orthogonalPath).toBe(path);
+        expect(getOrthogonalEdgeBounds(edge)).toBe(box);
+      }
+      expect(routing).toHaveBeenCalledTimes(coldCalls);
+      p.stageManager.delete(blocker);
+      p.renderer.frameIndex++;
+      expect(edge.orthogonalPath).not.toBe(path);
+      expect(routing.mock.calls.length).toBeGreaterThan(coldCalls);
+      expect(getOrthogonalEdgeBounds(edge)).not.toBe(box);
+    } finally {
+      routing.mockRestore();
+      settings.lineStyle = "straight";
+    }
+  });
   it("renders the same orthogonal segments that are clickable, with dots at both real endpoints", () => {
     const { p, node } = fixture();
     settings.lineStyle = "vertical";

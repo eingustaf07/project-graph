@@ -77,6 +77,24 @@ beforeEach(() => {
 });
 
 describe("node labels at small canvas zoom", () => {
+  it("reuses each node's line layout across zoom even when more than 1000 labels are visible", () => {
+    settings.textIntegerLocationAndSizeRender = true;
+    const { project, node } = fixture(0.26);
+    project.canvas = { ctx: { save() {}, restore() {}, translate() {}, scale() {}, fillText() {} } };
+    project.textRenderer = new TextRenderer(project);
+    const split = vi.spyOn(project.textRenderer, "textToTextArray");
+    const renderer = new TextNodeRenderer(project);
+    const nodes = Array.from({ length: 1200 }, (_, i) => ({ ...node, text: "节点" + i }));
+    for (const scale of [0.26, 0.241, 0.17]) {
+      project.camera.currentScale = scale;
+      for (const item of nodes) renderer.renderTextNode(item);
+    }
+    expect(split).toHaveBeenCalledTimes(nodes.length);
+    nodes[0].text = "修改后的内容";
+    renderer.renderTextNode(nodes[0]);
+    expect(split).toHaveBeenCalledTimes(nodes.length + 1);
+    expect(nodes[0].rectangle.size).toEqual(new Vector(200, 80));
+  });
   it.each([false, true])("reaches canvas drawing at subpixel sizes with integer alignment %s", (integerAlignment) => {
     settings.textIntegerLocationAndSizeRender = integerAlignment;
     const { project, node } = fixture(0.001);
@@ -116,6 +134,7 @@ describe("node labels at small canvas zoom", () => {
         undefined,
         undefined,
         undefined,
+        node,
       );
       expect(project.shapeRenderer.renderRect.mock.calls[0][1]).toBe(node.color);
       new UrlNodeRenderer(project).render(node);

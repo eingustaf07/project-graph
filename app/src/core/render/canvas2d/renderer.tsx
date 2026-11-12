@@ -6,6 +6,7 @@ import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { ArcEdge } from "@/core/stage/stageObject/association/ArcEdge";
 import { CubicCatmullRomSplineEdge } from "@/core/stage/stageObject/association/CubicCatmullRomSplineEdge";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { getOrthogonalEdgeBounds } from "@/core/stage/stageObject/association/OrthogonalEdgePath";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { getTextSize } from "@/utils/font";
 import { isFrame, isMac } from "@/utils/platform";
@@ -215,6 +216,8 @@ export class Renderer {
 
   // 是否超出了视野之外
   isOverView(viewRectangle: Rectangle, entity: StageObject): boolean {
+    if (entity instanceof LineEdge && Settings.lineStyle === "vertical" && entity.source !== entity.target)
+      return !viewRectangle.isCollideWith(getOrthogonalEdgeBounds(entity));
     return !viewRectangle.isCollideWith(entity.collisionBox.getRectangle());
   }
 
