@@ -1,6 +1,7 @@
 import { transEmacsKeyWinToMac } from "@/utils/emacs";
 import { isMac } from "@/utils/platform";
 import { createStore } from "@/utils/store";
+import type { Project } from "@/core/Project";
 import { KeyBindsUI, type KeyBindIcon } from "../service/controlService/shortcutKeysEngine/KeyBindsUI";
 
 export interface ExtensionKeyBindRegisterOptions {
@@ -16,6 +17,37 @@ export interface ExtensionKeyBindRegisterOptions {
  * 专门管理扩展注入的快捷键
  */
 export namespace ExtensionKeyBindManager {
+  function keepTaskStatusSelection(onPress: () => void) {
+    return async (project?: Project) => {
+      const selected = new Set(project?.stage.filter((object) => object.isSelected));
+      if (!project || !selected.size) return onPress();
+      let interrupted = false;
+      const interrupt = () => {
+        interrupted = true;
+      };
+      if (typeof window !== "undefined") {
+        window.addEventListener("pointerdown", interrupt, true);
+        window.addEventListener("keydown", interrupt, true);
+        window.addEventListener("blur", interrupt);
+      }
+      try {
+        await onPress();
+      } finally {
+        if (typeof window !== "undefined") {
+          window.removeEventListener("pointerdown", interrupt, true);
+          window.removeEventListener("keydown", interrupt, true);
+          window.removeEventListener("blur", interrupt);
+        }
+        // The task extension selects its next pinned task after updating status.
+        // Restore only this command's selection, never a subsequent user action.
+        if (!interrupted && !project.closing) {
+          for (const object of project.stage) object.isSelected = selected.has(object);
+          project.controller.resetCountdownTimer();
+        }
+      }
+    };
+  }
+
   /**
    * 注册扩展快捷键
    * @param extensionId 扩展ID
@@ -51,7 +83,10 @@ export namespace ExtensionKeyBindManager {
             const { splitSelectedExtensionEdge } = await import("./edgeSplit");
             await splitSelectedExtensionEdge(project);
           }
-        : options.onPress,
+        : ["com.enterhalf.task-arrange", "text-node-todolist"].includes(extensionId) &&
+            ["smartOKK", "smartERR"].includes(options.id)
+          ? keepTaskStatusSelection(options.onPress)
+          : options.onPress,
       options.onRelease,
       options.isContinuous,
       undefined,
