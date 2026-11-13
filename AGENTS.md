@@ -121,6 +121,8 @@ Rust 主要负责本地文件等系统能力；绝大部分业务逻辑在前端
 
 ## Windows upgrades and launchers
 
+- Preserve the user's existing Retro Pixel UI font across every update and new window. Keep the bundled font, its license files, common startup loading before project text measurements, and the shared UI/canvas default family. Preserve explicit per-node fonts and icon/special-purpose fonts. A source-only font change is pending until an explicitly requested deployment; verify actual platform font use in both the daily main window and a normally created detached window after deployment.
+
 - Regression #1 (Windows daily developer profile): compare the effective command IDs, assigned keys, enabled states, and loaded extensions in the Explorer/normal-launch main and detached windows against the user's known-good configuration. An equal runtime count, source fingerprint or reported Roaming path can conceal different physical profile contents. Confirm Ctrl+H opens Find and locked HH follows the selection. This user's provisioned settings, bindings, colors, quick settings and extensions live under the Windows home directory in .project-graph-e/preferences. Preserve that directory across deployments.
 
 - Regression #2 (canvas navigation): compare cold render, repeated wheel zoom and right-button background pan against the previous revision using the same viewport and settings. Include a populated document with orthogonal edges, multi-line text, and partially erased shapes, plus a second independent document. Record frame and input timings separately. Verify picking after pan, route updates after editing, and partial erasure without affecting the background. Use read-only copies and distinguish browser measurements from the daily Windows application.

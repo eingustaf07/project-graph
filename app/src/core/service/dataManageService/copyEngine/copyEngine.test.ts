@@ -170,7 +170,7 @@ describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
       Settings.historyManagerMode = mode;
       const first = new TextNode(p, { text: "第一个问题？" });
       const next = new TextNode(p, { text: "后续问题?" });
-      const frame = new Section(p, { text: "原始框名", children: [first, next] });
+      const frame = new Section(p, { text: "Section_1", children: [first, next] });
       p.stage.push(first, next, frame);
       p.stageManager.updateReferences();
       expect(serialize(frame)).not.toHaveProperty("questionTitleAssigned");
@@ -179,7 +179,7 @@ describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
       expect(frame.text).toBe(first.text);
       expect(frame.questionTitleAssigned).toBe(true);
       p.historyManager.undo();
-      expect(p.stageManager.getSections()[0].text).toBe("原始框名");
+      expect(p.stageManager.getSections()[0].text).toBe("Section_1");
       p.historyManager.redo();
       const named = p.stageManager.getSections()[0];
       expect(named.questionTitleAssigned).toBe(true);
@@ -196,6 +196,47 @@ describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {
       Settings.historyManagerMode = "memoryEfficient";
     },
   );
+  it.each(["section", "container", "doodle"])(
+    "preserves a manually chosen or cleared title before any question appears: %s",
+    (kind) => {
+      const p = fixture();
+      const frame =
+        kind === "section"
+          ? new Section(p)
+          : new Doodle(p, {
+              bounded: kind === "container",
+              frame: new Rectangle(new Vector(-100, -100), new Vector(2000, 1000)),
+            });
+      frame.rename("我的手动标题");
+      p.stage.push(frame);
+      Settings.questionMarkYellow = true;
+      p.historyManager = new HistoryManager(p);
+      const question = new TextNode(p, { text: "后来的问题？" });
+      p.stage.push(question);
+      if (kind !== "doodle") frame.children.push(question);
+      p.stageManager.updateReferences();
+      p.historyManager.recordStep();
+      expect(frame.text).toBe("我的手动标题");
+      frame.rename("");
+      p.historyManager.recordStep();
+      expect(frame.text).toBe("");
+      p.stage = deserialize(new Decoder().decode(new Encoder().encode(serialize(p.stage))), p);
+      p.stageManager.updateReferences();
+      p.historyManager = new HistoryManager(p);
+      expect(p.stageManager.getSections()[0].text).toBe("");
+      expect(p.stageManager.getSections()[0].questionTitleAssigned).toBe(true);
+    },
+  );
+  it("preserves an existing named frame without needing historical manual-edit metadata", () => {
+    const p = fixture();
+    const question = new TextNode(p, { text: "问题？" });
+    const frame = new Section(p, { text: "用户此前的标题", children: [question] });
+    p.stage.push(frame, question);
+    p.stageManager.updateReferences();
+    Settings.questionMarkYellow = true;
+    p.historyManager = new HistoryManager(p);
+    expect(frame.text).toBe("用户此前的标题");
+  });
   it("names a pure doodle frame when the first question fits inside it, without adopting or moving nodes", () => {
     const p = fixture();
     const first = new TextNode(p, { text: "涂鸦内的问题？" });

@@ -10,7 +10,11 @@ export function applyQuestionFrameNames(project: Project): boolean {
   if (!Settings.questionMarkYellow || Settings.viewerMode) return false;
   const frames = project.stage.filter(
     (item): item is Section =>
-      item instanceof Section && !item.questionTitleAssigned && !item.locked && !item.nearestLockedAncestorSection,
+      item instanceof Section &&
+      !item.questionTitleAssigned &&
+      (!item.text.trim() || /^section(?:[_\s-]?\d+)?$/i.test(item.text.trim())) &&
+      !item.locked &&
+      !item.nearestLockedAncestorSection,
   );
   if (!frames.length) return false;
   const questions = project.stage.filter(

@@ -160,6 +160,7 @@ export class Section extends ConnectableEntity {
   }
 
   rename(newName: string) {
+    if (this.text !== newName) this.questionTitleAssigned = true;
     this.text = newName;
     this.adjustLocationAndSize();
   }
@@ -639,6 +640,7 @@ export class Doodle extends Section {
   }
 
   override rename(text: string): void {
+    if (this.text !== text) this.questionTitleAssigned = true;
     this.text = text;
   }
   override adjustChildrenStateByCollapse(parentCollapsed = false): void {
