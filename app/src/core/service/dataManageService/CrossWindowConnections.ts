@@ -4,6 +4,7 @@ export type ScreenPoint = { x: number; y: number };
 export type ScreenRect = ScreenPoint & { width: number; height: number };
 export type WindowGeometry = {
   outer: ScreenRect;
+  content?: ScreenRect;
   origin: ScreenPoint;
   scale: number;
 };
@@ -55,6 +56,10 @@ export function adjacentWindows(a: ScreenRect, b: ScreenRect): boolean {
 
 export function screenToClient(point: ScreenPoint, geometry: WindowGeometry): ScreenPoint {
   return { x: (point.x - geometry.origin.x) / geometry.scale, y: (point.y - geometry.origin.y) / geometry.scale };
+}
+
+export function adjacentWindowGeometries(a: WindowGeometry, b: WindowGeometry): boolean {
+  return adjacentWindows(a.content ?? a.outer, b.content ?? b.outer);
 }
 
 /** Only the window owning the source file writes a link and records its undo transaction. */
@@ -189,7 +194,7 @@ export class CrossWindowConnectionBus {
             if (
               !this.local?.geometry ||
               !peer?.geometry ||
-              !adjacentWindows(this.local.geometry.outer, peer.geometry.outer)
+              !adjacentWindowGeometries(this.local.geometry, peer.geometry)
             )
               throw new Error("两个窗口必须紧密相邻，才能操作跨窗口连线");
             if (

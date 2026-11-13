@@ -23,7 +23,7 @@ import {
 } from "@/core/service/dataManageService/CrossFileConnections";
 import {
   CrossWindowConnectionBus,
-  adjacentWindows,
+  adjacentWindowGeometries,
   screenToClient,
   type WindowGraphSnapshot,
   type WindowGeometry,
@@ -58,16 +58,17 @@ async function readGeometry(): Promise<WindowGeometry | undefined> {
     };
   }
   const native = getCurrentWindow();
-  const [origin, position, size, scale, minimized, visible] = await Promise.all([
+  const [origin, position, size, contentSize, scale, minimized, visible] = await Promise.all([
     native.innerPosition(),
     native.outerPosition(),
     native.outerSize(),
+    native.innerSize(),
     native.scaleFactor(),
     native.isMinimized(),
     native.isVisible(),
   ]);
   if (minimized || !visible || !Number.isFinite(scale) || scale <= 0) return;
-  return { origin, outer: { ...position, ...size }, scale };
+  return { origin, outer: { ...position, ...size }, content: { ...origin, ...contentSize }, scale };
 }
 
 export default function CrossWindowConnections() {
@@ -107,9 +108,7 @@ export default function CrossWindowConnections() {
       if (disposed || !local.current?.geometry) return;
       const current = local.current;
       const snapshots = peer.snapshots();
-      const neighbors = snapshots.filter(
-        (p) => p.geometry && adjacentWindows(current.geometry!.outer, p.geometry.outer),
-      );
+      const neighbors = snapshots.filter((p) => p.geometry && adjacentWindowGeometries(current.geometry!, p.geometry));
       setRemoteHighlightGraphs(snapshots.flatMap((p) => p.files));
       const links: VisibleLink[] = [];
       for (const remote of neighbors) {
@@ -160,7 +159,7 @@ export default function CrossWindowConnections() {
         disposed ||
         !currentGeometry ||
         !sender?.geometry ||
-        !adjacentWindows(currentGeometry.outer, sender.geometry.outer)
+        !adjacentWindowGeometries(currentGeometry, sender.geometry)
       )
         throw new Error("两个窗口已分开，请重新贴合后操作");
       const source = findSource(request.source);
@@ -351,7 +350,7 @@ export default function CrossWindowConnections() {
       if (!target?.file || !geometry) return;
       const candidates = peer
         .snapshots()
-        .filter((p) => p.selection && p.geometry && adjacentWindows(geometry!.outer, p.geometry.outer))
+        .filter((p) => p.selection && p.geometry && adjacentWindowGeometries(geometry!, p.geometry))
         .sort((a, b) => b.selection!.at - a.selection!.at);
       const source = candidates[0];
       if (!source?.selection || (local.current?.selection?.at ?? 0) > source.selection.at) return;

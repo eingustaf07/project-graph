@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { BroadcastChannel as NativeBroadcastChannel } from "node:worker_threads";
 import {
   adjacentWindows,
+  adjacentWindowGeometries,
   screenToClient,
   CrossWindowConnectionBus,
   type WindowGraphSnapshot,
@@ -21,6 +22,25 @@ it.each([
   expect(adjacentWindows(b, a)).toBe(expected);
 });
 
+it("uses content bounds when Windows invisible resize borders overlap at high DPI", () => {
+  const a = {
+    outer: { x: 769, y: 0, width: 1800, height: 1609 },
+    origin: { x: 780, y: 2 },
+    scale: 1.5,
+    content: { x: 780, y: 2, width: 1778, height: 1585 },
+  };
+  const b = {
+    outer: { x: 2549, y: 299, width: 1942, height: 1102 },
+    origin: { x: 2560, y: 310 },
+    scale: 1.5,
+    content: { x: 2560, y: 310, width: 1920, height: 1080 },
+  };
+  expect(adjacentWindows(a.outer, b.outer)).toBe(false);
+  expect(adjacentWindowGeometries(a, b)).toBe(true);
+  expect(adjacentWindowGeometries(b, a)).toBe(true);
+  expect(adjacentWindowGeometries(a, { ...b, content: { ...b.content, x: 2600 } })).toBe(false);
+  expect(adjacentWindowGeometries(a, { ...b, content: { ...b.content, x: 2400 } })).toBe(false);
+});
 it("maps endpoints correctly with negative monitor coordinates and 150 percent scaling", () => {
   expect(
     screenToClient(
@@ -92,6 +112,23 @@ it("sends a create request only to the source owner and awaits its acknowledgeme
   );
   expect(execute).toHaveBeenCalledTimes(1);
   expect(execute.mock.calls[0][0].action).toBe("connect");
+});
+it("accepts source-owner commands across adjoining content areas despite overlapping native window borders", async () => {
+  const { a, b, first, second, execute } = await pair();
+  first.geometry!.outer = { x: -10, y: -10, width: 1020, height: 820 };
+  first.geometry!.content = { x: 0, y: 0, width: 1000, height: 800 };
+  second.geometry!.outer = { x: 990, y: -10, width: 1020, height: 820 };
+  second.geometry!.content = { x: 1000, y: 0, width: 1000, height: 800 };
+  a.publish(first);
+  b.publish(second);
+  await Promise.resolve();
+  await b.request(
+    "a",
+    "connect",
+    { file: "file:///c:/a.prg", nodeId: "a" },
+    { target: { file: "file:///c:/b.prg", nodeId: "b" } },
+  );
+  expect(execute).toHaveBeenCalledTimes(1);
 });
 it("rechecks adjacency after a window is moved away", async () => {
   const { b, execute, second } = await pair();

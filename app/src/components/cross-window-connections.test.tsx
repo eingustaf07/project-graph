@@ -27,6 +27,7 @@ vi.mock("@tauri-apps/api/window", () => ({
     innerPosition: async () => ({ x: 1000, y: 0 }),
     outerPosition: async () => ({ x: 1000, y: 0 }),
     outerSize: async () => ({ width: 1000, height: 800 }),
+    innerSize: async () => ({ width: 1000, height: 800 }),
     scaleFactor: async () => 1,
     isMinimized: async () => false,
     isVisible: async () => true,
