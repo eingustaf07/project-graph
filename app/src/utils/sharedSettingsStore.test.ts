@@ -3,8 +3,8 @@ import { SharedSettingsStore } from "./sharedSettingsStore";
 import type { invoke } from "@tauri-apps/api/core";
 
 function server(initial: Record<string, unknown> = {}) {
-  let values = structuredClone(initial),
-    revision = 0;
+  const values = structuredClone(initial);
+  let revision = 0;
   const call = vi.fn(async (command: string, args: any) => {
     await Promise.resolve();
     if (command === "write_shared_setting") {
