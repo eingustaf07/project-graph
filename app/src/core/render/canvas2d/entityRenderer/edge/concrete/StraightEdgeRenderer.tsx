@@ -114,7 +114,7 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     }
     const straightBodyLine = edge.bodyLine;
     const scaledWidth = edgeWidth * this.project.camera.currentScale;
-    const arrowType = edge.arrowType || "default";
+    const arrowType = Settings.showBidirectionalArrows ? "default" : edge.arrowType || "default";
 
     // 对空心/实心三角形，线体终点缩进到三角形底边，避免线穿入三角形内部
     const direction = straightBodyLine.end.subtract(straightBodyLine.start).normalize();
@@ -160,8 +160,9 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     }
     // 加箭头
     const arrowHead = this.shouldRenderTargetArrow(edge)
-      ? this.project.edgeRenderer.generateArrowHeadSvg(
+      ? this.project.edgeRenderer.generateEdgeArrowsSvg(
           edge.bodyLine.end.clone(),
+          edge.bodyLine.start.clone(),
           edge.target.collisionBox
             .getRectangle()
             .getCenter()
@@ -186,11 +187,17 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     return <></>;
   }
 
-  private renderArrowHead(edge: LineEdge, direction: Vector, endPoint = edge.bodyLine.end.clone(), size = 15) {
+  private renderArrowHead(
+    edge: LineEdge,
+    direction: Vector,
+    endPoint = edge.bodyLine.end.clone(),
+    size = 15,
+    startPoint = edge.bodyLine.start.clone(),
+    sourceDirection?: Vector,
+  ) {
     const edgeColor = edge.color.equals(Color.Transparent)
       ? this.project.stageStyleManager.currentStyle.StageObjectBorder
       : edge.color;
-    const startPoint = edge.bodyLine.start.clone();
     // edgeWidth = size / 8（size = 8 * edgeWidth）
     const edgeWidth = size / 8;
     this.project.edgeRenderer.renderArrowByType(
@@ -201,6 +208,7 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
       edgeColor,
       edge.arrowType || "default",
       edgeWidth,
+      sourceDirection,
     );
   }
 
@@ -210,7 +218,7 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
    * 缩进量 = triSize = size * 1.8，其中 size = 8 * edgeWidth（世界坐标）
    */
   private getAdjustedLineEnd(endPoint: Vector, direction: Vector, arrowType: string, edgeWidth: number): Vector {
-    if (arrowType === "hollow-triangle" || arrowType === "filled-triangle") {
+    if (!Settings.showBidirectionalArrows && (arrowType === "hollow-triangle" || arrowType === "filled-triangle")) {
       const size = 8 * edgeWidth;
       const triSize = size * 1.8;
       return endPoint.subtract(direction.clone().multiply(triSize));
@@ -219,7 +227,10 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
   }
 
   private shouldRenderTargetArrow(edge: LineEdge): boolean {
-    return !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint);
+    return (
+      Settings.showBidirectionalArrows ||
+      !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint)
+    );
   }
 
   public renderShiftingState(edge: LineEdge): void {
@@ -266,7 +277,14 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
       );
     }
     if (this.shouldRenderTargetArrow(edge)) {
-      this.renderArrowHead(edge, arrowDirection, endPoint);
+      this.renderArrowHead(
+        edge,
+        arrowDirection,
+        endPoint,
+        15,
+        startPoint,
+        shiftingMidPoint.subtract(startPoint).normalize(),
+      );
     }
   }
 

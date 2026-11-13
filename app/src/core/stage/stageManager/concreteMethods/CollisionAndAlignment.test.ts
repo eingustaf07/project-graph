@@ -20,6 +20,7 @@ vi.mock("@/core/Project", () => ({
 }));
 const settings = vi.hoisted(() => ({
   lineStyle: "straight",
+  showBidirectionalArrows: false,
   isEnableSectionCollision: true,
   isEnableEntityCollision: false,
   enableDragAutoAlign: true,
@@ -154,9 +155,10 @@ describe("vertical connection defaults with real PG objects", () => {
       settings.lineStyle = "straight";
     }
   });
-  it("renders the same orthogonal segments that are clickable, with dots at both real endpoints", () => {
+  it("renders clickable orthogonal segments with two tangent-aligned arrows and no persistent endpoint dots", () => {
     const { p, node } = fixture();
     settings.lineStyle = "vertical";
+    settings.showBidirectionalArrows = true;
     try {
       const a = node(0, 0),
         b = node(0, 400),
@@ -170,11 +172,11 @@ describe("vertical connection defaults with real PG objects", () => {
       p.camera = { currentScale: 1 };
       p.renderer.transformWorld2View = (v: Vector) => v;
       p.curveRenderer = { renderSolidLine: vi.fn(), renderDashedLine: vi.fn() };
-      p.shapeRenderer = { renderCircle: vi.fn() };
+      p.shapeRenderer = { renderCircle: vi.fn(), renderPolygonAndFill: vi.fn() };
       p.stageStyleManager = { currentStyle: { StageObjectBorder: Color.White } };
       p.verticalPolyEdgeRenderer = new VerticalPolyEdgeRenderer(p);
       p.edgeRenderer = new EdgeRenderer(p);
-      p.edgeRenderer.renderArrowByType = vi.fn();
+      const arrows = vi.spyOn(p.edgeRenderer, "renderArrowHead");
       const path = edge.orthogonalPath;
       expect(path.length).toBeGreaterThan(2);
       for (let i = 1; i < path.length; i++) {
@@ -184,8 +186,20 @@ describe("vertical connection defaults with real PG objects", () => {
       expect(edge.isIntersectsWithLocation(new Vector(a.rectangle.center.x, 200))).toBe(false);
       p.edgeRenderer.renderLineEdge(edge);
       expect(p.curveRenderer.renderSolidLine).toHaveBeenCalledTimes(path.length - 1);
-      expect(p.shapeRenderer.renderCircle).toHaveBeenCalledTimes(2);
-      expect(p.shapeRenderer.renderCircle.mock.calls.map((c: unknown[]) => c[0])).toEqual([path[0], path.at(-1)]);
+      expect(p.shapeRenderer.renderCircle).not.toHaveBeenCalled();
+      expect(arrows).toHaveBeenCalledTimes(2);
+      expect(arrows.mock.calls[0][0]).toEqual(path.at(-1));
+      expect(arrows.mock.calls[1][0]).toEqual(path[0]);
+      const sourceTangent = path[0].subtract(path[1]).normalize();
+      const renderedTangent = arrows.mock.calls[1][1] as Vector;
+      expect(renderedTangent.x).toBeCloseTo(sourceTangent.x);
+      expect(renderedTangent.y).toBeCloseTo(sourceTangent.y);
+      expect(edge.source).toBe(a);
+      expect(edge.target).toBe(b);
+      settings.showBidirectionalArrows = false;
+      arrows.mockClear();
+      p.edgeRenderer.renderLineEdge(edge);
+      expect(arrows).toHaveBeenCalledOnce();
       p.collisionBoxRenderer = { render: vi.fn() };
       p.stageStyleManager.currentStyle.CollideBoxSelected = Color.Green;
       edge.isSelected = true;
@@ -193,6 +207,7 @@ describe("vertical connection defaults with real PG objects", () => {
       expect(p.curveRenderer.renderDashedLine).not.toHaveBeenCalled();
     } finally {
       settings.lineStyle = "straight";
+      settings.showBidirectionalArrows = false;
     }
   });
   it("reuses world paths while panning and reroutes when an obstacle moves into the line", () => {

@@ -120,6 +120,8 @@ function Connections() {
   const active = useAtomValue(activeResourceTabAtom);
   const [showList, setShowList] = useState(false);
   const [lineStyle, setLineStyle] = useState(Settings.lineStyle);
+  const [bidirectional, setBidirectional] = useState(Settings.showBidirectionalArrows);
+  useEffect(() => Settings.watch("showBidirectionalArrows", setBidirectional), []);
   useEffect(() => Settings.watch("lineStyle", setLineStyle), []);
   const [mode, setMode] = useState(Settings.mouseLeftMode);
   const [viewer, setViewer] = useState(Settings.viewerMode);
@@ -458,12 +460,16 @@ function Connections() {
                   markerHeight="12"
                   refX="12"
                   refY="6"
-                  orient="auto"
+                  orient="auto-start-reverse"
                 >
                   <path
-                    d={link.arrow?.includes("diamond") ? "M1 6 L6 1 L12 6 L6 11 Z" : "M1 1 L12 6 L1 11 Z"}
+                    d={
+                      !bidirectional && link.arrow?.includes("diamond")
+                        ? "M1 6 L6 1 L12 6 L6 11 Z"
+                        : "M1 1 L12 6 L1 11 Z"
+                    }
                     stroke={color}
-                    fill={link.arrow?.startsWith("hollow") ? "var(--background)" : color}
+                    fill={!bidirectional && link.arrow?.startsWith("hollow") ? "var(--background)" : color}
                   />
                 </marker>
               </defs>
@@ -474,12 +480,10 @@ function Connections() {
                 stroke={color}
                 strokeWidth={link.lineType === "double" ? 4 : 2}
                 strokeDasharray={link.lineType === "dashed" ? "6 4" : undefined}
-                markerEnd={link.direction === "undirected" ? undefined : "url(#" + marker + ")"}
+                markerStart={bidirectional ? "url(#" + marker + ")" : undefined}
+                markerEnd={!bidirectional && link.direction === "undirected" ? undefined : "url(#" + marker + ")"}
               />
               {link.lineType === "double" && <path d={path} fill="none" stroke="var(--background)" strokeWidth="1.5" />}
-              {[start, end].map((point, i) => (
-                <circle key={i} cx={point.x} cy={point.y} r={2.5} fill={color} />
-              ))}
               {link.text && (
                 <text x={mid.x} y={mid.y - off / 2 - 5} fill={color} textAnchor="middle">
                   {link.text}

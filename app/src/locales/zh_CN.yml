@@ -391,6 +391,12 @@ settings:
     description: |
       开启后，当连线的目标是质点时，不渲染箭头，只保留线条本身。
       对直线、贝塞尔曲线和垂直折线都生效。
+  showBidirectionalArrows:
+    title: 统一显示双向箭头
+    description: |
+      默认开启，让已有和新建连线的两端都显示箭头，包括无向线及跨文件连线。
+      仅改变显示，不改变连接关系、父子层级或排版；关闭后恢复各连线原有箭头。
+      开启时优先于“连线指向质点时隐藏箭头”。
   isRenderCenterPointer:
     title: 显示中心十字准星
     description: |

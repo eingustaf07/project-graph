@@ -314,6 +314,9 @@ settings:
       filled-triangle: Filled Triangle
       hollow-diamond: Hollow Diamond (Aggregation)
       filled-diamond: Filled Diamond (Composition)
+  showBidirectionalArrows:
+    title: Show arrows at both ends
+    description: Display two arrows on existing and new connections without changing their relationships. Turn off to restore original arrows. Overrides hiding arrows at connection points.
   hideArrowWhenPointingToConnectPoint:
     title: Hide Arrow When Pointing to Connect Point
     description: |

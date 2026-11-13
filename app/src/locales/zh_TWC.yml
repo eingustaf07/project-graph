@@ -410,6 +410,9 @@ settings:
       straight: 直線
       bezier: 貝茲曲線
       vertical: 垂直折線
+  showBidirectionalArrows:
+    title: 統一顯示雙向箭頭
+    description: 預設開啟，已有與新建連線兩端都顯示箭頭，不改變節點關係。關閉恢復原有箭頭；開啟時優先於質點隱藏箭頭。
   hideArrowWhenPointingToConnectPoint:
     title: 連線指向質點時隱藏箭頭
     description: '開啟後，當連線的目標是質點時，不渲染箭頭，只保留線條本身。

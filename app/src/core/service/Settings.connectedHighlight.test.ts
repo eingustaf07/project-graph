@@ -18,6 +18,17 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 }));
 
 describe("connected highlight setting compatibility and persistence", () => {
+  it("defaults old profiles to bidirectional display and preserves an explicit opt-out", async () => {
+    const { Settings } = await import("./Settings");
+    expect(Settings.showBidirectionalArrows).toBe(true);
+    storage.writtenKeys = [];
+    Settings.showBidirectionalArrows = false;
+    expect(storage.writtenKeys).toEqual(["showBidirectionalArrows"]);
+    vi.resetModules();
+    const restored = await import("./Settings");
+    expect(restored.Settings.showBidirectionalArrows).toBe(false);
+    expect(restored.Settings.mouseRightDragBackground).toBe("moveCamera");
+  });
   beforeEach(() => {
     vi.resetModules();
     storage.values.clear();

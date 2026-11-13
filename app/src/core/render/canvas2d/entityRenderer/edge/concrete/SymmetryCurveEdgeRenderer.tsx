@@ -26,7 +26,10 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
   }
 
   private shouldRenderTargetArrow(edge: LineEdge): boolean {
-    return !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint);
+    return (
+      Settings.showBidirectionalArrows ||
+      !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint)
+    );
   }
 
   getCuttingEffects(edge: LineEdge): Effect[] {
@@ -372,7 +375,14 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
 
     // 加箭头（箭头尖端在 arrowTip，方向指向节点）
     const arrowHead = this.shouldRenderTargetArrow(edge)
-      ? this.project.edgeRenderer.generateArrowHeadSvg(arrowTip, curveEndDirection.multiply(-1), arrowSize, edgeColor)
+      ? this.project.edgeRenderer.generateEdgeArrowsSvg(
+          arrowTip,
+          start,
+          curveEndDirection.multiply(-1),
+          arrowSize,
+          edgeColor,
+          startDirection,
+        )
       : null;
     return (
       <>
@@ -474,7 +484,7 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     // ── target 端偏移 ──
     // curve.endDirection 是从节点指向曲线外侧（离开节点）的方向。
     // subtract(endDirection * offset)：offset < 0 → 往外走，offset > 0 → 往内走
-    const arrowType = edge?.arrowType || "default";
+    const arrowType = Settings.showBidirectionalArrows ? "default" : edge?.arrowType || "default";
     let curveEndOffset: number;
     if (arrowType === "hollow-triangle" || arrowType === "filled-triangle") {
       const triSize = size * 1.8;

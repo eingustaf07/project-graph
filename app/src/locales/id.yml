@@ -352,6 +352,9 @@ settings:
       straight: Garis Lurus
       bezier: Kurva Bezier
       vertical: Garis Patah Vertikal
+  showBidirectionalArrows:
+    title: Tampilkan panah di kedua ujung
+    description: Aktif secara default tanpa mengubah hubungan node. Nonaktifkan untuk memulihkan panah asli. Menggantikan pengaturan sembunyikan panah.
   hideArrowWhenPointingToConnectPoint:
     title: Sembunyikan Panah Saat Mengarah ke Titik Koneksi
     description: |

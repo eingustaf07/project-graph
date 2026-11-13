@@ -205,6 +205,7 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
         color,
         edge.arrowType || "default",
         edge.edgeWidth,
+        points[1].subtract(points[0]).normalize(),
       );
   }
 
@@ -212,7 +213,10 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     this.renderNormalState(edge);
   }
   private shouldRenderTargetArrow(edge: LineEdge): boolean {
-    return !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint);
+    return (
+      Settings.showBidirectionalArrows ||
+      !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint)
+    );
   }
 
   public renderCycleState(edge: LineEdge): void {
@@ -268,7 +272,14 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
             this.project.stageStyleManager.currentStyle.Background,
           )}
         {this.shouldRenderTargetArrow(edge) &&
-          this.project.edgeRenderer.generateArrowHeadSvg(end, end.subtract(points.at(-2)!).normalize(), 15, color)}
+          this.project.edgeRenderer.generateEdgeArrowsSvg(
+            end,
+            points[0],
+            end.subtract(points.at(-2)!).normalize(),
+            15,
+            color,
+            points[1].subtract(points[0]).normalize(),
+          )}
       </>
     );
   }

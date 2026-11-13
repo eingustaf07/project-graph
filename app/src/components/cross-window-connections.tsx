@@ -77,6 +77,8 @@ export default function CrossWindowConnections() {
   projects.current = tabs.filter((p): p is Project => p instanceof Project && !p.closing);
   const [view, setView] = useState<{ geometry?: WindowGeometry; links: VisibleLink[] }>({ links: [] });
   const [selected, setSelected] = useState<VisibleLink>();
+  const [bidirectional, setBidirectional] = useState(Settings.showBidirectionalArrows);
+  useEffect(() => Settings.watch("showBidirectionalArrows", setBidirectional), []);
   const bus = useRef<CrossWindowConnectionBus | undefined>(undefined);
   const local = useRef<WindowGraphSnapshot | undefined>(undefined);
   const lastAction = useRef<{ owner: string; source: FileNodeRef } | undefined>(undefined);
@@ -524,13 +526,17 @@ export default function CrossWindowConnections() {
                   viewBox="0 0 13 12"
                   refX="12"
                   refY="6"
-                  orient="auto"
+                  orient="auto-start-reverse"
                 >
                   <path
-                    d={row.link.arrow?.includes("diamond") ? "M1 6 L6 1 L12 6 L6 11 Z" : "M1 1 L12 6 L1 11 Z"}
+                    d={
+                      !bidirectional && row.link.arrow?.includes("diamond")
+                        ? "M1 6 L6 1 L12 6 L6 11 Z"
+                        : "M1 1 L12 6 L1 11 Z"
+                    }
                     stroke={row.link.color ?? "var(--foreground)"}
                     fill={
-                      row.link.arrow?.startsWith("hollow")
+                      !bidirectional && row.link.arrow?.startsWith("hollow")
                         ? "var(--background)"
                         : (row.link.color ?? "var(--foreground)")
                     }
@@ -546,14 +552,12 @@ export default function CrossWindowConnections() {
                 stroke={row.link.color ?? "var(--foreground)"}
                 strokeWidth={(selected?.link.id === row.link.id ? 4 : 2) * scale}
                 strokeDasharray={row.link.lineType === "dashed" ? `${7 * scale} ${5 * scale}` : undefined}
-                markerEnd={row.link.direction === "undirected" ? undefined : `url(#${marker})`}
+                markerStart={bidirectional ? `url(#${marker})` : undefined}
+                markerEnd={!bidirectional && row.link.direction === "undirected" ? undefined : `url(#${marker})`}
               />
               {row.link.lineType === "double" && (
                 <path d={path} fill="none" stroke="var(--background)" strokeWidth={2 * scale} />
               )}
-              {[a, b].map((point, i) => (
-                <circle key={i} cx={point.x} cy={point.y} r={2.5} fill={row.link.color ?? "var(--foreground)"} />
-              ))}
               <path
                 d={path}
                 fill="none"

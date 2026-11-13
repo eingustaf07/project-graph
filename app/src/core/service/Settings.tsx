@@ -85,6 +85,7 @@ export const settingsSchema = z.object({
   connectedNodeHighlightLocked: z.boolean().default(false),
   lineStyle: z.union([z.literal("straight"), z.literal("bezier"), z.literal("vertical")]).default("straight"),
   hideArrowWhenPointingToConnectPoint: z.boolean().default(true),
+  showBidirectionalArrows: z.boolean().default(true),
   sectionBitTitleRenderType: z.union([z.literal("none"), z.literal("top"), z.literal("cover")]).default("cover"),
   nodeDetailsPanel: z.union([z.literal("small"), z.literal("vditor")]).default("vditor"),
   alwaysShowDetails: z.boolean().default(false),

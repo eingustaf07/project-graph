@@ -260,6 +260,15 @@ export class EdgeRenderer {
     edgeWidth: number = 2,
     sourceDirection?: Vector,
   ) {
+    if (Settings.showBidirectionalArrows) {
+      this.renderArrowHead(endPoint, direction, size, color);
+      const departure = sourceDirection ?? endPoint.subtract(startPoint);
+      if (departure.x !== 0 || departure.y !== 0) {
+        this.renderArrowHead(startPoint, departure.normalize().multiply(-1), size, color);
+      }
+      return;
+    }
+
     // 菱形方向：优先用调用方传入的 sourceDirection，否则从 startPoint→endPoint 推算
     const diamondDirection = sourceDirection
       ? sourceDirection.clone().normalize()
@@ -389,6 +398,24 @@ export class EdgeRenderer {
    * @param size
    * @returns SVG多边形字符串
    */
+  generateEdgeArrowsSvg(
+    endPoint: Vector,
+    startPoint: Vector,
+    direction: Vector,
+    size: number,
+    color: Color,
+    sourceDirection = endPoint.subtract(startPoint),
+  ): React.ReactNode {
+    return (
+      <>
+        {this.generateArrowHeadSvg(endPoint, direction, size, color)}
+        {Settings.showBidirectionalArrows &&
+          (sourceDirection.x !== 0 || sourceDirection.y !== 0) &&
+          this.generateArrowHeadSvg(startPoint, sourceDirection.normalize().multiply(-1), size, color)}
+      </>
+    );
+  }
+
   generateArrowHeadSvg(endPoint: Vector, direction: Vector, size: number, edgeColor: Color): React.ReactNode {
     const reDirection = direction.clone().multiply(-1);
     const location2 = endPoint.add(reDirection.multiply(size).rotateDegrees(15));

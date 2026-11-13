@@ -6,12 +6,20 @@ const fixture = vi.hoisted(() => ({
   project: undefined as any,
   tabs: [] as any[],
   channels: [] as any[],
+  watchers: new Map<string, (value: boolean) => void>(),
   settings: {
     enableCrossFileConnections: true,
     enableRightClickConnect: true,
     viewerMode: false,
     mouseLeftMode: "selectAndMove",
     lineStyle: "straight",
+    showBidirectionalArrows: false,
+    watch: (key: string, callback: (value: boolean) => void) => {
+      fixture.watchers.set(key, callback);
+      return () => {
+        fixture.watchers.delete(key);
+      };
+    },
   },
 }));
 vi.mock("@/core/Project", () => ({ Project: class {} }));
@@ -203,6 +211,14 @@ it.each([
       });
       await pause();
       expect(sourceNode.crossFileLinks[0].direction).toBe("undirected");
+      expect(document.querySelector("svg[data-cross-window-edges] path[marker-end]")).toBeNull();
+      await act(() => fixture.watchers.get("showBidirectionalArrows")?.(true));
+      expect(document.querySelector("svg[data-cross-window-edges] path[marker-start][marker-end]")).not.toBeNull();
+      expect(document.querySelector("svg[data-cross-window-edges] circle")).toBeNull();
+      expect(sourceNode.crossFileLinks[0].direction).toBe("undirected");
+      expect(record).toHaveBeenCalledTimes(2);
+      await act(() => fixture.watchers.get("showBidirectionalArrows")?.(false));
+      expect(document.querySelector("svg[data-cross-window-edges] path[marker-start]")).toBeNull();
       snapshot = { ...snapshot, geometry: { ...snapshot.geometry!, outer: { ...snapshot.geometry!.outer, x: -100 } } };
       await act(() => owner.publish(snapshot));
       await pause();

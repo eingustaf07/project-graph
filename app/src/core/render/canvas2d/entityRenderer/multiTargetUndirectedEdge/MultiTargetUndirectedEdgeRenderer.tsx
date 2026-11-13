@@ -1,6 +1,7 @@
 import { ConvexHull } from "@/core/algorithm/geometry/convexHull";
 import { Project, service } from "@/core/Project";
 import { Renderer } from "@/core/render/canvas2d/renderer";
+import { Settings } from "@/core/service/Settings";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { Color, Vector } from "@graphif/data-structures";
 import { Line } from "@graphif/shapes";
@@ -118,7 +119,7 @@ export class MultiTargetUndirectedEdgeRenderer {
       const arrowType = edge.arrowType || "default";
       const edgeWidth = 2;
       const arrowSize = 8 * edgeWidth;
-      if (edge.arrow === "inner") {
+      if (Settings.showBidirectionalArrows || edge.arrow === "inner") {
         // 箭头指向中心
         const direction = toCenterPoint.subtract(targetPoint).normalize();
         this.project.edgeRenderer.renderArrowByType(

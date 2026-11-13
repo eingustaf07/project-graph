@@ -12,7 +12,7 @@ const fixture = vi.hoisted(() => {
   return {
     active: undefined as unknown,
     projects: [] as unknown[],
-    watchers: new Map<string, (value: unknown) => void>(),
+    watchers: new Map<string, Set<(value: unknown) => void>>(),
     settings: {
       enableCrossFileConnections: true,
       enableRightClickConnect: true,
@@ -40,8 +40,12 @@ vi.mock("jotai", () => ({ useAtomValue: (atom: string) => (atom === "tabs" ? fix
 vi.mock("@/core/service/Settings", () => ({
   Settings: Object.assign(fixture.settings, {
     watch: (key: string, fn: (value: unknown) => void) => {
-      fixture.watchers.set(key, fn);
-      return () => fixture.watchers.delete(key);
+      const callbacks = fixture.watchers.get(key) ?? new Set();
+      callbacks.add(fn);
+      fixture.watchers.set(key, callbacks);
+      return () => {
+        callbacks.delete(fn);
+      };
     },
   }),
 }));
@@ -135,6 +139,13 @@ it("connects across split canvases, tracks scaled positions, respects floating o
       await new Promise((resolve) => setTimeout(resolve, 130));
     });
     expect(document.querySelectorAll('svg[aria-label="跨文件连接线"] g[data-cross-edge]')).toHaveLength(1);
+    const linksBefore = JSON.stringify(a.node.crossFileLinks);
+    await act(() => fixture.watchers.get("showBidirectionalArrows")?.forEach((fn) => fn(true)));
+    expect(document.querySelector('svg[aria-label="跨文件连接线"] path[marker-start][marker-end]')).not.toBeNull();
+    expect(document.querySelector('svg[aria-label="跨文件连接线"] circle')).toBeNull();
+    expect(JSON.stringify(a.node.crossFileLinks)).toBe(linksBefore);
+    await act(() => fixture.watchers.get("showBidirectionalArrows")?.forEach((fn) => fn(false)));
+    expect(document.querySelector('svg[aria-label="跨文件连接线"] path[marker-start]')).toBeNull();
     await act(() => document.querySelector<HTMLButtonElement>('[aria-label="查看关联文件"]')!.click());
     expect(document.querySelector("[data-cross-file-controls]")?.textContent).toContain("b.prg");
     const destination = Array.from(
@@ -143,12 +154,15 @@ it("connects across split canvases, tracks scaled positions, respects floating o
     await act(() => destination.click());
     expect(TabWorkspace.moveTab).toHaveBeenCalledWith(b.project.id, { groupId: "first", edge: "right" });
     fixture.settings.enableCrossFileConnections = false;
-    await act(() => fixture.watchers.get("enableCrossFileConnections")?.(false));
+    await act(() => fixture.watchers.get("enableCrossFileConnections")?.forEach((fn) => fn(false)));
     expect(document.querySelector("[data-cross-file-controls]")).toBeNull();
     expect(a.node.crossFileLinks).toHaveLength(1);
     const query = document.querySelector<HTMLButtonElement>('[aria-label="查询"]');
     expect(query).not.toBeNull();
-    await act(async () => { query!.click(); await new Promise(resolve => setTimeout(resolve, 20)); });
+    await act(async () => {
+      query!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
     expect(FindWindow.open).toHaveBeenCalledTimes(1);
   } finally {
     await act(() => root.unmount());

@@ -3,6 +3,7 @@ import { Color, Vector } from "@graphif/data-structures";
 import { CubicCatmullRomSplineEdge } from "@/core/stage/stageObject/association/CubicCatmullRomSplineEdge";
 import { Project } from "@/core/Project";
 import { Renderer } from "@/core/render/canvas2d/renderer";
+import { Settings } from "@/core/service/Settings";
 
 export function renderCrEdge(
   project: Project,
@@ -49,4 +50,9 @@ export function renderCrEdge(
   // 画箭头
   const { location, direction } = edge.getArrowHead();
   renderArrowHead(location, direction.normalize(), 15, edgeColor);
+  if (Settings.showBidirectionalArrows) {
+    const start = crShape.controlPoints[1];
+    const next = crShape.controlPoints.slice(2).find((point) => point.x !== start.x || point.y !== start.y);
+    if (next) renderArrowHead(start, start.subtract(next).normalize(), 15, edgeColor);
+  }
 }
