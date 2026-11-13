@@ -8,9 +8,14 @@ export function isQuestionMarked(text: string | undefined): boolean {
 }
 
 export function questionDisplayColor(text: string | undefined, original: Color): Color {
-  return isQuestionMarked(text) ? questionYellow : original;
+  return showQuestionYellow(text) ? questionYellow : original;
 }
 
 export function questionTextColor(text: string | undefined, original: Color, background: Color): Color {
-  return isQuestionMarked(text) ? Color.Black : colorInvert(original.a === 1 ? original : background);
+  return showQuestionYellow(text) ? Color.Black : colorInvert(original.a === 1 ? original : background);
+}
+
+function showQuestionYellow(text: string | undefined): boolean {
+  // Both installed task extensions toggle these prefixes together with their status colors.
+  return isQuestionMarked(text) && !text?.startsWith("✅ ") && !text?.startsWith("❌ ");
 }

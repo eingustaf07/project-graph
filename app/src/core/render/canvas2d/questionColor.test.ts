@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 vi.mock("@/core/service/Settings", () => ({ Settings: { questionMarkYellow: false } }));
 import { Settings } from "@/core/service/Settings";
 import { Color } from "@graphif/data-structures";
-import { isQuestionMarked, questionDisplayColor } from "./questionColor";
+import { isQuestionMarked, questionDisplayColor, questionTextColor } from "./questionColor";
 afterEach(() => {
   Settings.questionMarkYellow = false;
 });
@@ -23,4 +23,21 @@ it("is opt-in and never changes stored color objects", () => {
   Settings.questionMarkYellow = true;
   expect(questionDisplayColor("旧节点？", Color.Red).toString()).toBe(new Color(255, 235, 59, 1).toString());
   expect(Color.Red.toString()).toBe(before);
+});
+it.each([
+  ["✅ ", new Color(52, 103, 53, 1)],
+  ["❌ ", new Color(52, 12, 14, 1)],
+] as const)("gives task status %s priority and restores yellow after clearing it", (prefix, statusColor) => {
+  Settings.questionMarkYellow = true;
+  const text = prefix + "需要继续处理吗？";
+  const stored = statusColor.toString();
+  expect(questionDisplayColor(text, statusColor)).toBe(statusColor);
+  expect(questionTextColor(text, statusColor, Color.Black).toString()).not.toBe(Color.Black.toString());
+  expect(statusColor.toString()).toBe(stored);
+  expect(questionDisplayColor("需要继续处理吗？", Color.Transparent).toString()).toBe(
+    new Color(255, 235, 59, 1).toString(),
+  );
+  expect(questionTextColor("需要继续处理吗？", Color.Transparent, Color.Black)).toBe(Color.Black);
+  Settings.questionMarkYellow = false;
+  expect(questionDisplayColor(text, statusColor)).toBe(statusColor);
 });
