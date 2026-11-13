@@ -167,7 +167,13 @@ Dialog.confirm = (title = "你确定？", description = "", { destructive = fals
 Dialog.input = (
   title = "请输入文本",
   description = "",
-  { defaultValue = "", placeholder = "...", destructive = false, multiline = false } = {},
+  {
+    defaultValue = "",
+    placeholder = "...",
+    destructive = false,
+    multiline = false,
+    confirmKey = "shiftEnter" as "enter" | "shiftEnter",
+  } = {},
 ): Promise<string | undefined> => {
   return new Promise((resolve) => {
     function Component({ overlayId }: { overlayId?: string }) {
@@ -186,7 +192,10 @@ Dialog.input = (
                 onChange={(e) => setValue(e.target.value)}
                 placeholder={placeholder}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && e.shiftKey) {
+                  if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
+                  const confirms =
+                    confirmKey === "enter" ? !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey : e.shiftKey;
+                  if (e.key === "Enter" && confirms) {
                     e.preventDefault();
                     e.stopPropagation();
                     resolve(value);
@@ -228,7 +237,7 @@ Dialog.input = (
                     }, 500);
                   }}
                 >
-                  确定（Shift+Enter）
+                  确定（{confirmKey === "enter" ? "Enter" : "Shift+Enter"}）
                 </Button>
               </DialogFooter>
             </DialogHeader>

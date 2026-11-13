@@ -75,7 +75,7 @@ export class ControllerSectionEditClass extends ControllerClass {
         toast.error("无法编辑已锁定的section");
         return;
       }
-      Dialog.input("重命名 Section").then((value) => {
+      Dialog.input("重命名 Section", "", { confirmKey: "enter" }).then((value) => {
         if (value) {
           for (const section of selectedSections) {
             section.rename(value);
