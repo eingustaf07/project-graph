@@ -1,0 +1,21 @@
+name: Shared settings Windows source tests
+on:
+  push:
+    branches: [e24-developer-20261113]
+    paths:
+      - app/src-tauri/src/settings_file.rs
+      - app/src-tauri/src/settings_store.rs
+      - app/src-tauri/tests/shared-settings-store/**
+      - .github/workflows/shared-settings-source-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  settings-file:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test the production settings file code across Windows processes without packaging PG
+        run: cargo test --manifest-path app/src-tauri/tests/shared-settings-store/Cargo.toml -- --nocapture

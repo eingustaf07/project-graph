@@ -1,7 +1,11 @@
 import { defineConfig } from "vitest/config";
 import path from "node:path";
+import { realpathSync } from "node:fs";
 
 export default defineConfig({
+  server: {
+    fs: { allow: [__dirname, realpathSync(path.resolve(__dirname, "node_modules"))] },
+  },
   plugins: [
     {
       name: "test-original-class-name",

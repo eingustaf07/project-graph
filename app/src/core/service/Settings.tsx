@@ -5,7 +5,8 @@ import {
   MAC_DEFAULT_FONT_FAMILY,
 } from "@/core/service/ProjectToolSettingsSchema";
 import { DEFAULT_SUB_WINDOW_OPEN_MODES, subWindowOpenModesSchema } from "@/core/subWindowOpenModes";
-import { isMac } from "@/utils/platform";
+import { isMac, isWeb } from "@/utils/platform";
+import { SharedSettingsStore } from "@/utils/sharedSettingsStore";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { preferencePath } from "@/utils/developmentProfile";
 import i18next from "i18next";
@@ -77,7 +78,7 @@ export const settingsSchema = z.object({
   showBackgroundCartesian: z.boolean().default(true),
   enableTagTextNodesBigDisplay: z.boolean().default(true),
   forceHideTextNodeBorder: z.boolean().default(false),
-  questionMarkYellow: z.boolean().default(false),
+  questionMarkYellow: z.boolean().default(true),
   textNodeInitBorderStyle: z.union([z.literal("solid"), z.literal("dashed"), z.literal("none")]).default("solid"),
   showTreeDirectionHint: z.boolean().default(false),
   connectedNodeHighlightScope: z.union([z.literal("direct"), z.literal("all"), z.literal("chain")]).default("all"),
@@ -968,7 +969,8 @@ export type Settings = z.infer<typeof settingsSchema>;
 
 const listeners: Partial<Record<string, ((value: any) => void)[]>> = {};
 
-const store = new LazyStore(await preferencePath("settings.json"));
+const settingsPath = await preferencePath("settings.json");
+const store = isWeb ? new LazyStore(settingsPath) : new SharedSettingsStore(settingsPath);
 console.log("pre store.init");
 await store.init();
 console.log("post store.init");
@@ -1078,70 +1080,94 @@ export async function flushSettingsLoadErrors() {
   pendingSettingsLoadErrorValues.clear();
 }
 
-export const Settings = new Proxy<
-  Settings & {
-    watch: (key: keyof Settings, callback: (value: any) => void) => () => void;
-    use: <T extends keyof Settings>(key: T) => [Settings[T], (newValue: Settings[T]) => void];
-  }
->(
-  {
-    ...savedSettings,
-    watch: () => () => {},
-    use: () => [undefined as any, () => {}],
+function reportSettingsSyncError(error: unknown) {
+  void Dialog.confirm(
+    "设置同步失败",
+    `未能同步或保存设置，请检查设置文件权限及格式后重试。\n${error instanceof Error ? error.message : String(error)}`,
+  );
+}
+
+function applySetting(target: Settings, key: keyof Settings, value: Settings[keyof Settings]) {
+  if (JSON.stringify(target[key]) === JSON.stringify(value)) return;
+  Reflect.set(target, key, value);
+  listeners[key]?.forEach((cb) => cb(value));
+}
+
+type SettingsAccess = {
+  watch: (key: keyof Settings, callback: (value: any) => void) => () => void;
+  use: <T extends keyof Settings>(key: T) => [Settings[T], (newValue: Settings[T]) => void];
+};
+const settingsTarget: Settings & SettingsAccess = {
+  ...savedSettings,
+  watch: () => () => {},
+  use: () => [undefined as any, () => {}],
+};
+
+export const Settings = new Proxy<Settings & SettingsAccess>(settingsTarget, {
+  set: (target, key, value) => {
+    if (typeof key === "symbol") {
+      throw new Error(`不能设置symbol属性: ${String(key)}`);
+    }
+    if (!Object.hasOwn(settingsSchema.shape, key)) {
+      throw new Error(`没有这个设置项: ${key}`);
+    }
+    const parsed = settingsSchema.shape[key as keyof Settings].parse(value);
+    const writing = store.set(key, parsed);
+    applySetting(target, key as keyof Settings, parsed);
+    void writing.catch(reportSettingsSyncError);
+    return true;
   },
-  {
-    set: (target, key, value, receiver) => {
-      if (typeof key === "symbol") {
-        throw new Error(`不能设置symbol属性: ${String(key)}`);
+  get: (target, key, receiver) => {
+    switch (key) {
+      case "watch": {
+        return (key: keyof Settings, callback: (value: any) => void) => {
+          if (!listeners[key]) {
+            listeners[key] = [];
+          }
+          listeners[key].push(callback);
+          callback(target[key]);
+          return () => {
+            listeners[key] = listeners[key]?.filter((cb) => cb !== callback);
+          };
+        };
       }
-      if (!(key in target)) {
-        throw new Error(`没有这个设置项: ${key}`);
-      }
-      store.set(key, value);
-      listeners[key]?.forEach((cb) => cb(value));
-      return Reflect.set(target, key, value, receiver);
-    },
-    get: (target, key, receiver) => {
-      switch (key) {
-        case "watch": {
-          return (key: keyof Settings, callback: (value: any) => void) => {
+      case "use": {
+        return <T extends keyof Settings>(key: T) => {
+          const [value, setValue] = useState(target[key]);
+          useEffect(() => {
             if (!listeners[key]) {
               listeners[key] = [];
             }
-            listeners[key].push(callback);
-            callback(target[key]);
+            listeners[key].push(setValue);
+            setValue(target[key]);
             return () => {
-              listeners[key] = listeners[key]?.filter((cb) => cb !== callback);
+              listeners[key] = listeners[key]?.filter((cb) => cb !== setValue);
             };
-          };
-        }
-        case "use": {
-          return <T extends keyof Settings>(key: T) => {
-            const [value, setValue] = useState(target[key]);
-            useEffect(() => {
-              if (!listeners[key]) {
-                listeners[key] = [];
-              }
-              listeners[key].push(setValue);
-              return () => {
-                listeners[key] = listeners[key]?.filter((cb) => cb !== setValue);
-              };
-            }, []);
-            return [
-              value,
-              (newValue: Settings[T]) => {
-                console.log(newValue);
-                store.set(key, newValue);
-                Reflect.set(target, key, newValue);
-                listeners[key]?.forEach((cb) => cb(newValue));
-              },
-            ];
-          };
-        }
-        default: {
-          return Reflect.get(target, key, receiver);
-        }
+          }, []);
+          return [
+            value,
+            (newValue: Settings[T]) => {
+              Reflect.set(Settings, key, newValue);
+            },
+          ];
+        };
       }
-    },
+      default: {
+        return Reflect.get(target, key, receiver);
+      }
+    }
   },
-);
+});
+
+if (store instanceof SharedSettingsStore) {
+  const stop = store.start((values) => {
+    for (const key of Object.keys(settingsSchema.shape) as (keyof Settings)[]) {
+      const parsed = settingsSchema.shape[key].safeParse(
+        Object.hasOwn(values, key) ? values[key] : defaultSettings[key],
+      );
+      if (parsed.success) applySetting(settingsTarget, key, parsed.data);
+      else reportSettingsSyncError(new Error(`设置项 ${key} 格式无效，未应用此项`));
+    }
+  }, reportSettingsSyncError);
+  import.meta.hot?.dispose(stop);
+}

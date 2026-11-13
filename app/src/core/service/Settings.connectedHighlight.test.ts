@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const storage = vi.hoisted(() => ({ values: new Map<string, unknown>(), writtenKeys: [] as string[] }));
 vi.mock("@/components/ui/dialog", () => ({ Dialog: { confirm: vi.fn() } }));
-vi.mock("@/utils/platform", () => ({ isMac: false }));
+vi.mock("@/utils/platform", () => ({ isMac: false, isWeb: true }));
 vi.mock("@tauri-apps/plugin-store", () => ({
   LazyStore: class {
     async init() {}
@@ -44,6 +44,12 @@ describe("connected highlight setting compatibility and persistence", () => {
     restored.Settings.soundVolume = 0;
     vi.resetModules();
     expect((await import("./Settings")).Settings.soundVolume).toBe(0);
+  });
+  it("defaults question yellow on, while preserving an explicit saved opt-out", async () => {
+    expect((await import("./Settings")).Settings.questionMarkYellow).toBe(true);
+    storage.values.set("questionMarkYellow", false);
+    vi.resetModules();
+    expect((await import("./Settings")).Settings.questionMarkYellow).toBe(false);
   });
   it("persists individual sound switches without rewriting other preferences", async () => {
     const { Settings } = await import("./Settings");
