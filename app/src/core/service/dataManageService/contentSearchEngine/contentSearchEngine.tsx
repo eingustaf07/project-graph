@@ -43,6 +43,15 @@ function taskFilter(query: string) {
   }
 }
 
+function matchesTaskFilter(node: TextNode | Section, filter: NonNullable<ReturnType<typeof taskFilter>>) {
+  return (
+    node.text.startsWith(filter.prefix) &&
+    node.color.r === filter.r &&
+    node.color.g === filter.g &&
+    node.color.b === filter.b
+  );
+}
+
 @service("contentSearch")
 export class ContentSearch {
   constructor(private readonly project: Project) {}
@@ -176,9 +185,14 @@ export class ContentSearch {
     const objectsToSearch = this.getObjectsToSearch();
 
     const filter = taskFilter(searchString);
+    const completedTask = taskFilter("/okk")!;
     for (const node of objectsToSearch) {
       if (searchString === "/问题") {
-        if ((node instanceof TextNode || node instanceof Section) && /[?？]$/.test(node.text.trimEnd())) {
+        if (
+          (node instanceof TextNode || node instanceof Section) &&
+          /[?？]$/.test(node.text.trimEnd()) &&
+          !matchesTaskFilter(node, completedTask)
+        ) {
           this.searchResultNodes.push(node);
         }
         continue;
@@ -193,13 +207,7 @@ export class ContentSearch {
         continue;
       }
       if (filter) {
-        if (
-          (node instanceof TextNode || node instanceof Section) &&
-          node.text.startsWith(filter.prefix) &&
-          node.color.r === filter.r &&
-          node.color.g === filter.g &&
-          node.color.b === filter.b
-        ) {
+        if ((node instanceof TextNode || node instanceof Section) && matchesTaskFilter(node, filter)) {
           this.searchResultNodes.push(node);
         }
         continue;

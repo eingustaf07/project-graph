@@ -179,6 +179,35 @@ describe("find/replace in the current Project", () => {
     search.startSearch("/问题", false);
     expect(search.searchResultNodes).toEqual([english]);
   });
+  it("excludes completed green questions, keeping red and unmarked questions in the current search scope", () => {
+    const green = { r: 52, g: 103, b: 53 };
+    const completed = Object.assign(node("✅ 已解决？"), { color: green, isSelected: true });
+    const frame = Object.assign(new fixtureClasses.Section(), { text: "✅ 已完成框? \n", color: green });
+    const unresolved = Object.assign(node("还没解决？"), { isSelected: true });
+    const red = Object.assign(node("❌ 仍需处理?"), { color: { r: 52, g: 12, b: 14 } });
+    const { search, recordStep } = createProject(completed, frame, unresolved, red);
+    search.startSearch("/问题", false);
+    expect(search.searchResultNodes).toEqual([unresolved, red]);
+    search.searchScope = SearchScope.SELECTED;
+    search.startSearch("/问题", false);
+    expect(search.searchResultNodes).toEqual([unresolved]);
+    expect(completed.isSelected).toBe(true);
+    expect(completed.text).toBe("✅ 已解决？");
+    expect(recordStep).not.toHaveBeenCalled();
+  });
+  it("finds a question again after its completed status is cleared or changed to red", () => {
+    const completed = Object.assign(node("✅ 问题？"), { color: { r: 52, g: 103, b: 53 } });
+    const { search } = createProject(completed);
+    expect(search.startSearch("/问题", false)).toBe(false);
+    completed.rename("❌ 问题？");
+    completed.color = { r: 52, g: 12, b: 14 };
+    search.startSearch("/问题", false);
+    expect(search.searchResultNodes).toEqual([completed]);
+    completed.rename("问题？");
+    completed.color = { r: 0, g: 0, b: 0 };
+    search.startSearch("/问题", false);
+    expect(search.searchResultNodes).toEqual([completed]);
+  });
   it("finds empty and default-numbered text nodes with /空 without changing them", () => {
     const empty = node("");
     const whitespace = node("  \n ");
