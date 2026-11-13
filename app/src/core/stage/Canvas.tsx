@@ -10,6 +10,7 @@ import { Vector } from "@graphif/data-structures";
 export class Canvas {
   ctx: CanvasRenderingContext2D;
   private resizeObserver?: ResizeObserver;
+  private readonly keyboardEvents = new AbortController();
 
   constructor(
     private readonly project: Project,
@@ -28,25 +29,38 @@ export class Canvas {
     element.addEventListener("focus", () => element.blur());
     const shouldRedirectKeyboardEvent = () =>
       store.get(activeTabAtom) === this.project &&
+      element.isConnected &&
       !(
         document.activeElement?.tagName === "INPUT" ||
         document.activeElement?.tagName === "TEXTAREA" ||
         document.activeElement?.getAttribute("contenteditable") === "true"
       );
-    window.addEventListener("keydown", (event) => {
-      // 在窗口层面拦截浏览器默认快捷键，避免触发系统/浏览器查找/搜索等行为
-      // 必须在 shouldRedirectKeyboardEvent 判断之前执行，否则输入框聚焦时会被跳过
-      const key = event.key;
-      if (
-        (event.ctrlKey && (key === "f" || key === "F" || key === "g" || key === "G" || key === "r" || key === "R")) ||
-        key === "F3" ||
-        key === "F5" ||
-        key === "F7"
-      ) {
-        event.preventDefault();
-      }
-      if (!shouldRedirectKeyboardEvent()) return;
-      if (project.isRunning) {
+    const keyboardOptions = { signal: this.keyboardEvents.signal };
+    window.addEventListener(
+      "focus",
+      () => {
+        if (shouldRedirectKeyboardEvent()) project.loop();
+      },
+      keyboardOptions,
+    );
+    window.addEventListener(
+      "keydown",
+      (event) => {
+        // 在窗口层面拦截浏览器默认快捷键，避免触发系统/浏览器查找/搜索等行为
+        // 必须在 shouldRedirectKeyboardEvent 判断之前执行，否则输入框聚焦时会被跳过
+        const key = event.key;
+        if (
+          (event.ctrlKey && (key === "f" || key === "F" || key === "g" || key === "G" || key === "r" || key === "R")) ||
+          key === "F3" ||
+          key === "F5" ||
+          key === "F7"
+        ) {
+          event.preventDefault();
+        }
+        if (!shouldRedirectKeyboardEvent()) return;
+        // Rendering may be paused while another window is active. The first key
+        // must resume this canvas, rather than requiring a mouse action first.
+        project.loop();
         element.dispatchEvent(
           new KeyboardEvent("keydown", {
             key: event.key,
@@ -56,14 +70,16 @@ export class Canvas {
             metaKey: event.metaKey,
           }),
         );
-      }
-    });
-    window.addEventListener("keyup", (event) => {
-      if (!shouldRedirectKeyboardEvent()) {
-        this.project.controller.pressingKeySet.clear();
-        return;
-      }
-      if (project.isRunning) {
+      },
+      keyboardOptions,
+    );
+    window.addEventListener(
+      "keyup",
+      (event) => {
+        if (!shouldRedirectKeyboardEvent()) {
+          this.project.controller.pressingKeySet.clear();
+          return;
+        }
         element.dispatchEvent(
           new KeyboardEvent("keyup", {
             key: event.key,
@@ -73,12 +89,17 @@ export class Canvas {
             metaKey: event.metaKey,
           }),
         );
-      }
-    });
+      },
+      keyboardOptions,
+    );
     // 失焦时清空按下的按键
-    window.addEventListener("blur", () => {
-      this.project.controller.pressingKeySet.clear();
-    });
+    window.addEventListener(
+      "blur",
+      () => {
+        this.project.controller.pressingKeySet.clear();
+      },
+      keyboardOptions,
+    );
     this.ctx = element.getContext("2d")!;
     if (Settings.antialiasing === "disabled") {
       this.ctx.imageSmoothingEnabled = false;
@@ -122,6 +143,7 @@ export class Canvas {
   }
 
   dispose() {
+    this.keyboardEvents.abort();
     this.resizeObserver?.disconnect();
     this.element.remove();
   }
