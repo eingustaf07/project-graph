@@ -94,7 +94,7 @@ export default function CrossWindowConnections() {
     let geometry: WindowGeometry | undefined;
     let readingGeometry = false;
     let pendingGeometry = false;
-    let selectionSignature = "";
+    let selectionSignature: string | undefined;
     let selectedAt = 0;
     const open = [...projects.current];
     let previousFiles: WindowFileGraph[] = [];
@@ -252,8 +252,10 @@ export default function CrossWindowConnections() {
         }
       }
       const signature = JSON.stringify(selectedNodes);
-      if (signature !== selectionSignature && document.hasFocus()) {
-        selectedAt = Date.now();
+      if (signature !== selectionSignature) {
+        // Observe background selections too. Focusing or zooming must not turn
+        // an old selection into a newer connection source in another window.
+        if (selectionSignature !== undefined && document.hasFocus()) selectedAt = Date.now();
         selectionSignature = signature;
       }
       const selection = selectedNodes.length === 1 ? { ...selectedNodes[0], at: selectedAt } : undefined;
@@ -372,7 +374,10 @@ export default function CrossWindowConnections() {
     };
     const up = (event: PointerEvent) => {
       if (event.button === 0) {
-        selectedAt = Date.now();
+        const project = projects.current.find((p) => p.canvas.element === event.target);
+        const target = project && targetAt(event.clientX, event.clientY);
+        if (target && project?.stage.some((node) => node.uuid === target.nodeId && node.isSelected))
+          selectedAt = Date.now();
         publish();
         return;
       }

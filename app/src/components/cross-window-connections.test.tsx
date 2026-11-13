@@ -50,9 +50,14 @@ import { Rectangle } from "@graphif/shapes";
 import { URI } from "vscode-uri";
 import CrossWindowConnections from "./cross-window-connections";
 
-it.each([1, 1.5])(
-  "connects adjacent windows at source scale %s, edits in the source and rejects a gap",
-  async (sourceScale) => {
+it.each([
+  [1, false],
+  [1.5, false],
+  [1, true],
+  [1.5, true],
+] as const)(
+  "connects adjacent windows at source scale %s with an existing destination selection=%s",
+  async (sourceScale, existingSelection) => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     class Channel {
       onmessage: ((e: MessageEvent) => void) | null = null;
@@ -72,11 +77,11 @@ it.each([1, 1.5])(
       host = document.createElement("div");
     document.body.append(canvas, host);
     canvas.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 800);
-    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    const focus = vi.spyOn(document, "hasFocus").mockReturnValue(!existingSelection);
     Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => canvas });
     const node = Object.assign(Object.create(ConnectableEntity.prototype), {
       uuid: "b",
-      isSelected: false,
+      isSelected: existingSelection,
       geometryCenter: new Vector(100, 200),
       collisionBox: { getRectangle: () => new Rectangle(new Vector(70, 180), new Vector(60, 40)) },
     });
@@ -151,11 +156,27 @@ it.each([1, 1.5])(
       await act(() => root.render(<CrossWindowConnections />));
       await act(() => owner.publish(snapshot));
       await pause();
+      if (existingSelection) {
+        focus.mockReturnValue(true);
+        target.camera.currentScale = 0.8;
+        await act(() => window.dispatchEvent(new Event("focus")));
+        await act(() => canvas.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, bubbles: true })));
+        await pause();
+        const ui = document.createElement("button");
+        document.body.append(ui);
+        await act(() => ui.dispatchEvent(new MouseEvent("pointerup", { button: 0, bubbles: true })));
+        ui.remove();
+        await pause();
+        expect(node.isSelected).toBe(true);
+        expect(sourceNode.isSelected).toBe(true);
+      }
       await click();
       await pause();
       expect(sourceNode.crossFileLinks).toHaveLength(1);
       expect(fileKey(sourceNode.crossFileLinks[0].targetFile)).toBe(fileKey("file:///c:/b.prg"));
       expect(record).toHaveBeenCalledTimes(1);
+      expect(sourceNode.isSelected).toBe(true);
+      expect(node.isSelected).toBe(existingSelection);
       const line =
         host.querySelector('path[stroke="transparent"]') ??
         document.querySelector('svg[data-cross-window-edges] path[stroke="transparent"]');
