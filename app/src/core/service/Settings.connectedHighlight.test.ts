@@ -51,6 +51,15 @@ describe("connected highlight setting compatibility and persistence", () => {
     vi.resetModules();
     expect((await import("./Settings")).Settings.questionMarkYellow).toBe(false);
   });
+  it("keeps the custom application font as the default across windows and preserves an explicit saved node font", async () => {
+    const first = (await import("./Settings")).Settings.defaultFontFamily;
+    expect(first.startsWith('"Retro Pixel UI",')).toBe(true);
+    vi.resetModules();
+    expect((await import("./Settings")).Settings.defaultFontFamily).toBe(first);
+    storage.values.set("defaultFontFamily", '"User Node Font", monospace');
+    vi.resetModules();
+    expect((await import("./Settings")).Settings.defaultFontFamily).toBe('"User Node Font", monospace');
+  });
   it("persists individual sound switches without rewriting other preferences", async () => {
     const { Settings } = await import("./Settings");
     expect(Settings.soundEffectEnabled).toEqual({});

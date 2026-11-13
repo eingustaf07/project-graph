@@ -1,7 +1,7 @@
 import z from "zod";
 
 export const MAC_DEFAULT_FONT_FAMILY = "PingFang SC, PingFang TC, -apple-system";
-export const DEFAULT_FONT_FAMILY = "-apple-system, BlinkMacSystemFont, MiSans, system-ui, sans-serif";
+export const DEFAULT_FONT_FAMILY = '"Retro Pixel UI", -apple-system, BlinkMacSystemFont, MiSans, system-ui, sans-serif';
 
 export function createProjectToolSettingSchemas(defaultFontFamily: string) {
   return {

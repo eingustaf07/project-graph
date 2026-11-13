@@ -36,7 +36,10 @@ import { handleDeepLink, isProjectGraphDeepLink } from "./core/service/dataFileS
 import { onNewDraft, onOpenFile } from "./core/service/GlobalMenu";
 import WelcomeWindow from "./sub/WelcomeWindow";
 import "./css/index.css";
+import { applyApplicationFont, loadApplicationFont } from "./utils/applicationFonts";
 import Fallback from "./Fallback";
+
+applyApplicationFont();
 
 if (import.meta.env.DEV && isMobile) {
   new VConsole();
@@ -57,6 +60,9 @@ setTimeout(() => {
   const isCliDesktopAcceptance =
     import.meta.env.DEV && new URLSearchParams(window.location.search).has("cli-desktop-acceptance");
   try {
+    if (!(await loadApplicationFont())) {
+      toast.warning("自定义字体加载失败，暂时使用可用字体；你的字体设置未更改。");
+    }
     if (isCliDesktopAcceptance) {
       await invoke("write_cli_desktop_acceptance_state", {
         state: { phase: "initializing", step: "application" },
