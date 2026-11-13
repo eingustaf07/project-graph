@@ -269,9 +269,6 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
           )}
         {this.shouldRenderTargetArrow(edge) &&
           this.project.edgeRenderer.generateArrowHeadSvg(end, end.subtract(points.at(-2)!).normalize(), 15, color)}
-        {[points[0], end].map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill={color.toString()} />
-        ))}
       </>
     );
   }
