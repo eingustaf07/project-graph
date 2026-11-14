@@ -125,6 +125,46 @@ function createProject(...objects: any[]) {
   return { project, search: project.contentSearch as ContentSearch, recordStep };
 }
 
+describe("ordered and unordered text matching", () => {
+  it("keeps contiguous matching as the default and can match scattered characters", () => {
+    const { search } = createProject(node("ab"), node("ba"), node("a---b"), node("a"), node("b"));
+    search.startSearch("ab", false);
+    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["ab"]);
+    search.matchMode = "unordered";
+    search.startSearch("ab", false);
+    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["ab", "ba", "a---b"]);
+  });
+  it("counts repeated characters and supports Unicode code points", () => {
+    const { search } = createProject(node("a"), node("aa"), node("🙂你"), node("你"));
+    search.matchMode = "unordered";
+    search.startSearch("aa", false);
+    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["aa"]);
+    search.startSearch("你🙂", false);
+    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["🙂你"]);
+  });
+  it("respects case sensitivity and the selected scope", () => {
+    const a = node("BA"),
+      b = node("ba");
+    a.isSelected = true;
+    const { search } = createProject(a, b);
+    search.matchMode = "unordered";
+    search.searchScope = SearchScope.SELECTED;
+    search.startSearch("ab", false);
+    expect(search.searchResultNodes).toEqual([a]);
+    search.isCaseSensitive = true;
+    search.startSearch("ab", false);
+    expect(search.searchResultNodes).toEqual([]);
+  });
+  it("continues to replace contiguous original text only", () => {
+    const item = node("ba ab"),
+      { search } = createProject(item);
+    search.matchMode = "unordered";
+    search.startSearch("ab", false);
+    search.replaceText("ab", "X", true);
+    expect(item.text).toBe("ba X");
+  });
+});
+
 describe("literal text replacement planning", () => {
   it.each(["zh_CN", "en"])("loads real %s UI text using the application's namespace layout", async (language) => {
     const resources = parse(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));

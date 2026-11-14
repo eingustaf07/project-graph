@@ -1,3 +1,10 @@
+findReplace:
+  matchMode: Mode pencocokan
+  orderedMatch: Berurutan
+  unorderedMatch: Tanpa urutan
+  unorderedHint: Cocokkan semua karakter termasuk pengulangan. Penggantian memakai teks asli yang berurutan.
+  resultsLabel: Hasil pencarian
+
 welcome:
   editionDeveloperCredit: Gustaf Ein mengembangkan modifikasi untuk edisi E.
   slogan: Perangkat Lunak Pemetaan Kerangka Berpikir Berbasis Teori Graf

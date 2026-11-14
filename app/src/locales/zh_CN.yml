@@ -1,4 +1,9 @@
 findReplace:
+  resultsLabel: 查找结果
+  matchMode: 匹配方式
+  orderedMatch: 顺序匹配
+  unorderedMatch: 非顺序匹配
+  unorderedHint: 匹配全部输入字符，位置和顺序不限。重复字符按输入次数匹配；替换仍按连续原文执行。
   title: 查找和替换
   findLabel: 查找内容
   replaceLabel: 替换为

@@ -1,4 +1,9 @@
 findReplace:
+  matchMode: Match mode
+  orderedMatch: Ordered match
+  unorderedMatch: Unordered match
+  unorderedHint: Match all entered characters anywhere, including repeated occurrences. Replacement uses contiguous original text.
+  resultsLabel: Search results
   title: Find and replace
   findLabel: Find text
   replaceLabel: Replace with

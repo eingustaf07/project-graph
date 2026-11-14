@@ -53,6 +53,26 @@ function matchesTaskFilter(node: TextNode | Section, filter: NonNullable<ReturnT
   );
 }
 
+export type TextMatchMode = "ordered" | "unordered";
+
+function textMatcher(query: string, mode: TextMatchMode, caseSensitive: boolean) {
+  const needle = caseSensitive ? query : query.toLowerCase();
+  if (mode === "ordered") return (value: string) => (caseSensitive ? value : value.toLowerCase()).includes(needle);
+  const required = new Map<string, number>();
+  for (const character of needle) required.set(character, (required.get(character) ?? 0) + 1);
+  return (value: string) => {
+    const remaining = new Map(required);
+    for (const character of caseSensitive ? value : value.toLowerCase()) {
+      const count = remaining.get(character);
+      if (count === undefined) continue;
+      if (count === 1) remaining.delete(character);
+      else remaining.set(character, count - 1);
+      if (!remaining.size) return true;
+    }
+    return false;
+  };
+}
+
 @service("contentSearch")
 export class ContentSearch {
   constructor(private readonly project: Project) {}
@@ -67,6 +87,7 @@ export class ContentSearch {
    * 是否忽略大小写
    */
   public isCaseSensitive = false;
+  public matchMode: TextMatchMode = "ordered";
 
   /**
    * 搜索范围
@@ -187,6 +208,7 @@ export class ContentSearch {
 
     const filter = taskFilter(searchString);
     const completedTask = taskFilter("/okk")!;
+    const matchesText = textMatcher(searchString, this.matchMode, this.isCaseSensitive);
     for (const node of objectsToSearch) {
       if (searchString === "/问题") {
         if (
@@ -215,15 +237,7 @@ export class ContentSearch {
         continue;
       }
       const text = this.getStageObjectText(node);
-      if (this.isCaseSensitive) {
-        if (text.includes(searchString)) {
-          this.searchResultNodes.push(node);
-        }
-      } else {
-        if (text.toLowerCase().includes(searchString.toLowerCase())) {
-          this.searchResultNodes.push(node);
-        }
-      }
+      if (matchesText(text)) this.searchResultNodes.push(node);
     }
     this.currentSearchResultIndex = -1;
 

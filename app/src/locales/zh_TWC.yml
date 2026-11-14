@@ -1,3 +1,10 @@
+findReplace:
+  matchMode: 比對方式
+  orderedMatch: 順序比對
+  unorderedMatch: 非順序比對
+  unorderedHint: 包含全部輸入字元，順序不限。重複字元按輸入次數比對；取代使用連續原文。
+  resultsLabel: 搜尋結果
+
 welcome:
   editionDeveloperCredit: E版本由Gustaf Ein開發改動
   slogan: 基於圖論的思維框架圖繪製軟體

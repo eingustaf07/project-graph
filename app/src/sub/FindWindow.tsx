@@ -3,7 +3,10 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Project } from "@/core/Project";
-import { SearchScope } from "@/core/service/dataManageService/contentSearchEngine/contentSearchEngine";
+import {
+  SearchScope,
+  type TextMatchMode,
+} from "@/core/service/dataManageService/contentSearchEngine/contentSearchEngine";
 import { createSubWindow } from "@/core/subWindowOpen";
 import { TabWorkspace } from "@/core/TabWorkspace";
 import { activeResourceTabAtom } from "@/state";
@@ -30,6 +33,7 @@ import { useTranslation } from "react-i18next";
 export default function FindWindow({ tabId }: { tabId: string }) {
   const { t } = useTranslation("findReplace");
   const [isCaseSensitive, setIsCaseSensitive] = useState(false);
+  const [matchMode, setMatchMode] = useState<TextMatchMode>("ordered");
   const [searchString, setSearchString] = useState("");
   const [replacementString, setReplacementString] = useState("");
   const [searchResults, setSearchResults] = useState<{ title: string; uuid: string }[]>([]);
@@ -57,6 +61,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
   useEffect(() => {
     if (!project) return;
     project.contentSearch.isCaseSensitive = isCaseSensitive;
+    project.contentSearch.matchMode = matchMode;
     project.contentSearch.searchScope = searchScope;
     project.contentSearch.startSearch(searchString, false);
     setSearchResults(
@@ -65,7 +70,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
         uuid: node.uuid,
       })),
     );
-  }, [project, isCaseSensitive, searchScope, searchString]);
+  }, [project, isCaseSensitive, matchMode, searchScope, searchString]);
 
   useEffect(() => {
     return () => {
@@ -107,164 +112,189 @@ export default function FindWindow({ tabId }: { tabId: string }) {
   if (!project) return <></>;
   const replacementStatus = project.contentSearch.getReplacementStatus(searchString);
   return (
-    <div className="flex flex-col gap-2 p-4">
-      <Input
-        placeholder="搜索文字；/问题 查问号结尾的节点和框，/空 查空白或默认编号，/okk 查绿标，/err 查红标"
-        aria-label={t("findLabel")}
-        autoFocus
-        type="search"
-        onChange={(e) => {
-          setSearchString(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            void TabWorkspace.close(tabId);
-          } else if (e.key === "Enter") {
-            e.preventDefault();
-            if (e.shiftKey) {
-              project.contentSearch.previousSearchResult();
-            } else {
-              project.contentSearch.nextSearchResult();
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-4">
+      <div className="shrink-0 space-y-2">
+        <Input
+          placeholder="搜索文字；/问题 查问号结尾的节点和框，/空 查空白或默认编号，/okk 查绿标，/err 查红标"
+          aria-label={t("findLabel")}
+          autoFocus
+          type="search"
+          onChange={(e) => {
+            setSearchString(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              void TabWorkspace.close(tabId);
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              if (e.shiftKey) {
+                project.contentSearch.previousSearchResult();
+              } else {
+                project.contentSearch.nextSearchResult();
+              }
+              setTick((t) => t + 1);
             }
-            setTick((t) => t + 1);
-          }
-        }}
-        value={searchString}
-      />
-      <Input
-        aria-label={t("replaceLabel")}
-        placeholder={t("replacePlaceholder")}
-        value={replacementString}
-        onChange={(event) => setReplacementString(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            void TabWorkspace.close(tabId);
-          } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            if (replacementStatus.hasCurrent) replace(false);
-          }
-        }}
-      />
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" disabled={!replacementStatus.hasCurrent} onClick={() => replace(false)}>
-          {t("replace")}
-        </Button>
-        <Button size="sm" disabled={replacementStatus.count === 0} onClick={() => replace(true)}>
-          {t("replaceAll")}
-        </Button>
-      </div>
-      <div className="text-muted-foreground text-xs">
-        {t("matchCount", { count: replacementStatus.count })}
-        {replacementStatus.lockedCount > 0 && t("lockedCount", { count: replacementStatus.lockedCount })}
-        <div>{t("scopeHint")}</div>
-        {replacementStatus.atEnd && <div>{t("atEnd")}</div>}
-      </div>
-      <div className="my-1 flex flex-wrap gap-3">
-        <Tooltip>
-          <TooltipTrigger>
-            <Button
-              size="icon"
-              variant={isCaseSensitive ? "default" : "outline"}
-              onClick={() => {
-                const currentResult = !isCaseSensitive;
-                setIsCaseSensitive(currentResult);
-              }}
-            >
-              <CaseSensitive />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>区分大小写</TooltipContent>
-        </Tooltip>
-
-        {/* 搜索范围选择按钮组 */}
-        <Tooltip>
-          <TooltipTrigger>
-            <Button
-              size="icon"
-              variant={searchScope === SearchScope.ALL ? "default" : "outline"}
-              onClick={() => {
-                setSearchScope(SearchScope.ALL);
-              }}
-            >
-              <Square />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>搜索整个舞台</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger>
-            <Button
-              size="icon"
-              variant={searchScope === SearchScope.SELECTED ? "default" : "outline"}
-              onClick={() => {
-                setSearchScope(SearchScope.SELECTED);
-              }}
-            >
-              <SquareDashedTopSolid />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>只搜索选中的内容</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger>
-            <Button
-              size="icon"
-              variant={searchScope === SearchScope.SELECTED_BOUNDS ? "default" : "outline"}
-              onClick={() => {
-                setSearchScope(SearchScope.SELECTED_BOUNDS);
-              }}
-            >
-              <SquareDashedMousePointer />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>搜索选中内容的外接矩形范围</TooltipContent>
-        </Tooltip>
-
-        {searchResults.length > 0 && (
-          <Tooltip>
-            <TooltipTrigger>
-              <Button size="icon" variant="outline" onClick={selectAllResult}>
-                <SquareDashedTopSolid strokeWidth={1.5} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>将全部结果选中</TooltipContent>
-          </Tooltip>
-        )}
-
-        {searchResults.length >= 3 && (
+          }}
+          value={searchString}
+        />
+        <div role="group" aria-label={t("matchMode")} className="flex gap-2">
+          <Button
+            size="sm"
+            variant={matchMode === "ordered" ? "default" : "outline"}
+            aria-pressed={matchMode === "ordered"}
+            onClick={() => setMatchMode("ordered")}
+          >
+            {t("orderedMatch")}
+          </Button>
+          <Button
+            size="sm"
+            variant={matchMode === "unordered" ? "default" : "outline"}
+            aria-pressed={matchMode === "unordered"}
+            onClick={() => setMatchMode("unordered")}
+          >
+            {t("unorderedMatch")}
+          </Button>
+        </div>
+        {matchMode === "unordered" && <div className="text-muted-foreground text-xs">{t("unorderedHint")}</div>}
+        <Input
+          aria-label={t("replaceLabel")}
+          placeholder={t("replacePlaceholder")}
+          value={replacementString}
+          onChange={(event) => setReplacementString(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              void TabWorkspace.close(tabId);
+            } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              if (replacementStatus.hasCurrent) replace(false);
+            }
+          }}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" disabled={!replacementStatus.hasCurrent} onClick={() => replace(false)}>
+            {t("replace")}
+          </Button>
+          <Button size="sm" disabled={replacementStatus.count === 0} onClick={() => replace(true)}>
+            {t("replaceAll")}
+          </Button>
+        </div>
+        <div className="text-muted-foreground text-xs">
+          {t("matchCount", { count: replacementStatus.count })}
+          {replacementStatus.lockedCount > 0 && t("lockedCount", { count: replacementStatus.lockedCount })}
+          <div>{t("scopeHint")}</div>
+          {replacementStatus.atEnd && <div>{t("atEnd")}</div>}
+        </div>
+        <div className="my-1 flex flex-wrap gap-3">
           <Tooltip>
             <TooltipTrigger>
               <Button
                 size="icon"
-                variant={isMouseEnterCameraMovable ? "default" : "outline"}
+                variant={isCaseSensitive ? "default" : "outline"}
                 onClick={() => {
-                  setIsMouseEnterCameraMovable(!isMouseEnterCameraMovable);
+                  const currentResult = !isCaseSensitive;
+                  setIsCaseSensitive(currentResult);
                 }}
               >
-                <Telescope />
+                <CaseSensitive />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>快速瞭望模式</TooltipContent>
+            <TooltipContent>区分大小写</TooltipContent>
           </Tooltip>
-        )}
-        <Tooltip>
-          <TooltipTrigger>
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={() => {
-                Dialog.confirm(t("helpTitle"), t("help"));
-              }}
-            >
-              <MessageCircleQuestionMark />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>使用说明</TooltipContent>
-        </Tooltip>
+
+          {/* 搜索范围选择按钮组 */}
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                size="icon"
+                variant={searchScope === SearchScope.ALL ? "default" : "outline"}
+                onClick={() => {
+                  setSearchScope(SearchScope.ALL);
+                }}
+              >
+                <Square />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>搜索整个舞台</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                size="icon"
+                variant={searchScope === SearchScope.SELECTED ? "default" : "outline"}
+                onClick={() => {
+                  setSearchScope(SearchScope.SELECTED);
+                }}
+              >
+                <SquareDashedTopSolid />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>只搜索选中的内容</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                size="icon"
+                variant={searchScope === SearchScope.SELECTED_BOUNDS ? "default" : "outline"}
+                onClick={() => {
+                  setSearchScope(SearchScope.SELECTED_BOUNDS);
+                }}
+              >
+                <SquareDashedMousePointer />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>搜索选中内容的外接矩形范围</TooltipContent>
+          </Tooltip>
+
+          {searchResults.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger>
+                <Button size="icon" variant="outline" onClick={selectAllResult}>
+                  <SquareDashedTopSolid strokeWidth={1.5} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>将全部结果选中</TooltipContent>
+            </Tooltip>
+          )}
+
+          {searchResults.length >= 3 && (
+            <Tooltip>
+              <TooltipTrigger>
+                <Button
+                  size="icon"
+                  variant={isMouseEnterCameraMovable ? "default" : "outline"}
+                  onClick={() => {
+                    setIsMouseEnterCameraMovable(!isMouseEnterCameraMovable);
+                  }}
+                >
+                  <Telescope />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>快速瞭望模式</TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => {
+                  Dialog.confirm(t("helpTitle"), t("help"));
+                }}
+              >
+                <MessageCircleQuestionMark />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>使用说明</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
-      <div className="flex flex-col gap-1 overflow-y-auto">
+      <div
+        aria-label={t("resultsLabel")}
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain"
+        onWheel={(event) => event.stopPropagation()}
+      >
         {searchString === "" && <div className="text-center">请输入搜索内容</div>}
         {searchResults.length === 0 && searchString !== "" && (
           <div className="text-center">没有搜索结果:`{searchString}`</div>
@@ -273,7 +303,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
           <div
             key={result.uuid}
             className={cn(
-              "hover:text-panel-success-text flex cursor-pointer truncate text-xs hover:underline",
+              "hover:text-panel-success-text shrink-0 cursor-pointer text-xs break-words whitespace-pre-wrap hover:underline",
               index === project.contentSearch.currentSearchResultIndex &&
                 "bg-accent/60 ring-accent rounded-sm ring-2 ring-inset",
             )}
@@ -296,7 +326,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
               }
             }}
           >
-            <span className="bg-secondary rounded-sm px-2">{index + 1}</span>
+            <span className="bg-secondary mr-2 rounded-sm px-2">{index + 1}</span>
             {result.title}
           </div>
         ))}
