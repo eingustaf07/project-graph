@@ -178,6 +178,7 @@ export const settingsIcons = {
   enableDragEdgeRotateStructure: SplinePointer,
   enableCtrlWheelRotateStructure: RefreshCcw,
   autoLayoutWhenTreeGenerate: ListTree,
+  directionalGrowthPlacement: ListTree,
   autoLayoutWhenSectionCollapseToggle: ListTree,
   enableTreeGenerateConnectByProbe: ArrowRightFromLine,
   treeGenerateInheritParentColor: Palette,

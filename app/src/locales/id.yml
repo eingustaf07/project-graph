@@ -841,6 +841,9 @@ settings:
     description: |
       Saat diaktifkan, dapat menahan tombol Ctrl (Command di Mac) dan menggulir roda mouse untuk memutar struktur node
       Ini memungkinkan Anda menyesuaikan arah node yang terhubung dengan presisi
+  directionalGrowthPlacement:
+    title: Penempatan arah WASD
+    description: Dengan tata letak pertumbuhan otomatis aktif, NN mengikuti arah WASD dan memilih ruang kosong terdekat. Nonaktifkan untuk tata letak sebelumnya.
   autoLayoutWhenTreeGenerate:
     title: Perbarui Layout Otomatis Saat Node Tumbuh
     description: |

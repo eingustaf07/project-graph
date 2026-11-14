@@ -1118,6 +1118,9 @@ settings:
   newNodeScaleByCameraOffset:
     title: Camera Auto-Size Level Offset
     description: Used together with "New Node Scales with Camera". Positive values make new nodes larger; negative values make them smaller.
+  directionalGrowthPlacement:
+    title: WASD directional growth placement
+    description: With automatic growth layout enabled, NN follows WASD direction and uses the nearest free lateral position. Disable to use the previous growth layout.
   autoLayoutWhenTreeGenerate:
     title: Automatically update layout when growing nodes
     description: "After it is turned on, the layout will be automatically updated

@@ -873,6 +873,9 @@ settings:
     description: '開啟後，可以按住 Ctrl 鍵（Mac 系統為 Command 鍵）並捲動滑鼠滾輪來旋轉節點結構
 
       這允許您精確調整相連節點的方向'
+  directionalGrowthPlacement:
+    title: WASD 定向生長排版
+    description: 生長自動佈局啟用時，NN 依 WASD 指定方向對齊並尋找最近空位。關閉後恢復原生長佈局。
   autoLayoutWhenTreeGenerate:
     title: 生長節點時自動更新佈局
     description: '開啟後，生長節點時自動更新佈局

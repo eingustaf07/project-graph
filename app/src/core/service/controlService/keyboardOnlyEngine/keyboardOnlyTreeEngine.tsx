@@ -7,6 +7,7 @@ import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/
 import { toast } from "sonner";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { Section } from "@/core/stage/stageObject/entity/Section";
 import { Direction } from "@/types/directions";
 import { showTreeValidationErrors } from "@/utils/treeValidation";
 import { ProgressNumber, Vector } from "@graphif/data-structures";
@@ -39,6 +40,41 @@ function positionBeforeTreeLayout(
       siblingBox ? siblingBox.right + Settings.smartTreeNodeGap : parentBox.center.x - childBox.width / 2,
       direction === "down" ? parentBox.bottom + gap : parentBox.top - gap - childBox.height,
     );
+  }
+}
+
+// Keep the forward gap fixed. Each nearby box excludes an interval of lateral offsets.
+function placeDirectedGrowth(child: Rectangle, neighbors: ConnectableEntity[], horizontal: boolean) {
+  const clearance = Settings.smartTreeNodeGap;
+  const intervals: [number, number][] = [];
+  for (const node of neighbors) {
+    if (node instanceof Section) continue;
+    const box = node.collisionBox.getRectangle();
+    if (
+      horizontal
+        ? box.right <= child.left || box.left >= child.right
+        : box.bottom <= child.top || box.top >= child.bottom
+    )
+      continue;
+    intervals.push(
+      horizontal
+        ? [box.top - child.bottom - clearance, box.bottom - child.top + clearance]
+        : [box.left - child.right - clearance, box.right - child.left + clearance],
+    );
+  }
+  intervals.sort((a, b) => a[0] - b[0]);
+  let start = Infinity,
+    end = -Infinity;
+  for (const [low, high] of intervals) {
+    if (low >= end) {
+      if (start < 0 && end > 0) break;
+      start = low;
+      end = high;
+    } else end = Math.max(end, high);
+  }
+  if (start < 0 && end > 0) {
+    const shift = -start < end ? start : end;
+    child.location = child.location.add(horizontal ? new Vector(0, shift) : new Vector(shift, 0));
   }
 }
 
@@ -443,7 +479,11 @@ export class KeyboardOnlyTreeEngine {
     }
 
     // 先找到自己所有的第一层后继节点
-    const childSet = this.project.graphMethods.getOneStepSuccessorSet(rootNode);
+    const directedPlacement =
+      Settings.autoLayoutWhenTreeGenerate &&
+      Settings.directionalGrowthPlacement &&
+      this.preDirectionCacheMap.has(rootNode.uuid);
+    const childSet = directedPlacement ? [] : this.project.graphMethods.getOneStepSuccessorSet(rootNode);
 
     // 寻找创建位置
     let createLocation: Vector;
@@ -526,6 +566,13 @@ export class KeyboardOnlyTreeEngine {
     // 设置新节点的字体大小
     newNode.setFontScaleLevel(newFontScaleLevel);
     positionBeforeTreeLayout(newNode, rootNode, direction, childSet.at(-1));
+    if (directedPlacement) {
+      placeDirectedGrowth(
+        newNode.rectangle,
+        this.project.stageManager.getConnectableEntity(),
+        direction === "left" || direction === "right",
+      );
+    }
     this.project.stageManager.add(newNode);
 
     // 如果是在框里，则把新生长的节点也纳入到框里
@@ -577,10 +624,11 @@ export class KeyboardOnlyTreeEngine {
     newNode.isSelected = true;
     try {
       const rootNodeParents =
-        Settings.autoLayoutWhenTreeGenerate || Settings.treeGenerateCameraBehavior === "resetToTree"
+        (Settings.autoLayoutWhenTreeGenerate && !directedPlacement) ||
+        Settings.treeGenerateCameraBehavior === "resetToTree"
           ? this.project.graphMethods.getRoots(rootNode, true)
           : [];
-      if (Settings.autoLayoutWhenTreeGenerate && rootNodeParents.length === 1) {
+      if (!directedPlacement && Settings.autoLayoutWhenTreeGenerate && rootNodeParents.length === 1) {
         const rootNodeParent = rootNodeParents[0];
         const validationResult = this.project.graphMethods.validateTreeStructure(rootNodeParent, true);
         if (validationResult.isValid) {
@@ -597,7 +645,7 @@ export class KeyboardOnlyTreeEngine {
           }
         }
       } else {
-        if (Settings.autoLayoutWhenTreeGenerate) {
+        if (!directedPlacement && Settings.autoLayoutWhenTreeGenerate) {
           toast.warning("当前结构不符合树形结构：无法确定唯一的根节点");
         }
       }

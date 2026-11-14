@@ -443,6 +443,7 @@ export const categories = {
       "smartTreeNodeGap",
       "smartTreeSubtreeGap",
       "autoLayoutWhenTreeGenerate",
+      "directionalGrowthPlacement",
       "autoLayoutWhenSectionCollapseToggle",
       "enableTreeGenerateConnectByProbe",
       "treeGenerateInheritParentColor",

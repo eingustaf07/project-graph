@@ -885,6 +885,9 @@ settings:
     description: |
       开启后，可以按住Ctrl键（Mac系统为Command键）并滚动鼠标滚轮来旋转节点结构
       这允许您精确调整相连节点的方向
+  directionalGrowthPlacement:
+    title: WASD 定向生长排版
+    description: 生长自动布局启用时，WASD 指定方向的 NN 生长优先正前方对齐，遇到节点沿同层寻找最近空位。关闭后恢复原生长排版。
   autoLayoutWhenTreeGenerate:
     title: 生长节点时自动更新布局
     description: |

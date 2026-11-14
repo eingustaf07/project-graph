@@ -102,6 +102,7 @@ function fixture() {
 beforeEach(() => {
   vi.useFakeTimers();
   Settings.autoLayoutWhenTreeGenerate = false;
+  Settings.directionalGrowthPlacement = true;
   Settings.isEnableEntityCollision = false;
 });
 afterEach(() => {
@@ -240,6 +241,46 @@ it("grows and requests editing once when two opposite arcs connect the parent to
   expect(p.stageManager.getArcEdges()).toHaveLength(2);
   expect(other.collisionBox.getRectangle().leftTop).toEqual(originalPosition);
   expect(p.controllerUtils.editTextNode).toHaveBeenCalledExactlyOnceWith(created, true);
+});
+
+it("uses the previous automatic layout when directional placement is disabled", () => {
+  const { p, engine, root } = fixture();
+  Settings.autoLayoutWhenTreeGenerate = true;
+  Settings.directionalGrowthPlacement = false;
+  engine.changePreDirection([root], "right");
+  const layout = vi.fn();
+  p.autoLayoutFastTree = { autoLayoutFastTreeMode: layout };
+  engine.onDeepGenerateNode();
+  expect(layout).toHaveBeenCalledOnce();
+});
+
+it.each(["right", "left", "up", "down"] as const)("places explicit %s growth in the nearest open lane", (direction) => {
+  const { p, engine, root, select } = fixture();
+  vi.mocked(engine.getNodePreDirection).mockRestore();
+  Settings.autoLayoutWhenTreeGenerate = true;
+  engine.changePreDirection([root], direction);
+  const grow = () => {
+    select(root.uuid);
+    engine.onDeepGenerateNode("新增");
+    return p.stageManager.getTextNodes().at(-1).rectangle;
+  };
+  const first = grow();
+  const second = grow();
+  const parent = root.rectangle;
+  const horizontal = direction === "right" || direction === "left";
+  for (const child of [first, second]) {
+    const gap =
+      direction === "right"
+        ? child.left - parent.right
+        : direction === "left"
+          ? parent.left - child.right
+          : direction === "up"
+            ? parent.top - child.bottom
+            : child.top - parent.bottom;
+    expect(gap).toBeCloseTo(Settings.smartTreeLevelGap);
+  }
+  expect(horizontal ? first.center.y : first.center.x).toBeCloseTo(horizontal ? parent.center.y : parent.center.x);
+  expect(horizontal ? second.top - first.bottom : second.left - first.right).toBeCloseTo(Settings.smartTreeNodeGap);
 });
 
 it.each(["right", "left", "up", "down"] as const)("keeps measured spacing during %s growth", (direction) => {
