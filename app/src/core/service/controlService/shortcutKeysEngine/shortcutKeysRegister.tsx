@@ -979,12 +979,11 @@ export const allKeyBinds: KeyBindItem[] = [
     defaultKey: "insert",
     icon: Plus,
     when: whenKeyboardOnlyOpen,
-    onPress: async (project) => {
+    onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.clearMoveCommander();
       project!.camera.speed = Vector.getZero();
-      const uuid = await project!.controllerUtils.addTextNodeByLocation(project!.camera.location, true, true);
-      if (uuid) void SoundService.playNodeCreated();
+      project!.controllerUtils.addTextNodeByLocation(project!.camera.location, true, true);
     },
   },
   {
@@ -992,16 +991,15 @@ export const allKeyBinds: KeyBindItem[] = [
     defaultKey: "S-insert",
     icon: Plus,
     when: whenKeyboardOnlyOpen,
-    onPress: async (project) => {
+    onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.clearMoveCommander();
       project!.camera.speed = Vector.getZero();
-      const uuid = await project!.controllerUtils.addTextNodeByLocation(
+      project!.controllerUtils.addTextNodeByLocation(
         project!.renderer.transformView2World(MouseLocation.vector()),
         true,
         true,
       );
-      if (uuid) void SoundService.playNodeCreated();
     },
   },
   {

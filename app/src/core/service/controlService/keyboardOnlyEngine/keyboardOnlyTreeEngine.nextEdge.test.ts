@@ -28,7 +28,6 @@ vi.mock("@/core/service/Settings", () => ({
 vi.mock("@/core/render/canvas2d/renderer", () => ({ Renderer: { FONT_SIZE: 32, NODE_PADDING: 14 } }));
 vi.mock("@/core/service/feedbackService/SoundService", () => ({
   SoundService: {
-    playNodeCreated: vi.fn(),
     play: {
       associationAdjustSoundFile: vi.fn(),
       treeGenerateDeepSoundFile: vi.fn(),
@@ -58,7 +57,6 @@ import { AutoLayoutFastTree } from "@/core/service/controlService/autoLayoutEngi
 import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/StageSectionInOutManager";
 import { EntityMoveManager } from "@/core/stage/stageManager/concreteMethods/StageEntityMoveManager";
 import { Settings } from "@/core/service/Settings";
-import { SoundService } from "@/core/service/feedbackService/SoundService";
 
 function fixture() {
   const p: any = {
@@ -102,7 +100,6 @@ function fixture() {
   return { p, root, engine, select };
 }
 beforeEach(() => {
-  vi.clearAllMocks();
   vi.useFakeTimers();
   Settings.autoLayoutWhenTreeGenerate = false;
   Settings.directionalGrowthPlacement = true;
@@ -111,14 +108,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllTimers();
   vi.useRealTimers();
-});
-
-it("plays the configured node creation sound once when NN creates a node", () => {
-  const { engine, p } = fixture();
-  engine.onDeepGenerateNode();
-  expect(p.stageManager.getTextNodes()).toHaveLength(2);
-  expect(SoundService.playNodeCreated).toHaveBeenCalledTimes(1);
-  expect(SoundService.play.treeGenerateDeepSoundFile).not.toHaveBeenCalled();
 });
 
 it.skipIf(!process.env.PG_NN_READ_FILE)(
@@ -341,10 +330,7 @@ it.each(["right", "left", "up", "down"] as const)("keeps measured spacing during
       p.autoLayoutFastTree.autoLayoutFastTreeMode(n, growth),
   };
   select(b.uuid);
-  vi.mocked(SoundService.playNodeCreated).mockClear();
   engine.onBroadGenerateNode();
-  expect(SoundService.playNodeCreated).toHaveBeenCalledTimes(1);
-  expect(SoundService.play.treeGenerateBroadSoundFile).not.toHaveBeenCalled();
   const sibling = p.stageManager.getTextNodes().at(-1);
   expect(distance(root, sibling)).toBeCloseTo(72);
   expect(sibling.rectangle.isCollideWith(b.rectangle)).toBe(false);

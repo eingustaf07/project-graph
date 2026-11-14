@@ -2,7 +2,6 @@ import { Project, service } from "@/core/Project";
 import { TabWorkspace } from "@/core/TabWorkspace";
 import { Renderer } from "@/core/render/canvas2d/renderer";
 import { Settings } from "@/core/service/Settings";
-import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { EntityCreateFlashEffect } from "@/core/service/feedbackService/effectEngine/concrete/EntityCreateFlashEffect";
 import { RectangleLittleNoteEffect } from "@/core/service/feedbackService/effectEngine/concrete/RectangleLittleNoteEffect";
 import type { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
@@ -302,7 +301,6 @@ export class ControllerUtils {
 
   addTextNodeFromCurrentSelectedNode(direction: Direction, selectCurrent = false) {
     this.project.nodeAdder.addTextNodeFromCurrentSelectedNode(direction, [], selectCurrent).then((uuid) => {
-      if (uuid) void SoundService.playNodeCreated();
       setTimeout(() => {
         this.textNodeInEditModeByUUID(uuid);
       });
