@@ -3,7 +3,11 @@ import { findTabGroup, findTabGroupByTabId, TabDropEdge, TabGroupNode } from "@/
 import { atom, createStore } from "jotai";
 
 export const store = createStore();
-export const selectedNodeTextPreviewAtom = atom<{ projectId: string; text: string } | null>(null);
+export const selectedNodeTextPreviewAtom = atom<{
+  projectId: string;
+  text: string;
+  items: { id: string; text: string }[];
+} | null>(null);
 
 export const tabsAtom = atom<Tab[]>([]);
 export const activeTabAtom = atom<Tab | undefined>(undefined);

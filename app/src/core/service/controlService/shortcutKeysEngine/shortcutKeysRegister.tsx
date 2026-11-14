@@ -4093,16 +4093,22 @@ export const allKeyBinds: KeyBindItem[] = [
     when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: (project) => {
       if (!project) return;
-      const text = project.stageManager
+      const items = project.stageManager
         .getSelectedEntities()
         .filter((node): node is TextNode => node instanceof TextNode)
-        .map((node) => node.text)
-        .join("\n\n");
-      if (!text) return;
+        .sort(
+          (a, b) =>
+            a.rectangle.top - b.rectangle.top || a.rectangle.left - b.rectangle.left || a.uuid.localeCompare(b.uuid),
+        )
+        .map((node) => ({ id: node.uuid, text: node.text }));
+      if (!items.length) return;
+      const text = items.map((item) => item.text).join("\n\n");
       const previous = store.get(selectedNodeTextPreviewAtom);
       store.set(
         selectedNodeTextPreviewAtom,
-        previous?.projectId === project.id && previous.text === text ? null : { projectId: project.id, text },
+        previous?.projectId === project.id && JSON.stringify(previous.items) === JSON.stringify(items)
+          ? null
+          : { projectId: project.id, text, items },
       );
     },
   },

@@ -357,7 +357,14 @@ export default function App() {
           <button className="float-right ml-2" aria-label="关闭节点文字预览" onClick={() => setTextPreview(null)}>
             ×
           </button>
-          <div className="break-words whitespace-pre-wrap select-text">{textPreview.text}</div>
+          <div className="mb-2 text-sm opacity-70">节点内容（{textPreview.items.length}）</div>
+          <div className="divide-y">
+            {textPreview.items.map((item) => (
+              <div key={item.id} className="py-2 break-words whitespace-pre-wrap select-text">
+                {item.text}
+              </div>
+            ))}
+          </div>
         </aside>
       )}
       {/* 这是一个底层的 div，用于在拖拽改变窗口大小时填充背景，防止窗口出现透明闪烁 */}
