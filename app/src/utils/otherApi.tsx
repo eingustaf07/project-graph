@@ -1,6 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { isWeb } from "@/utils/platform";
+import appConfig from "../../src-tauri/tauri.conf.json";
 
 export async function writeStdout(content: string): Promise<void> {
   if (!isWeb) {
@@ -31,6 +32,7 @@ export async function exit(code: number = 0): Promise<void> {
 }
 
 export async function getAppVersion(): Promise<string> {
+  if (import.meta.env.DEV) return appConfig.version;
   if (isWeb) {
     return "0.0.0-web";
   } else {

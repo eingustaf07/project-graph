@@ -1,7 +1,8 @@
 import logoUrl from "@/assets/icon.png";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getName, getVersion } from "@tauri-apps/api/app";
+import { getName } from "@tauri-apps/api/app";
+import { getAppVersion as getVersion } from "@/utils/otherApi";
 import { open } from "@tauri-apps/plugin-shell";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,7 +16,7 @@ export default function AboutTab() {
   useEffect(() => {
     (async () => {
       setAppVersion(await getVersion());
-      setAppName(await getName());
+      setAppName(import.meta.env.DEV ? "Project Graph E" : await getName());
     })();
   }, []);
   useEffect(() => {

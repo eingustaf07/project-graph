@@ -15,7 +15,7 @@ import { Path } from "@/utils/path";
 import { isMac } from "@/utils/platform";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
-import { getVersion } from "@tauri-apps/api/app";
+import { getAppVersion as getVersion } from "@/utils/otherApi";
 import { join, tempDir } from "@tauri-apps/api/path";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { fetch } from "@tauri-apps/plugin-http";
