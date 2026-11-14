@@ -25,7 +25,14 @@ import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { TabWorkspace } from "@/core/TabWorkspace";
 import { TestTab } from "@/core/TestTab";
-import { activeTabAtom, commandPaletteVisibleAtom, isWindowMaxsizedAtom, store, tabsAtom } from "@/state";
+import {
+  activeTabAtom,
+  commandPaletteVisibleAtom,
+  isWindowMaxsizedAtom,
+  selectedNodeTextPreviewAtom,
+  store,
+  tabsAtom,
+} from "@/state";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { Image as TauriImage } from "@tauri-apps/api/image";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -4077,6 +4084,26 @@ export const allKeyBinds: KeyBindItem[] = [
     when: whenHasProject,
     onPress: () => {
       AIWindow.toggle();
+    },
+  },
+  {
+    id: "previewSelectedNodeText",
+    defaultKey: "S-s",
+    icon: ExternalLink,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
+    onPress: (project) => {
+      if (!project) return;
+      const text = project.stageManager
+        .getSelectedEntities()
+        .filter((node): node is TextNode => node instanceof TextNode)
+        .map((node) => node.text)
+        .join("\n\n");
+      if (!text) return;
+      const previous = store.get(selectedNodeTextPreviewAtom);
+      store.set(
+        selectedNodeTextPreviewAtom,
+        previous?.projectId === project.id && previous.text === text ? null : { projectId: project.id, text },
+      );
     },
   },
   {

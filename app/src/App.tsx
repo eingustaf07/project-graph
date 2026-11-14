@@ -21,6 +21,7 @@ import {
   isWindowAlwaysOnTopAtom,
   isWindowMaxsizedAtom,
   tabsAtom,
+  selectedNodeTextPreviewAtom,
 } from "@/state";
 import WelcomeWindow from "@/sub/WelcomeWindow";
 import { getVersion } from "@tauri-apps/api/app";
@@ -347,9 +348,18 @@ export default function App() {
   );
 
   const zoomStyle = uiScalePercent !== 100 ? ({ zoom: `${uiScalePercent / 100}` } as React.CSSProperties) : undefined;
+  const [textPreview, setTextPreview] = useAtom(selectedNodeTextPreviewAtom);
 
   return (
     <>
+      {textPreview && tabs.some((tab) => tab.id === textPreview.projectId) && (
+        <aside className="fixed top-12 right-4 z-50 max-h-[60vh] w-80 max-w-[80vw] overflow-auto rounded-lg border bg-(--stage-background) p-4 shadow-lg">
+          <button className="float-right ml-2" aria-label="关闭节点文字预览" onClick={() => setTextPreview(null)}>
+            ×
+          </button>
+          <div className="break-words whitespace-pre-wrap select-text">{textPreview.text}</div>
+        </aside>
+      )}
       {/* 这是一个底层的 div，用于在拖拽改变窗口大小时填充背景，防止窗口出现透明闪烁 */}
       <div className="fixed inset-0 z-[-1] bg-(--stage-background)" style={{ opacity: windowBackgroundAlpha }} />
       <div

@@ -1655,6 +1655,9 @@ controlSettingsGroup:
   newPrgAtCurrentDir:
     title: 在當前目錄新建文件
     description: 在當前項目目錄下新建一個工程文件並切換到該文件
+  previewSelectedNodeText:
+    title: 預覽選中節點文字
+    description: 在右上角顯示選中文字，再按一次關閉
   openAIPanel:
     title: 打開AI面板
     description: 打開AI助手面板

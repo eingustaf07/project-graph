@@ -48,6 +48,12 @@ export class ControllerContextMenuClass extends ControllerClass {
         return;
       }
       const now = Date.now();
+      const selected = this.project.stageManager.getConnectableEntity().filter((node) => node.isSelected);
+      if (Settings.enableRightClickConnect && selected.length === 2) {
+        this.blankClick = undefined;
+        this.project.stageManager.connectEntity(selected[0], selected[1]);
+        return;
+      }
       const previous = this.blankClick;
       this.blankClick = { at: now, location: mouseUpLocation };
       if (previous && now - previous.at < 300 && previous.location.distance(mouseUpLocation) < 5) {

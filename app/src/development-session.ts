@@ -50,7 +50,11 @@ function windowSessionKey() {
   return id ? "pending:" + id : "pending";
 }
 
-async function sessionStore(mode: "readwrite" | "readonly", value?: Snapshot | null, key = windowSessionKey()): Promise<Snapshot | undefined> {
+async function sessionStore(
+  mode: "readwrite" | "readonly",
+  value?: Snapshot | null,
+  key = windowSessionKey(),
+): Promise<Snapshot | undefined> {
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open("pg-development-session", 1);
     request.onupgradeneeded = () => request.result.createObjectStore("session");
@@ -61,12 +65,7 @@ async function sessionStore(mode: "readwrite" | "readonly", value?: Snapshot | n
     return await new Promise((resolve, reject) => {
       const tx = db.transaction("session", mode),
         storage = tx.objectStore("session");
-      const request =
-        mode === "readonly"
-          ? storage.get(key)
-          : value
-            ? storage.put(value, key)
-            : storage.delete(key);
+      const request = mode === "readonly" ? storage.get(key) : value ? storage.put(value, key) : storage.delete(key);
       tx.oncomplete = () => resolve(mode === "readonly" ? (request.result as Snapshot | undefined) : undefined);
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error ?? new Error("开发会话保存被中断"));

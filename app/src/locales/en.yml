@@ -2572,6 +2572,9 @@ controlSettingsGroup:
   newPrgAtCurrentDir:
     title: New File in Current Directory
     description: Create a new project file in the current project directory
+  previewSelectedNodeText:
+    title: Preview selected node text
+    description: Show selected text in the upper-right corner; press again to close
   openAIPanel:
     title: Open AI Panel
     description: Open the AI assistant panel
