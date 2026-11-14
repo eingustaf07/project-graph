@@ -167,6 +167,13 @@ export async function restoreDevelopmentSession(): Promise<boolean> {
 }
 
 export async function markDevelopmentReady() {
+  if (import.meta.env.DEV) {
+    const { getAppVersion } = await import("@/utils/otherApi");
+    const title = `Project Graph E ${await getAppVersion()} 开发版`;
+    document.title = title;
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().setTitle(title);
+  }
   const response = await fetch("/__pg_development/ready", { method: "POST" });
   if (!response.ok) throw new Error("无法确认开发更新状态");
 }
