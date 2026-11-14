@@ -574,6 +574,7 @@ export class KeyboardOnlyTreeEngine {
       );
     }
     this.project.stageManager.add(newNode);
+    void SoundService.playNodeCreated();
 
     // 如果是在框里，则把新生长的节点也纳入到框里
     const fatherSection = rootNode.parentSection;
@@ -654,7 +655,6 @@ export class KeyboardOnlyTreeEngine {
       if (Settings.snapNewNodesToGrid) this.project.stageManager.snapCreatedNodes([newNode]);
       if (Settings.isEnableEntityCollision) newNode.resolveOverlaps();
       this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(rootNode, newNode));
-      SoundService.play.treeGenerateDeepSoundFile();
       // 根据设置决定镜头行为
       switch (Settings.treeGenerateCameraBehavior) {
         case "none":
@@ -758,6 +758,7 @@ export class KeyboardOnlyTreeEngine {
     newNode.setFontScaleLevel(newFontScaleLevel);
     positionBeforeTreeLayout(newNode, parent, preDirection, currentSelectNode);
     this.project.stageManager.add(newNode);
+    void SoundService.playNodeCreated();
     // 如果是在框里，则把新生长的节点也纳入到框里
     const fatherSection = parent.parentSection;
     if (fatherSection) {
@@ -813,7 +814,6 @@ export class KeyboardOnlyTreeEngine {
     if (Settings.snapNewNodesToGrid) this.project.stageManager.snapCreatedNodes([newNode]);
     if (Settings.isEnableEntityCollision) newNode.resolveOverlaps();
     this.project.effects.addEffects(this.project.edgeRenderer.getConnectedEffects(parent, newNode));
-    SoundService.play.treeGenerateBroadSoundFile();
     setTimeout(
       () => {
         // 防止把反引号给输入进去
