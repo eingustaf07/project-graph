@@ -6,6 +6,7 @@ import { Delta, diff, patch } from "jsondiffpatch";
 import _ from "lodash";
 import { toast } from "sonner";
 import { applyQuestionFrameNames } from "@/core/service/dataManageService/questionFrameNames";
+import { refreshNodeNumbering } from "@/core/service/dataManageService/nodeNumbering";
 
 abstract class HistoryManagerAbs {
   public abstract recordStep(): void;
@@ -448,6 +449,7 @@ export class HistoryManager extends HistoryManagerAbs {
       this.batchDirty = true;
       return;
     }
+    refreshNodeNumbering(this.project);
     applyQuestionFrameNames(this.project);
     this.currentManager.recordStep();
     this.project.emit("stage-commit");

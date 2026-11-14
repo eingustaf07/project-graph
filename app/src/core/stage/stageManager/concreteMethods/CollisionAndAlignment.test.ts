@@ -21,6 +21,8 @@ vi.mock("@/core/Project", () => ({
 const settings = vi.hoisted(() => ({
   lineStyle: "straight",
   showBidirectionalArrows: false,
+  dynamicNodeNumbering: undefined as boolean | undefined,
+  questionMarkYellow: true,
   isEnableSectionCollision: true,
   isEnableEntityCollision: false,
   enableDragAutoAlign: true,
@@ -72,6 +74,7 @@ import { NodeConnector } from "./StageNodeConnector";
 import { LineEdge } from "../../stageObject/association/LineEdge";
 import { DeleteManager } from "./StageDeleteManager";
 import { ControllerCuttingClass } from "@/core/service/controlService/controller/concrete/ControllerCutting";
+import { numberedNodeText, refreshNodeNumbering } from "@/core/service/dataManageService/nodeNumbering";
 
 function fixture() {
   const p: any = {
@@ -118,6 +121,57 @@ beforeEach(() => {
   settings.isEnableSectionCollision = true;
   settings.isEnableEntityCollision = false;
 });
+it("numbers only new PG nodes, preserves raw text and restores independent sequences through undo and MessagePack", () => {
+  settings.dynamicNodeNumbering = true;
+  try {
+    const { p, node } = fixture();
+    const legacy = new TextNode(p, { text: "旧问题？" });
+    p.stage.push(legacy);
+    p.stageManager.updateReferences();
+    expect(legacy.numberingCreatedAt).toBeUndefined();
+    expect(serialize(legacy)).not.toHaveProperty("numberingCreatedAt");
+    const a = node(0),
+      b = node(1000),
+      c = node(2000),
+      conclusion = node(3000);
+    a.rename("第一问？");
+    b.rename("第二问？");
+    c.rename("第三问？");
+    conclusion.rename("/jl已经得到答案");
+    expect(conclusion.text).toBe("结论:已经得到答案");
+    expect(numberedNodeText(p, conclusion)).toBe("1. 结论:已经得到答案");
+    expect([a, b, c].map((n) => numberedNodeText(p, n))).toEqual(["1. 第一问？", "2. 第二问？", "3. 第三问？"]);
+    p.historyManager.recordStep();
+    b.rename("✅ 第二问？");
+    p.historyManager.recordStep();
+    expect(numberedNodeText(p, c)).toBe("2. 第三问？");
+    p.historyManager.undo();
+    expect(numberedNodeText(p, p.stageManager.get(c.uuid))).toBe("3. 第三问？");
+    p.historyManager.redo();
+    expect(numberedNodeText(p, p.stageManager.get(c.uuid))).toBe("2. 第三问？");
+    const creationTimes = p.stage.filter((n: any) => n instanceof TextNode).map((n: TextNode) => n.numberingCreatedAt);
+    p.stage = deserialize(new Decoder().decode(new Encoder().encode(serialize(p.stage))), p);
+    p.stageManager.updateReferences();
+    expect(p.stage.filter((n: any) => n instanceof TextNode).map((n: TextNode) => n.numberingCreatedAt)).toEqual(
+      creationTimes,
+    );
+    expect(numberedNodeText(p, p.stageManager.get(c.uuid))).toBe("2. 第三问？");
+    expect(numberedNodeText(p, p.stageManager.get(legacy.uuid))).toBe("旧问题？");
+    const first = p.stageManager.get(a.uuid) as TextNode;
+    first.rename("这是一个需要自动换行的很长很长很长的问题？");
+    expect(first.rectangle.width).toBeLessThanOrEqual(first.getAutoMaxTextWidth() + 2 * first.getPadding());
+    expect(first.text.startsWith("1.")).toBe(false);
+    settings.dynamicNodeNumbering = false;
+    refreshNodeNumbering(p);
+    expect(numberedNodeText(p, first)).toBe(first.text);
+    settings.dynamicNodeNumbering = true;
+    refreshNodeNumbering(p);
+    expect(numberedNodeText(p, first)).toBe(`1. ${first.text}`);
+  } finally {
+    settings.dynamicNodeNumbering = undefined;
+  }
+});
+
 describe("vertical connection defaults with real PG objects", () => {
   it("reuses fallback paths and bounds while zooming and retries when an overlapping blocker disappears", () => {
     const { p, node } = fixture();

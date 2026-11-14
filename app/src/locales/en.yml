@@ -1080,6 +1080,9 @@ settings:
       default: Default (backup folder)
       sideBySide: Side-by-side (same folder)
       subfolder: Subfolder ({filename}_backup)
+  dynamicNodeNumbering:
+    title: Dynamic question and conclusion numbers
+    description: Number newly created nodes in separate question and conclusion sequences. Reorder after additions, deletions or status changes. Older nodes without creation records remain unnumbered. Display only; turning off hides numbers without changing text.
   questionMarkYellow:
     title: Yellow for trailing question marks
     description: Display nodes ending in ? or ？ in yellow and highlight frame borders when their titles end in a question mark, ignoring trailing whitespace. Applies to existing files without changing saved colors. Disable or remove the question mark to restore original colors. Name each frame after its first question node once; remember this in the file and never automatically rename it again.

@@ -16,6 +16,7 @@ import { Rectangle } from "@graphif/shapes";
 import i18next from "i18next";
 import { renderTableNode } from "./renderTableNode";
 import { questionDisplayColor, questionTextColor } from "../../questionColor";
+import { numberedNodeText } from "@/core/service/dataManageService/nodeNumbering";
 
 @service("textNodeRenderer")
 export class TextNodeRenderer {
@@ -27,7 +28,7 @@ export class TextNodeRenderer {
     const isLogicNode = !node.isTable && this.project.autoComputeUtils.isNameIsLogicNode(node.text);
 
     // 节点身体矩形
-    let fillColor = questionDisplayColor(node.text, node.color);
+    let fillColor = questionDisplayColor(node.text, node.color, true);
     const renderedFontSize = node.getFontSize() * this.project.camera.currentScale;
     if (
       !Settings.alwaysRenderNodeText &&
@@ -534,7 +535,12 @@ export class TextNodeRenderer {
    * @param node
    */
   private renderTextNodeTextLayer(node: TextNode) {
-    const textColor = questionTextColor(node.text, node.color, this.project.stageStyleManager.currentStyle.Background);
+    const textColor = questionTextColor(
+      node.text,
+      node.color,
+      this.project.stageStyleManager.currentStyle.Background,
+      true,
+    );
     // 编辑状态
     if (node.isEditing) {
       // 编辑状态下，在节点顶部显示"正在编辑模式"，底部显示换行和退出提示
@@ -645,7 +651,7 @@ export class TextNodeRenderer {
       }
     } else {
       this.project.textRenderer.renderMultiLineText(
-        node.text,
+        numberedNodeText(this.project, node),
         this.project.renderer.transformWorld2View(
           node.rectangle.location.add(Vector.same(node.getPadding())).add(new Vector(0, node.getFontSize() / 4)),
         ),

@@ -23,6 +23,7 @@ vi.mock("@/core/service/Settings", () => ({
 }));
 vi.mock("@graphif/serializer", () => ({ serialize: () => [], deserialize: () => [] }));
 vi.mock("@/core/service/dataManageService/questionFrameNames", () => ({ applyQuestionFrameNames: () => false }));
+vi.mock("@/core/service/dataManageService/nodeNumbering", () => ({ refreshNodeNumbering: () => {} }));
 
 import { HistoryManager } from "./StageHistoryManager";
 

@@ -1,4 +1,5 @@
 import { Project, service } from "@/core/Project";
+import { prepareNewNumberingNodes } from "@/core/service/dataManageService/nodeNumbering";
 import { RectanglePushInEffect } from "@/core/service/feedbackService/effectEngine/concrete/RectanglePushInEffect";
 import { Settings } from "@/core/service/Settings";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
@@ -64,6 +65,7 @@ export class NodeAdder {
       }
     }
     // 将node本身向左上角移动，使其居中
+    prepareNewNumberingNodes(this.project, [node]);
     node.moveTo(node.rectangle.location.subtract(node.rectangle.size.divide(2)));
     this.project.stageManager.add(node, false, { snapToGrid: !options?.preserveClickPosition });
     this.project.sectionInOutManager.goInSections([node], addToSections);

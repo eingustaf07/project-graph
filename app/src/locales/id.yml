@@ -420,6 +420,9 @@ settings:
     description: |
       Saat diaktifkan, saat kamera diperkecil ke tampilan global yang luas,
       tag akan ditampilkan lebih besar untuk memudahkan identifikasi distribusi layout seluruh file
+  dynamicNodeNumbering:
+    title: Nomor pertanyaan dan kesimpulan dinamis
+    description: Beri nomor terpisah pada node baru menurut waktu pembuatan. Nomor diperbarui setelah penambahan, penghapusan atau perubahan status. Node lama tanpa waktu pembuatan tidak diberi nomor. Menonaktifkan hanya menyembunyikan nomor tanpa mengubah teks.
   questionMarkYellow:
     title: Kuning untuk tanda tanya di akhir
     description: Node yang berakhir dengan ? atau ？ tampil kuning, dan judul bingkai yang berakhir dengan tanda tanya membuat garis bingkai kuning. Mengabaikan spasi akhir. Berlaku pada berkas lama tanpa mengubah warna tersimpan; nonaktifkan untuk memulihkan warna asli. Bingkai diberi nama dari node pertanyaan pertamanya satu kali saja dan statusnya disimpan dalam berkas.

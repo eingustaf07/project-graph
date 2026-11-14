@@ -6,6 +6,7 @@ import { isMac } from "@/utils/platform";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { prepareNewNumberingNodes } from "@/core/service/dataManageService/nodeNumbering";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
@@ -161,6 +162,10 @@ export class CopyEngine {
       await waitForClipboardImages(entities);
       // References point to the same deserialized instances; change each id only once.
       for (const object of objects) object.uuid = v4();
+      prepareNewNumberingNodes(
+        this.project,
+        objects.filter((object): object is TextNode => object instanceof TextNode),
+      );
       const rect = centerClipboardEntities(entities, location);
       if (Settings.snapNewNodesToGrid)
         this.project.stageManager.snapCreatedNodes(

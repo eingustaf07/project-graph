@@ -69,6 +69,7 @@ import { toast } from "sonner";
 import { ClipboardImageUnavailable, CopyEngineImage } from "./copyEngineImage";
 import { Settings } from "@/core/service/Settings";
 import { CopyEngineUtils } from "./copyEngineUtils";
+import { numberedNodeText } from "@/core/service/dataManageService/nodeNumbering";
 import { DeleteManager } from "@/core/stage/stageManager/concreteMethods/StageDeleteManager";
 import { SearchContentHighlightRenderer } from "@/core/render/canvas2d/utilsRenderer/searchContentHighlightRenderer";
 import { setHighlightProjects } from "@/core/service/dataManageService/crossFileHighlight";
@@ -160,6 +161,38 @@ beforeEach(() => {
 afterEach(() => {
   setHighlightProjects([]);
   vi.restoreAllMocks();
+});
+
+it("keeps numbered pasted questions centred at the pointer and assigns a fresh creation record", async () => {
+  const previous = Settings.dynamicNodeNumbering;
+  Settings.dynamicNodeNumbering = true;
+  Settings.questionMarkYellow = true;
+  try {
+    const source = fixture(),
+      target = fixture();
+    const a = new TextNode(source, { text: "复制的问题？" });
+    source.stageManager.add(a);
+    a.isSelected = true;
+    const existing = new TextNode(target, { text: "目标已有问题？" });
+    target.stageManager.add(existing);
+    source.historyManager = new HistoryManager(source);
+    target.historyManager = new HistoryManager(target);
+    await source.copyEngine.copy("nodes");
+    await target.copyEngine.paste();
+    const pasted = target.stageManager.getTextNodes().find((n) => n.uuid !== existing.uuid)!;
+    expect(pasted.text).toBe("复制的问题？");
+    expect(numberedNodeText(target, pasted)).toBe("2. 复制的问题？");
+    expect(pasted.numberingCreatedAt).not.toBe(a.numberingCreatedAt);
+    expectPoint(pasted.geometryCenter, target.renderer.transformView2World(MouseLocation.vector()));
+    clipboard.text = "直接粘贴的问题？";
+    await target.copyEngine.paste();
+    const plain = target.stageManager.getTextNodes().find((n) => n.text === clipboard.text)!;
+    expect(numberedNodeText(target, plain)).toBe("3. 直接粘贴的问题？");
+    expectPoint(plain.geometryCenter, target.renderer.transformView2World(MouseLocation.vector()));
+  } finally {
+    if (previous === undefined) delete (Settings as unknown as Record<string, unknown>).dynamicNodeNumbering;
+    else Settings.dynamicNodeNumbering = previous;
+  }
 });
 
 describe("PG1.3 clipboard with real nodes, edges, sections and history", () => {

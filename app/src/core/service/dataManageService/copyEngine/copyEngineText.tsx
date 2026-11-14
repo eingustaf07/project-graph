@@ -3,6 +3,7 @@ import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { prepareNewNumberingNodes } from "@/core/service/dataManageService/nodeNumbering";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { PathString } from "@/utils/pathString";
 import { Vector } from "@graphif/data-structures";
@@ -141,6 +142,7 @@ export class CopyEngineText {
     }
 
     if (entity !== null) {
+      if (entity instanceof TextNode) prepareNewNumberingNodes(this.project, [entity]);
       centerClipboardEntities([entity], location);
       this.project.stageManager.add(entity);
       // 添加到section

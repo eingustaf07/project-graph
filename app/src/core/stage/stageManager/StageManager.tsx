@@ -1,4 +1,10 @@
 import { nearestFreeTranslation } from "@/core/algorithm/entityClearance";
+import {
+  markNewNumberingNode,
+  queueNodeNumbering,
+  refreshNodeNumbering,
+  watchNodeNumbering,
+} from "@/core/service/dataManageService/nodeNumbering";
 import { Project, service } from "@/core/Project";
 import { EntityShrinkEffect } from "@/core/service/feedbackService/effectEngine/concrete/EntityShrinkEffect";
 import { PenStrokeDeletedEffect } from "@/core/service/feedbackService/effectEngine/concrete/PenStrokeDeletedEffect";
@@ -82,8 +88,10 @@ export class StageManager {
 
   private panRefreshTimer?: ReturnType<typeof setTimeout>;
   private readonly unwatchMaxWidth: () => void;
+  private readonly unwatchNodeNumbering: () => void;
 
   constructor(private readonly project: Project) {
+    this.unwatchNodeNumbering = watchNodeNumbering(project);
     this.unwatchMaxWidth = Settings.watch("textNodeMaxCharWidth", () => {
       // Settings setters notify before updating their backing value.
       queueMicrotask(() => {
@@ -96,6 +104,7 @@ export class StageManager {
   dispose() {
     clearTimeout(this.panRefreshTimer);
     this.unwatchMaxWidth();
+    this.unwatchNodeNumbering();
   }
 
   public getRootSections(): Section[] {
@@ -184,6 +193,7 @@ export class StageManager {
   }
   delete(stageObject: StageObject) {
     this.project.stage.splice(this.project.stage.indexOf(stageObject), 1);
+    if (stageObject instanceof TextNode && stageObject.numberingCreatedAt) queueNodeNumbering(this.project);
   }
 
   getAssociations(): Association[] {
@@ -357,6 +367,7 @@ export class StageManager {
     skipUpdateReferences = false,
     placement?: { doodleOnly?: boolean; snapToGrid?: boolean },
   ) {
+    if (stageObject instanceof TextNode) markNewNumberingNode(this.project, stageObject);
     if (stageObject instanceof Entity) captureNewDoodleEntity(this.project, stageObject, placement?.doodleOnly);
     if (stageObject instanceof ConnectableEntity && Settings.snapNewNodesToGrid && placement?.snapToGrid !== false)
       this.snapCreatedNodes([stageObject]);
@@ -440,6 +451,7 @@ export class StageManager {
         edges[i].shiftingIndex = idx;
       }
     }
+    refreshNodeNumbering(this.project);
   }
 
   rebuildSectionRuntimeTree() {

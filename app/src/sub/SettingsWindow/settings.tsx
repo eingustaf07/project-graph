@@ -302,6 +302,7 @@ export const categories = {
       "enableTagTextNodesBigDisplay",
       "forceHideTextNodeBorder",
       "questionMarkYellow",
+      "dynamicNodeNumbering",
       "textNodeInitBorderStyle",
       "showTreeDirectionHint",
       "showEditModeHint",

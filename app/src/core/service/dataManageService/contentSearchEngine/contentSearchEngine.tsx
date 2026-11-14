@@ -1,4 +1,5 @@
 import { Project, service } from "@/core/Project";
+import { isConclusionText } from "@/core/service/dataManageService/nodeConclusions";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
@@ -191,6 +192,7 @@ export class ContentSearch {
         if (
           (node instanceof TextNode || node instanceof Section) &&
           /[?？]$/.test(node.text.trimEnd()) &&
+          !isConclusionText(node.text) &&
           !matchesTaskFilter(node, completedTask)
         ) {
           this.searchResultNodes.push(node);

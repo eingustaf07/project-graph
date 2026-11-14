@@ -3,6 +3,20 @@ vi.mock("@/core/service/Settings", () => ({ Settings: { questionMarkYellow: fals
 import { Settings } from "@/core/service/Settings";
 import { Color } from "@graphif/data-structures";
 import { isQuestionMarked, questionDisplayColor, questionTextColor } from "./questionColor";
+import { conclusionBlue, expandConclusionShortcut } from "@/core/service/dataManageService/nodeConclusions";
+
+it("expands /jl only at the start and gives old conclusion nodes blue without creation metadata", () => {
+  expect(expandConclusionShortcut("/jl这里是结论")).toBe("结论:这里是结论");
+  expect(expandConclusionShortcut("/JL 内容")).toBe("结论: 内容");
+  expect(expandConclusionShortcut("正文 /jl")).toBe("正文 /jl");
+  Settings.questionMarkYellow = true;
+  for (const text of ["结论:历史内容", "结论：旧问题？"]) {
+    expect(questionDisplayColor(text, Color.Transparent, true)).toBe(conclusionBlue);
+    expect(isQuestionMarked(text)).toBe(false);
+  }
+  expect(questionDisplayColor("✅ 结论:已完成", Color.Green, true)).toBe(Color.Green);
+  expect(questionDisplayColor("❌ 结论:待修订", Color.Red, true)).toBe(Color.Red);
+});
 afterEach(() => {
   Settings.questionMarkYellow = false;
 });

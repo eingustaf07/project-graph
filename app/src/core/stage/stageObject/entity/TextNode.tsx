@@ -16,6 +16,8 @@ import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
 import type { Value } from "platejs";
+import { numberedNodeText, numberingTextChanged } from "@/core/service/dataManageService/nodeNumbering";
+import { conclusionBlue, expandConclusionShortcut } from "@/core/service/dataManageService/nodeConclusions";
 
 /**
  *
@@ -30,6 +32,8 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   uuid: string;
   @serializable
   text: string;
+  @serializable
+  numberingCreatedAt?: number;
   @serializable
   isTable?: boolean;
   @serializable
@@ -131,6 +135,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       fontWeight = "",
       borderStyle = "solid" as "solid" | "dashed" | "none",
       isTable,
+      numberingCreatedAt,
     }: {
       uuid?: string;
       text?: string;
@@ -144,12 +149,16 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       fontWeight?: string;
       borderStyle?: "solid" | "dashed" | "none";
       isTable?: boolean;
+      numberingCreatedAt?: number;
     },
     public unknown = false,
   ) {
     super(crossFileLinks);
     this.uuid = uuid;
     this.text = text;
+    if (Number.isSafeInteger(numberingCreatedAt) && numberingCreatedAt! > 0)
+      this.numberingCreatedAt = numberingCreatedAt;
+    else delete this.numberingCreatedAt;
     this.details = details;
     this.collisionBox = collisionBox;
     this.color = color;
@@ -304,19 +313,26 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     const cached = this.tableLayoutCache;
     if (
       !cached ||
-      cached.text !== this.text ||
+      cached.text !== numberedNodeText(this.project, this) ||
       cached.fontSize !== this.getFontSize() ||
       cached.family !== family ||
       cached.weight !== this.fontWeight ||
       cached.width !== width
     )
       this.tableLayoutCache = {
-        text: this.text,
+        text: numberedNodeText(this.project, this),
         fontSize: this.getFontSize(),
         family,
         weight: this.fontWeight,
         width,
-        layout: layoutTable(this.text, this.getFontSize(), this.getPadding(), family, this.fontWeight, width),
+        layout: layoutTable(
+          numberedNodeText(this.project, this),
+          this.getFontSize(),
+          this.getPadding(),
+          family,
+          this.fontWeight,
+          width,
+        ),
       };
     return this.tableLayoutCache!.layout;
   }
@@ -330,7 +346,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       );
     } else {
       const naturalSize = getMultiLineTextSize(
-        this.text,
+        numberedNodeText(this.project, this),
         this.getFontSize(),
         1.5,
         undefined,
@@ -339,7 +355,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
       );
       const width = Math.min(naturalSize.x, this.getAutoMaxTextWidth());
       const wrappedSize = getMultiLineTextSize(
-        this.text,
+        numberedNodeText(this.project, this),
         this.getFontSize(),
         1.5,
         width,
@@ -354,7 +370,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     this.constrainToFixedBoundary();
     this.resolveOverlaps();
     this.lastAutoSize = {
-      text: this.text,
+      text: numberedNodeText(this.project, this),
       fontSize: this.getFontSize(),
       fontFamily: this.fontFamily || Settings.defaultFontFamily,
       fontWeight: this.fontWeight || "normal",
@@ -382,7 +398,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     if (
       previous &&
       previous.isTable === this.isTable &&
-      previous.text === this.text &&
+      previous.text === numberedNodeText(this.project, this) &&
       previous.fontSize === this.getFontSize() &&
       previous.fontFamily === (this.fontFamily || Settings.defaultFontFamily) &&
       previous.fontWeight === (this.fontWeight || "normal") &&
@@ -415,7 +431,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     }
     const wrapWidth = this.rectangle.size.x - this.getPadding() * 2;
     const newTextSize = this.project.textRenderer.measureMultiLineTextSize(
-      this.text,
+      numberedNodeText(this.project, this),
       this.getFontSize(),
       wrapWidth,
       1.5,
@@ -452,7 +468,9 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   // }
 
   rename(text: string) {
-    this.text = text;
+    this.text = expandConclusionShortcut(text);
+    if (this.text !== text) this.color = conclusionBlue.clone();
+    numberingTextChanged(this.project, this);
     // if (this.text.length < TextNode.enableResizeCharCount) {
     //   this.adjustSizeByText();
     // }
