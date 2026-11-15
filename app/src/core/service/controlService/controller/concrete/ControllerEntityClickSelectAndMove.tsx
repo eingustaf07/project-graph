@@ -5,6 +5,8 @@ import { ConnectNodeSmartTools } from "@/core/service/dataManageService/connectN
 import { RectangleNoteEffect } from "@/core/service/feedbackService/effectEngine/concrete/RectangleNoteEffect";
 import { RectangleRenderEffect } from "@/core/service/feedbackService/effectEngine/concrete/RectangleRenderEffect";
 import { Settings } from "@/core/service/Settings";
+import { SoundService } from "@/core/service/feedbackService/SoundService";
+import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { isMac } from "@/utils/platform";
@@ -53,6 +55,7 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
     }
 
     const clickedStageObject = this.project.controllerUtils.getClickedStageObject(pressWorldLocation);
+    const wasSelected = clickedStageObject?.isSelected;
 
     // 检查点击的物体是否在锁定的 section 内
     if (clickedStageObject && clickedStageObject instanceof Entity) {
@@ -135,7 +138,10 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
         clickedStageObject.isSelected = true;
       } else {
         // 直接点击
-        if (!clickedStageObject.isSelected && !(Settings.mouseLeftMode === "accumulateSelection" && clickedStageObject instanceof Entity)) {
+        if (
+          !clickedStageObject.isSelected &&
+          !(Settings.mouseLeftMode === "accumulateSelection" && clickedStageObject instanceof Entity)
+        ) {
           // 清空所有其他节点的选中状态
           this.project.stageManager.getStageObjects().forEach((stageObject) => {
             if (stageObject === clickedStageObject) {
@@ -148,8 +154,9 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
         // 选中点击节点的状态
         clickedStageObject.isSelected = true;
       }
-    } else {
-      // 未点击到节点
+    }
+    if (clickedStageObject instanceof ConnectableEntity && clickedStageObject.isSelected && !wasSelected) {
+      void SoundService.playNodeSelected();
     }
   };
 

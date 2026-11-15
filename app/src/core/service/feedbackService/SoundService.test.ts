@@ -48,6 +48,7 @@ vi.mock("../Settings", () => ({
 }));
 
 beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }));
   vi.resetModules();
   vi.clearAllMocks();
   fixture.volume = 100;
@@ -89,6 +90,24 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("PG sound effects volume", () => {
+  it("plays the distinct bundled selection sound, reuses its buffer and respects its switch", async () => {
+    const { SoundService } = await import("./SoundService");
+    await SoundService.playNodeSelected();
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining("node-selected.wav"));
+    const buffer = fixture.sources[0].buffer;
+    await SoundService.playNodeSelected();
+    expect(fixture.sources[1].buffer).toBe(buffer);
+    fixture.effectEnabled.nodeSelected = false;
+    await SoundService.playNodeSelected();
+    expect(fixture.sources).toHaveLength(2);
+    fixture.effectEnabled.nodeSelected = true;
+    fixture.enabled = false;
+    await SoundService.playNodeSelected();
+    fixture.enabled = true;
+    fixture.volume = 0;
+    await SoundService.playNodeSelected();
+    expect(fixture.sources).toHaveLength(2);
+  });
   it("uses the configured jump file for node creation with the node creation switch", async () => {
     fixture.paths = { entityJumpSoundFile: "jump.mp3", treeAdjustSoundFile: "adjust.mp3" };
     const { SoundService } = await import("./SoundService");
@@ -122,7 +141,7 @@ describe("PG sound effects volume", () => {
   });
   it("independently mutes effects even when they share a file, and mutes built-in tones", async () => {
     const { SoundService } = await import("./SoundService");
-    await vi.waitFor(() => expect(fixture.decode).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(fixture.decode).toHaveBeenCalledTimes(2));
     await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.effectEnabled.uiButtonClickSoundFile = false;
     SoundService.play.mouseClickButton();
@@ -206,7 +225,7 @@ describe("PG sound effects volume", () => {
 
   it("preloads shared files once and starts warm effects synchronously", async () => {
     const { SoundService } = await import("./SoundService");
-    await vi.waitFor(() => expect(fixture.decode).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(fixture.decode).toHaveBeenCalledTimes(2));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fixture.readFile).toHaveBeenCalledTimes(1);
     expect(fixture.sources).toHaveLength(0);
@@ -216,20 +235,20 @@ describe("PG sound effects volume", () => {
   });
 
   it("does not replay stale clicks after slow decoding, but caches the result", async () => {
-    let complete!: (buffer: object) => void;
+    const completions: ((buffer: object) => void)[] = [];
     fixture.decode.mockImplementation(
       () =>
         new Promise((resolve) => {
-          complete = resolve;
+          completions.push(resolve);
         }),
     );
     const clock = vi.spyOn(performance, "now").mockReturnValue(0);
     const { SoundService } = await import("./SoundService");
     SoundService.play.mouseClickButton();
     SoundService.play.mouseClickButton();
-    await vi.waitFor(() => expect(fixture.decode).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(fixture.decode).toHaveBeenCalledTimes(2));
     clock.mockReturnValue(200);
-    complete({ duration: 1 });
+    completions.forEach((complete) => complete({ duration: 1 }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fixture.sources).toHaveLength(0);
     SoundService.play.mouseClickButton();

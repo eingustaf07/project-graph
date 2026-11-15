@@ -1,5 +1,6 @@
 import { readFile } from "@tauri-apps/plugin-fs";
 import { Settings } from "../Settings";
+import nodeSelectedSound from "@/assets/sounds/node-selected.wav?url";
 
 /**
  * 播放音效的服务
@@ -126,6 +127,10 @@ export namespace SoundService {
     return loadAndPlaySound(Settings.entityJumpSoundFile, "nodeCreated");
   }
 
+  export function playNodeSelected() {
+    return loadAndPlaySound(nodeSelectedSound, "nodeSelected");
+  }
+
   export function playDoodleCreated() {
     return playCreationTone("doodleCreated", 330);
   }
@@ -231,7 +236,13 @@ export namespace SoundService {
     const pending = pendingBuffers.get(filePath);
     if (pending) return pending;
     const loading = (async () => {
-      const bytes = await readFile(filePath);
+      const bytes =
+        filePath === nodeSelectedSound
+          ? await fetch(nodeSelectedSound).then(async (response) => {
+              if (!response.ok) throw new Error("无法加载节点选中音效");
+              return new Uint8Array(await response.arrayBuffer());
+            })
+          : await readFile(filePath);
       const buffer = await audioContext.decodeAudioData(new Uint8Array(bytes).buffer);
       pathAudioBufferMap.set(filePath, buffer);
       return buffer;
@@ -269,6 +280,7 @@ export namespace SoundService {
   }
   Settings.watch("soundEnabled", (enabled: boolean) => {
     if (enabled) {
+      void getAudioBufferByFilePath(nodeSelectedSound);
       for (const key of soundKeys) {
         const path = Settings[key];
         if (path.trim()) void getAudioBufferByFilePath(path);

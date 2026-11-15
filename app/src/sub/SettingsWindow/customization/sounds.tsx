@@ -201,6 +201,7 @@ export default function SoundEffectsPage() {
       </p>
       {[
         { key: "nodeCreated", name: "双击创建节点", play: SoundService.playNodeCreated },
+        { key: "nodeSelected", name: "选中节点", play: SoundService.playNodeSelected },
         { key: "doodleCreated", name: "创建涂鸦或容器", play: SoundService.playDoodleCreated },
         { key: "objectsDeleted", name: "快捷键删除对象", play: SoundService.playObjectsDeleted },
         { key: "custom", name: "扩展或自定义路径音效" },

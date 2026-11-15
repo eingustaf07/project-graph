@@ -22,6 +22,7 @@ export const SoundService = {
   },
   playSoundByFilePath: noOp,
   playNodeCreated: () => Promise.resolve(),
+  playNodeSelected: () => Promise.resolve(),
   playDoodleCreated: () => Promise.resolve(),
   playObjectsDeleted: () => Promise.resolve(),
 } satisfies typeof import("@/core/service/feedbackService/SoundService").SoundService;
