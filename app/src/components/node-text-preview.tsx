@@ -22,6 +22,12 @@ export default function NodeTextPreview({
           type="button"
           className="hover:bg-accent focus-visible:ring-ring flex size-8 shrink-0 cursor-pointer items-center justify-center rounded focus-visible:ring-2"
           aria-label="关闭节点文字预览"
+          onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          }}
           onClick={(event) => {
             event.stopPropagation();
             onClose();
