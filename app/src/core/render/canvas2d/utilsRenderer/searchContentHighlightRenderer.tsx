@@ -10,6 +10,7 @@ import { ConnectableAssociation } from "@/core/stage/stageObject/abstract/Associ
 import { collectChainNodeIds, collectConnectedNodeIds } from "@/core/algorithm/connectedNodeHighlight";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { Settings } from "@/core/service/Settings";
+import { Rectangle } from "@graphif/shapes";
 
 /**
  * 搜索结果与连通节点的临时高亮，不改变对象的实际颜色或选择状态。
@@ -24,7 +25,12 @@ export class SearchContentHighlightRenderer {
   private dirty = true;
   private selectionDirty = true;
   private followingSelection = false;
+  private fitPending = true;
+  private fittedNodes?: readonly ConnectableEntity[];
+  private fittedScope?: typeof Settings.connectedNodeHighlightScope;
+  private fittedLocked = false;
   public invalidateSelection() {
+    this.fitPending = true;
     this.selectionDirty = true;
     if (Settings.connectedNodeHighlightLocked) invalidateCrossFileHighlight();
   }
@@ -32,6 +38,7 @@ export class SearchContentHighlightRenderer {
     return Settings.connectedNodeHighlightLocked ? this.selectedRoots() : this.roots;
   }
   private readonly invalidate = () => {
+    this.fitPending = true;
     invalidateCrossFileHighlight();
     this.dirty = true;
   };
@@ -147,10 +154,19 @@ export class SearchContentHighlightRenderer {
     return crossFileHighlighted(this.project) ?? this.connectedNodes;
   }
 
+  public prepareViewport() {
+    if (!Settings.connectedNodeHighlightLocked) {
+      this.fittedLocked = false;
+      return;
+    }
+    this.fitLockedHighlight(this.getConnectedHighlightedNodes());
+  }
+
   // Existing callers may still pass the canvas frame number.
   render(frameTickIndex?: number): void;
   render() {
     const highlighted = this.getConnectedHighlightedNodes();
+    this.fitLockedHighlight(highlighted);
     const selectedColor = this.project.stageStyleManager.currentStyle.CollideBoxSelected;
     const outline = new Color(255 - selectedColor.r, 255 - selectedColor.g, 255 - selectedColor.b, 0.9);
     for (const node of highlighted) {
@@ -183,5 +199,46 @@ export class SearchContentHighlightRenderer {
         );
       }
     }
+  }
+
+  private fitLockedHighlight(nodes: readonly ConnectableEntity[]) {
+    if (!Settings.connectedNodeHighlightLocked) {
+      this.fittedLocked = false;
+      return;
+    }
+    if (
+      !this.fitPending &&
+      this.fittedLocked &&
+      this.fittedNodes === nodes &&
+      this.fittedScope === Settings.connectedNodeHighlightScope
+    )
+      return;
+    const { camera, renderer } = this.project;
+    const width = renderer.w - 24;
+    const height = renderer.h - 24;
+    if (!camera || !(width > 0 && height > 0 && camera.currentScale > 0)) return;
+    this.fitPending = false;
+    this.fittedLocked = true;
+    this.fittedNodes = nodes;
+    this.fittedScope = Settings.connectedNodeHighlightScope;
+    const visible = nodes.filter((node) => !node.isHiddenBySectionCollapse);
+    if (!visible.length) return;
+    const bounds = Rectangle.getBoundingRectangle(visible.map((node) => node.collisionBox.getRectangle()));
+    const halfWidth = renderer.w / (2 * camera.currentScale);
+    const halfHeight = renderer.h / (2 * camera.currentScale);
+    if (
+      bounds.left >= camera.location.x - halfWidth &&
+      bounds.right <= camera.location.x + halfWidth &&
+      bounds.top >= camera.location.y - halfHeight &&
+      bounds.bottom <= camera.location.y + halfHeight
+    )
+      return;
+    const scale = Math.min(camera.currentScale, width / Math.max(bounds.width, 1), height / Math.max(bounds.height, 1));
+    camera.stopImmediately();
+    camera.location = bounds.center.clone();
+    camera.targetLocationByScale = camera.location.clone();
+    camera.currentScale = scale;
+    camera.targetScale = scale;
+    this.project.controller.resetCountdownTimer();
   }
 }

@@ -73,6 +73,55 @@ function fixture() {
 }
 
 describe("connected highlight overlay", () => {
+  it.each([1, 4])("fits locked highlights only when outside the viewport at zoom %s", (scale) => {
+    const { project, renderer } = fixture();
+    highlightSettings.connectedNodeHighlightLocked = true;
+    project.renderer.w = 1000;
+    project.renderer.h = 600;
+    const initial = new Vector(250, 30);
+    project.camera = {
+      currentScale: scale,
+      targetScale: scale,
+      location: initial,
+      targetLocationByScale: initial.clone(),
+      stopImmediately: vi.fn(),
+    };
+    project.controller = { resetCountdownTimer: vi.fn() };
+    renderer.render();
+    if (scale === 1) {
+      expect(project.camera.currentScale).toBe(1);
+      expect(project.camera.location).toBe(initial);
+      expect(project.camera.stopImmediately).not.toHaveBeenCalled();
+    } else {
+      expect(project.camera.currentScale).toBeCloseTo(976 / 500);
+      expect(project.camera.targetScale).toBe(project.camera.currentScale);
+      expect(project.camera.location).toEqual(new Vector(250, 30));
+      expect(project.camera.stopImmediately).toHaveBeenCalledOnce();
+      const left = (0 - project.camera.location.x) * project.camera.currentScale + 500;
+      const right = (500 - project.camera.location.x) * project.camera.currentScale + 500;
+      expect(left).toBeCloseTo(12);
+      expect(right).toBeCloseTo(988);
+    }
+    project.camera.stopImmediately.mockClear();
+    project.camera.location = new Vector(9999, 9999);
+    renderer.render();
+    expect(project.camera.stopImmediately).not.toHaveBeenCalled();
+  });
+
+  it("pans an offscreen group that fits without enlarging it and leaves manual highlighting alone", () => {
+    const { project, renderer } = fixture();
+    project.renderer.w = 1000;
+    project.renderer.h = 600;
+    project.camera = { currentScale: 1, targetScale: 1, location: new Vector(9999, 9999), stopImmediately: vi.fn() };
+    project.controller = { resetCountdownTimer: vi.fn() };
+    renderer.toggleConnectedHighlight();
+    renderer.render();
+    expect(project.camera.stopImmediately).not.toHaveBeenCalled();
+    highlightSettings.connectedNodeHighlightLocked = true;
+    renderer.render();
+    expect(project.camera.currentScale).toBe(1);
+    expect(project.camera.location).toEqual(new Vector(250, 30));
+  });
   it("refreshes the selected roots on a manual command while keeping the lock", () => {
     const { a, other, renderer } = fixture();
     highlightSettings.connectedNodeHighlightLocked = true;

@@ -94,6 +94,7 @@ export class Renderer {
 
   private tick_() {
     this.updateFPS();
+    this.project.searchContentHighlightRenderer?.prepareViewport?.();
     const viewRectangle = this.getCoverWorldRectangle();
     this.renderBackground();
     this.renderMainStageElements(viewRectangle);
