@@ -656,7 +656,7 @@ export namespace KeyBindsUI {
         (isCopyInputFocused() || userEventQueue.arrayList.at(-1)?.defaultPrevented)
       )
         continue;
-      if (uiKeyBind.id.startsWith("doodle") && uiKeyBind.key) {
+      if ((uiKeyBind.id.startsWith("doodle") || uiKeyBind.id === "openColorPanel") && uiKeyBind.key) {
         let hasLonger = false;
         for (const candidate of allUIKeyBinds) {
           if (

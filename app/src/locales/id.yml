@@ -2541,6 +2541,12 @@ keyBinds:
   increaseBrightness:
     title: Tingkatkan Kecerahan Warna Entitas yang Dipilih
     description: Tidak dapat digunakan pada entitas yang tidak berwarna atau transparan, b adalah brightness, tombol titik juga adalah tombol >, dapat dilihat sebagai bergerak ke kanan, nilai bertambah
+  colorSelectedYellow:
+    title: Warnai objek terpilih kuning
+    description: Tekan Y, Y, Y berurutan. Dapat dibatalkan.
+  colorSelectedBlue:
+    title: Warnai objek terpilih biru
+    description: Tekan Y, Y, B berurutan. Dapat dibatalkan.
   decreaseBrightness:
     title: Kurangi Kecerahan Warna Entitas yang Dipilih
     description: Tidak dapat digunakan pada entitas yang tidak berwarna atau transparan, b adalah brightness, tombol koma juga adalah tombol <, dapat dilihat sebagai bergerak ke kiri, nilai berkurang

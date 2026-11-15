@@ -3119,6 +3119,20 @@ export const allKeyBinds: KeyBindItem[] = [
 
   /*------- 快速着色 -------*/
   {
+    id: "colorSelectedYellow",
+    defaultKey: "y y y",
+    icon: Palette,
+    when: whenHasSelectedColorableStageObjects,
+    onPress: (project) => project!.stageObjectColorManager.setSelectedStageObjectColor(new Color(234, 179, 8)),
+  },
+  {
+    id: "colorSelectedBlue",
+    defaultKey: "y y b",
+    icon: Palette,
+    when: whenHasSelectedColorableStageObjects,
+    onPress: (project) => project!.stageObjectColorManager.setSelectedStageObjectColor(new Color(59, 130, 246)),
+  },
+  {
     id: "colorSelectedRed",
     defaultKey: "; r e d",
     icon: Palette,

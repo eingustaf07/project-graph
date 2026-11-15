@@ -653,6 +653,8 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
       "windowOpacityAlphaIncrease",
       "windowOpacityAlphaDecrease",
       "openColorPanel",
+      "colorSelectedYellow",
+      "colorSelectedBlue",
       "openAIPanel",
       "clickAppMenuSettingsButton",
       "clickTagPanelButton",

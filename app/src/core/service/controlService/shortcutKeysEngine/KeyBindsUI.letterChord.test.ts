@@ -17,6 +17,9 @@ const fixture = vi.hoisted(() => ({
   highlightSelect: vi.fn(),
   highlightText: vi.fn(),
   highlightLocked: true,
+  colorEnabled: false,
+  yellow: vi.fn(),
+  blue: vi.fn(),
 }));
 vi.mock("@/core/Project", () => ({ Project: class Project {} }));
 vi.mock("@/state", () => ({
@@ -36,6 +39,13 @@ vi.mock("@/utils/store", () => ({
 vi.mock("./shortcutKeysRegister", () => ({
   allKeyBinds: [
     { id: "openColorPanel", defaultKey: "F6", when: () => true, onPress: () => fixture.open() },
+    {
+      id: "colorSelectedYellow",
+      defaultKey: "y y y",
+      when: () => fixture.colorEnabled,
+      onPress: () => fixture.yellow(),
+    },
+    { id: "colorSelectedBlue", defaultKey: "y y b", when: () => fixture.colorEnabled, onPress: () => fixture.blue() },
     { id: "openColorPaletteWindow", defaultKey: "S-F6", when: () => true, onPress: () => fixture.normal() },
     { id: "shrinkSelectedFrames", defaultKey: "-", when: () => true, onPress: () => fixture.shrink() },
     { id: "growSelectedFrames", defaultKey: "=", when: () => true, onPress: () => fixture.grow() },
@@ -94,6 +104,9 @@ beforeEach(async () => {
   fixture.highlightSelect.mockClear();
   fixture.highlightText.mockClear();
   fixture.highlightLocked = true;
+  fixture.colorEnabled = false;
+  fixture.yellow.mockClear();
+  fixture.blue.mockClear();
   fixture.active = new Project(URI.parse("draft://shortcut-test"));
   document.body.innerHTML = "";
   await KeyBindsUI.registerAllUIKeyBinds();
@@ -111,6 +124,30 @@ it("keeps YY on the color picker and removes the duplicate document color sideba
   expect(fixture.open).toHaveBeenCalledOnce();
   expect(fixture.normal).not.toHaveBeenCalled();
   expect(fixture.saved.get("openColorPaletteWindow")).toEqual({ key: "", isEnabled: true });
+});
+
+it.each(["y", "b"])("completes YY then %s without opening the color picker", async (letter) => {
+  fixture.colorEnabled = true;
+  await KeyBindsUI.changeOneUIKeyBind("openColorPanel", "y y");
+  for (const key of ["y", "y", letter]) {
+    await down(key);
+    await up(key);
+  }
+  expect(letter === "y" ? fixture.yellow : fixture.blue).toHaveBeenCalledOnce();
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  expect(fixture.open).not.toHaveBeenCalled();
+});
+
+it("opens the color picker after YY when no third letter follows", async () => {
+  fixture.colorEnabled = true;
+  await KeyBindsUI.changeOneUIKeyBind("openColorPanel", "y y");
+  for (const key of ["y", "y"]) {
+    await down(key);
+    await up(key);
+  }
+  expect(fixture.open).not.toHaveBeenCalled();
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  expect(fixture.open).toHaveBeenCalledOnce();
 });
 
 it.each([

@@ -2501,6 +2501,12 @@ keyBinds:
   colorSelectedRed:
     title: 將所有選取物體染色為純紅色
     description: 具體為：(239, 68, 68)，僅作快速標註用
+  colorSelectedYellow:
+    title: 將選取物件標黃
+    description: 依序快速按 Y、Y、Y，可復原。
+  colorSelectedBlue:
+    title: 將選取物件標藍
+    description: 依序快速按 Y、Y、B，可復原。
   increaseBrightness:
     title: 將所選實體的顏色亮度增加
     description: 不能對沒有上色的或者透明的實體使用，b是brightness，句號鍵也是>鍵，可以看成往右走，數值增大

@@ -2345,6 +2345,12 @@ keyBinds:
   colorSelectedRed:
     title: 将所有选中物体染色为纯红色
     description: 具体为：(239, 68, 68)，仅作快速标注用
+  colorSelectedYellow:
+    title: 将选中对象标黄
+    description: 依次快速按 Y、Y、Y，使用调色盘的黄色，可撤销。
+  colorSelectedBlue:
+    title: 将选中对象标蓝
+    description: 依次快速按 Y、Y、B，使用调色盘的蓝色，可撤销。
   increaseBrightness:
     title: 将所选实体的颜色亮度增加
     description: 不能对没有上色的或者透明的实体使用，b是brightness，句号键也是>键，可以看成往右走，数值增大

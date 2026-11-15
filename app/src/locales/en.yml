@@ -1565,6 +1565,12 @@ keys:
   wheeldown: Scroll Wheel Down
 
 keyBinds:
+  colorSelectedYellow:
+    title: Color selected objects yellow
+    description: Press Y, Y, Y in sequence. Supports undo.
+  colorSelectedBlue:
+    title: Color selected objects blue
+    description: Press Y, Y, B in sequence. Supports undo.
   growFrameLength:
     title: Increase frame length horizontally
     description: Hold L and press the main plus key to increase horizontal size by 10%, keeping vertical size.
