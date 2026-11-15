@@ -37,9 +37,9 @@ export enum SearchScope {
 // Signatures written by the text-node-todolist extension.
 function taskFilter(query: string) {
   switch (query.toLowerCase()) {
-    case "/okk":
+    case "/ok":
       return { prefix: "✅ ", r: 52, g: 103, b: 53 };
-    case "/err":
+    case "/er":
       return { prefix: "❌ ", r: 52, g: 12, b: 14 };
   }
 }
@@ -207,7 +207,7 @@ export class ContentSearch {
     const objectsToSearch = this.getObjectsToSearch();
 
     const filter = taskFilter(searchString);
-    const completedTask = taskFilter("/okk")!;
+    const completedTask = taskFilter("/ok")!;
     const matchesText = textMatcher(searchString, this.matchMode, this.isCaseSensitive);
     for (const node of objectsToSearch) {
       if (searchString === "/问题") {

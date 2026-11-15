@@ -115,7 +115,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-4">
       <div className="shrink-0 space-y-2">
         <Input
-          placeholder="搜索文字；/问题 查问号结尾的节点和框，/空 查空白或默认编号，/okk 查绿标，/err 查红标"
+          placeholder="搜索文字；/问题 查问号结尾的节点和框，/空 查空白或默认编号，/ok 查绿标，/er 查红标"
           aria-label={t("findLabel")}
           autoFocus
           type="search"

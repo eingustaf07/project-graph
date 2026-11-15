@@ -334,7 +334,7 @@ describe("find/replace in the current Project", () => {
     const red = { r: 52, g: 12, b: 14 };
     const ok = Object.assign(node("✅ 已完成"), { color: green });
     const err = Object.assign(node("❌ 待修复"), { color: red, isSelected: true });
-    const literal = node("/okk /err");
+    const literal = node("/ok /er");
     const { search, recordStep } = createProject(
       ok,
       err,
@@ -342,20 +342,20 @@ describe("find/replace in the current Project", () => {
       Object.assign(node("手工绿色"), { color: green }),
       node("✅ 仅有符号"),
     );
-    search.startSearch("/okk", false);
+    search.startSearch("/ok", false);
     expect(search.searchResultNodes).toEqual([ok]);
-    expect(search.getReplacementStatus("/okk").hasCurrent).toBe(false);
-    expect(search.replaceText("/okk", "替换", true).count).toBe(0);
-    expect(literal.text).toBe("/okk /err");
+    expect(search.getReplacementStatus("/ok").hasCurrent).toBe(false);
+    expect(search.replaceText("/ok", "替换", true).count).toBe(0);
+    expect(literal.text).toBe("/ok /er");
     expect(recordStep).not.toHaveBeenCalled();
     search.searchScope = SearchScope.SELECTED;
-    expect(search.startSearch("/okk", false)).toBe(false);
-    search.startSearch("/ERR", false);
+    expect(search.startSearch("/ok", false)).toBe(false);
+    search.startSearch("/ER", false);
     expect(search.searchResultNodes).toEqual([err]);
     err.rename("待修复");
-    expect(search.startSearch("/err", false)).toBe(false);
+    expect(search.startSearch("/er", false)).toBe(false);
     search.searchScope = SearchScope.ALL;
-    search.startSearch("/okk /err", false);
+    search.startSearch("/ok /er", false);
     expect(search.searchResultNodes).toEqual([literal]);
   });
   beforeEach(() => {
