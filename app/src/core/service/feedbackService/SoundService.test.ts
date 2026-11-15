@@ -108,6 +108,18 @@ describe("PG sound effects volume", () => {
     await SoundService.playNodeSelected();
     expect(fixture.sources).toHaveLength(2);
   });
+  it("starts a preloaded node selection sound synchronously without fetching or decoding on selection", async () => {
+    const { SoundService } = await import("./SoundService");
+    await vi.waitFor(() => expect(fixture.decode).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    vi.mocked(fetch).mockClear();
+    fixture.decode.mockClear();
+    void SoundService.playNodeSelected();
+    expect(fixture.sources).toHaveLength(1);
+    expect(fixture.sources[0].start).toHaveBeenCalledWith(0);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(fixture.decode).not.toHaveBeenCalled();
+  });
   it("uses the configured jump file for node creation with the node creation switch", async () => {
     fixture.paths = { entityJumpSoundFile: "jump.mp3", treeAdjustSoundFile: "adjust.mp3" };
     const { SoundService } = await import("./SoundService");

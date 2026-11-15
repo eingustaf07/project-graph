@@ -35,6 +35,8 @@ vi.mock("@/utils/store", () => ({
 }));
 vi.mock("./shortcutKeysRegister", () => ({
   allKeyBinds: [
+    { id: "openColorPanel", defaultKey: "F6", when: () => true, onPress: () => fixture.open() },
+    { id: "openColorPaletteWindow", defaultKey: "S-F6", when: () => true, onPress: () => fixture.normal() },
     { id: "shrinkSelectedFrames", defaultKey: "-", when: () => true, onPress: () => fixture.shrink() },
     { id: "growSelectedFrames", defaultKey: "=", when: () => true, onPress: () => fixture.grow() },
     { id: "growFrameLength", defaultKey: "l+=", when: () => true, onPress: () => fixture.lengthGrow() },
@@ -96,6 +98,19 @@ beforeEach(async () => {
   document.body.innerHTML = "";
   await KeyBindsUI.registerAllUIKeyBinds();
   KeyBindsUI.uiStartListen();
+});
+
+it("keeps YY on the color picker and removes the duplicate document color sidebar binding", async () => {
+  fixture.saved.set("openColorPanel", { key: "y y", isEnabled: true });
+  fixture.saved.set("openColorPaletteWindow", { key: "y y", isEnabled: true });
+  await KeyBindsUI.registerAllUIKeyBinds();
+  await down("y");
+  await up("y");
+  await down("y");
+  await up("y");
+  expect(fixture.open).toHaveBeenCalledOnce();
+  expect(fixture.normal).not.toHaveBeenCalled();
+  expect(fixture.saved.get("openColorPaletteWindow")).toEqual({ key: "", isEnabled: true });
 });
 
 it.each([

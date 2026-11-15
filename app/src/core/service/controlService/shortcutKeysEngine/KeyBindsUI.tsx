@@ -270,6 +270,16 @@ export namespace KeyBindsUI {
         key = keybind.defaultKey;
         await store.set(keybind.id, { key, isEnabled });
       }
+      const colorPanel = savedBindings.get("openColorPanel");
+      if (
+        keybind.id === "openColorPaletteWindow" &&
+        key === "y y" &&
+        (colorPanel === "y y" ||
+          (typeof colorPanel === "object" && colorPanel?.key === "y y" && colorPanel.isEnabled !== false))
+      ) {
+        key = "";
+        await store.set(keybind.id, { key, isEnabled });
+      }
 
       KeyBindsUI.registerOneUIKeyBind(
         keybind.id,
