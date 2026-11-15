@@ -22,6 +22,7 @@ import {
   isWindowMaxsizedAtom,
   tabsAtom,
   selectedNodeTextPreviewAtom,
+  store,
 } from "@/state";
 import WelcomeWindow from "@/sub/WelcomeWindow";
 import { getVersion } from "@tauri-apps/api/app";
@@ -349,7 +350,7 @@ export default function App() {
   );
 
   const zoomStyle = uiScalePercent !== 100 ? ({ zoom: `${uiScalePercent / 100}` } as React.CSSProperties) : undefined;
-  const [textPreview, setTextPreview] = useAtom(selectedNodeTextPreviewAtom);
+  const [textPreview, setTextPreview] = useAtom(selectedNodeTextPreviewAtom, { store });
 
   return (
     <>

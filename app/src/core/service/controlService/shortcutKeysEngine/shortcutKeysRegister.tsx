@@ -4104,8 +4104,13 @@ export const allKeyBinds: KeyBindItem[] = [
     id: "previewSelectedNodeText",
     defaultKey: "S-s",
     icon: ExternalLink,
-    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
+    when: (project) =>
+      !!store.get(selectedNodeTextPreviewAtom) || whenKeyboardOnlyOpenWithSelectedStageObjects(project),
     onPress: (project) => {
+      if (store.get(selectedNodeTextPreviewAtom)) {
+        store.set(selectedNodeTextPreviewAtom, null);
+        return;
+      }
       if (!project) return;
       const items = project.stageManager
         .getSelectedEntities()
@@ -4117,13 +4122,7 @@ export const allKeyBinds: KeyBindItem[] = [
         .map((node) => ({ id: node.uuid, text: node.text }));
       if (!items.length) return;
       const text = items.map((item) => item.text).join("\n\n");
-      const previous = store.get(selectedNodeTextPreviewAtom);
-      store.set(
-        selectedNodeTextPreviewAtom,
-        previous?.projectId === project.id && JSON.stringify(previous.items) === JSON.stringify(items)
-          ? null
-          : { projectId: project.id, text, items },
-      );
+      store.set(selectedNodeTextPreviewAtom, { projectId: project.id, text, items });
     },
   },
   {
