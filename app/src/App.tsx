@@ -37,6 +37,7 @@ import { cpuInfo } from "tauri-plugin-system-info-api";
 import CommandPalette from "./CommandPalette";
 import { DropWindowCover } from "./DropWindowCover";
 import DockedArea from "./components/docked-area";
+import NodeTextPreview from "./components/node-text-preview";
 import RenderOverlays from "./components/overlay-host";
 import { KeyBindsUI } from "./core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { checkAndFixShortcutStorage } from "./core/service/controlService/shortcutKeysEngine/ShortcutKeyFixer";
@@ -353,19 +354,7 @@ export default function App() {
   return (
     <>
       {textPreview && tabs.some((tab) => tab.id === textPreview.projectId) && (
-        <aside className="fixed top-12 right-4 z-50 max-h-[60vh] w-80 max-w-[80vw] overflow-auto rounded-lg border bg-(--stage-background) p-4 shadow-lg">
-          <button className="float-right ml-2" aria-label="关闭节点文字预览" onClick={() => setTextPreview(null)}>
-            ×
-          </button>
-          <div className="mb-2 text-sm opacity-70">节点内容（{textPreview.items.length}）</div>
-          <div className="divide-y">
-            {textPreview.items.map((item) => (
-              <div key={item.id} className="py-2 break-words whitespace-pre-wrap select-text">
-                {item.text}
-              </div>
-            ))}
-          </div>
-        </aside>
+        <NodeTextPreview items={textPreview.items} onClose={() => setTextPreview(null)} />
       )}
       {/* 这是一个底层的 div，用于在拖拽改变窗口大小时填充背景，防止窗口出现透明闪烁 */}
       <div className="fixed inset-0 z-[-1] bg-(--stage-background)" style={{ opacity: windowBackgroundAlpha }} />
