@@ -17,7 +17,13 @@ import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializ
 import { Rectangle } from "@graphif/shapes";
 import type { Value } from "platejs";
 import { numberedNodeText, numberingTextChanged } from "@/core/service/dataManageService/nodeNumbering";
-import { conclusionBlue, expandConclusionShortcut } from "@/core/service/dataManageService/nodeConclusions";
+import {
+  conclusionBlue,
+  conjectureGreen,
+  expandConclusionShortcut,
+  expandConjectureShortcut,
+  isConjectureText,
+} from "@/core/service/dataManageService/nodeConclusions";
 
 /**
  *
@@ -468,8 +474,8 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   // }
 
   rename(text: string) {
-    this.text = expandConclusionShortcut(text);
-    if (this.text !== text) this.color = conclusionBlue.clone();
+    this.text = expandConjectureShortcut(expandConclusionShortcut(text));
+    if (this.text !== text) this.color = (isConjectureText(this.text) ? conjectureGreen : conclusionBlue).clone();
     numberingTextChanged(this.project, this);
     // if (this.text.length < TextNode.enableResizeCharCount) {
     //   this.adjustSizeByText();

@@ -121,6 +121,17 @@ beforeEach(() => {
   settings.isEnableSectionCollision = true;
   settings.isEnableEntityCollision = false;
 });
+it("expands /cx on real text node editing and preserves its green color through serialization", () => {
+  const { p, node } = fixture();
+  const conjecture = node(0);
+  conjecture.rename("/cx这可能成立");
+  expect(conjecture.text).toBe("猜想:这可能成立");
+  expect(conjecture.color.toArray()).toEqual(new Color(22, 163, 74, 1).toArray());
+  const restored = deserialize(serialize(conjecture), p) as TextNode;
+  expect(restored.text).toBe(conjecture.text);
+  expect(restored.color.toArray()).toEqual(conjecture.color.toArray());
+});
+
 it("numbers only new PG nodes, preserves raw text and restores independent sequences through undo and MessagePack", () => {
   settings.dynamicNodeNumbering = true;
   try {
