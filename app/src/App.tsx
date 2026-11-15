@@ -38,7 +38,7 @@ import { cpuInfo } from "tauri-plugin-system-info-api";
 import CommandPalette from "./CommandPalette";
 import { DropWindowCover } from "./DropWindowCover";
 import DockedArea from "./components/docked-area";
-import NodeTextPreview from "./components/node-text-preview";
+import NodeTextPreview, { centerPreviewNode } from "./components/node-text-preview";
 import RenderOverlays from "./components/overlay-host";
 import { KeyBindsUI } from "./core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { checkAndFixShortcutStorage } from "./core/service/controlService/shortcutKeysEngine/ShortcutKeyFixer";
@@ -355,7 +355,18 @@ export default function App() {
   return (
     <>
       {textPreview && tabs.some((tab) => tab.id === textPreview.projectId) && (
-        <NodeTextPreview items={textPreview.items} onClose={() => setTextPreview(null)} />
+        <NodeTextPreview
+          items={textPreview.items}
+          onClose={() => setTextPreview(null)}
+          onNavigate={(nodeId) => {
+            const project = tabs.find((tab) => tab.id === textPreview.projectId);
+            if (!(project instanceof Project) || !centerPreviewNode(project, nodeId)) {
+              toast.warning("此节点已删除或文件已关闭");
+              return;
+            }
+            TabWorkspace.focus(project.id);
+          }}
+        />
       )}
       {/* 这是一个底层的 div，用于在拖拽改变窗口大小时填充背景，防止窗口出现透明闪烁 */}
       <div className="fixed inset-0 z-[-1] bg-(--stage-background)" style={{ opacity: windowBackgroundAlpha }} />

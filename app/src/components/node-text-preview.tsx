@@ -1,12 +1,27 @@
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import type { Project } from "@/core/Project";
+
+export function centerPreviewNode(project: Project, nodeId: string): boolean {
+  const node = project.stageManager.getTextNodeByUUID(nodeId);
+  if (!node || project.closing) return false;
+  const center = node.collisionBox.getRectangle().center;
+  project.camera.stopImmediately();
+  project.camera.targetScale = project.camera.currentScale;
+  project.camera.location = center.clone();
+  project.camera.targetLocationByScale = center.clone();
+  project.controller.resetCountdownTimer();
+  return true;
+}
 
 export default function NodeTextPreview({
   items,
   onClose,
+  onNavigate,
 }: {
   items: { id: string; text: string }[];
   onClose: () => void;
+  onNavigate: (nodeId: string) => void;
 }) {
   return createPortal(
     <aside
@@ -15,6 +30,13 @@ export default function NodeTextPreview({
       onPointerDown={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
       onWheel={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        if ((event.target as Element).closest("button")) return;
+        if (window.getSelection()?.isCollapsed === false) return;
+        const row = (event.target as Element).closest<HTMLElement>("[data-preview-node]");
+        const nodeId = row?.dataset.previewNode ?? (items.length === 1 ? items[0].id : undefined);
+        if (nodeId) onNavigate(nodeId);
+      }}
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2">
         <div className="text-sm opacity-70">节点内容（{items.length}）</div>
@@ -39,7 +61,20 @@ export default function NodeTextPreview({
       <div className="min-h-0 overflow-y-auto overscroll-contain px-4 pb-4">
         <div className="divide-y">
           {items.map((item) => (
-            <div key={item.id} className="py-2 break-words whitespace-pre-wrap select-text">
+            <div
+              key={item.id}
+              data-preview-node={item.id}
+              role="button"
+              tabIndex={0}
+              title="点击将此节点居中显示"
+              className="hover:bg-accent cursor-pointer py-2 break-words whitespace-pre-wrap select-text"
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                event.stopPropagation();
+                onNavigate(item.id);
+              }}
+            >
               {item.text}
             </div>
           ))}
