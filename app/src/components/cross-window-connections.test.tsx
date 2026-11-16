@@ -191,7 +191,7 @@ it.each([
       expect(line).not.toBeNull();
       expect(
         document.querySelector("svg[data-cross-window-edges] path[marker-end]")?.getAttribute("stroke-width"),
-      ).toBe(String(2 * sourceScale));
+      ).toBe(String(3 * sourceScale));
       await act(() => line!.dispatchEvent(new MouseEvent("pointerdown", { button: 0, bubbles: true })));
       for (const [key, modifiers] of [
         ["g", { ctrlKey: true }],

@@ -1376,6 +1376,9 @@ settings:
     title: 自动调整框之间连线的粗细
     description: |
       开启后，连接两个框（Section）之间的连线会根据框的大小自动调整粗细。
+  edgeWidthScale:
+    title: 连线粗细倍数
+    description: 默认 1.5 倍。统一加粗已有和新建连线，覆盖直线、曲线、折线、圆弧、多节点无向边和跨文件／窗口连线；不改变节点位置、连线路径、文字字号或选中范围。设为 1 可恢复原粗细。
   enableCollisionBoxAutoWidth:
     title: 碰撞箱边框自动粗细
     description: |

@@ -2,6 +2,7 @@ import { ConvexHull } from "@/core/algorithm/geometry/convexHull";
 import { Project, service } from "@/core/Project";
 import { Renderer } from "@/core/render/canvas2d/renderer";
 import { Settings } from "@/core/service/Settings";
+import { edgeStrokeWidth } from "@/core/render/canvas2d/edgeStrokeWidth";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { Color, Vector } from "@graphif/data-structures";
 import { Line } from "@graphif/shapes";
@@ -94,7 +95,7 @@ export class MultiTargetUndirectedEdgeRenderer {
       }
       const startView = this.project.renderer.transformWorld2View(targetPoint);
       const endView = this.project.renderer.transformWorld2View(toCenterPoint);
-      const lineWidth = 2 * this.project.camera.currentScale;
+      const lineWidth = edgeStrokeWidth(2) * this.project.camera.currentScale;
       const lineType = edge.lineType || "solid";
       if (lineType === "dashed") {
         this.project.curveRenderer.renderDashedLine(
@@ -168,7 +169,9 @@ export class MultiTargetUndirectedEdgeRenderer {
     // 保证首尾相接
     convexPoints.push(convexPoints[0]);
     const lineType = edge.lineType || "solid";
-    const strokeWidth = this.project.camera.currentScale <= 0.065 ? 8 : 8 * this.project.camera.currentScale;
+    const strokeWidth = edgeStrokeWidth(
+      this.project.camera.currentScale <= 0.065 ? 8 : 8 * this.project.camera.currentScale,
+    );
     const viewPoints = convexPoints.map((point) => this.project.renderer.transformWorld2View(point));
     if (lineType === "dashed") {
       const dashLen = 10 * this.project.camera.currentScale;
@@ -228,7 +231,9 @@ export class MultiTargetUndirectedEdgeRenderer {
       }
     }
 
-    const strokeWidth = this.project.camera.currentScale <= 0.065 ? 8 : 8 * this.project.camera.currentScale;
+    const strokeWidth = edgeStrokeWidth(
+      this.project.camera.currentScale <= 0.065 ? 8 : 8 * this.project.camera.currentScale,
+    );
     const lineType = edge.lineType || "solid";
     const viewCenter = this.project.renderer.transformWorld2View(center);
     const viewRadius = maxDistance * this.project.camera.currentScale;

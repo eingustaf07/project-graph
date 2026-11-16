@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Project } from "@/core/Project";
 import { tabsAtom, activeResourceTabAtom, store } from "@/state";
 import { Settings } from "@/core/service/Settings";
+import { edgeStrokeWidth } from "@/core/render/canvas2d/edgeStrokeWidth";
 import { isSelectionMode } from "@/core/service/controlService/selectionMode";
 import { isDesktop } from "@/utils/platform";
 import {
@@ -78,6 +79,8 @@ export default function CrossWindowConnections() {
   const [view, setView] = useState<{ geometry?: WindowGeometry; links: VisibleLink[] }>({ links: [] });
   const [selected, setSelected] = useState<VisibleLink>();
   const [bidirectional, setBidirectional] = useState(Settings.showBidirectionalArrows);
+  const [, refreshWidths] = useState(0);
+  useEffect(() => Settings.watch("edgeWidthScale", () => refreshWidths((n) => n + 1)), []);
   useEffect(() => Settings.watch("showBidirectionalArrows", setBidirectional), []);
   const bus = useRef<CrossWindowConnectionBus | undefined>(undefined);
   const local = useRef<WindowGraphSnapshot | undefined>(undefined);
@@ -544,19 +547,24 @@ export default function CrossWindowConnections() {
                 </marker>
               </defs>
               {row.link.lineType === "double" && (
-                <path d={path} fill="none" stroke={row.link.color ?? "var(--foreground)"} strokeWidth={6 * scale} />
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={row.link.color ?? "var(--foreground)"}
+                  strokeWidth={edgeStrokeWidth(6) * scale}
+                />
               )}
               <path
                 d={path}
                 fill="none"
                 stroke={row.link.color ?? "var(--foreground)"}
-                strokeWidth={(selected?.link.id === row.link.id ? 4 : 2) * scale}
+                strokeWidth={edgeStrokeWidth(selected?.link.id === row.link.id ? 4 : 2) * scale}
                 strokeDasharray={row.link.lineType === "dashed" ? `${7 * scale} ${5 * scale}` : undefined}
                 markerStart={bidirectional ? `url(#${marker})` : undefined}
                 markerEnd={!bidirectional && row.link.direction === "undirected" ? undefined : `url(#${marker})`}
               />
               {row.link.lineType === "double" && (
-                <path d={path} fill="none" stroke="var(--background)" strokeWidth={2 * scale} />
+                <path d={path} fill="none" stroke="var(--background)" strokeWidth={edgeStrokeWidth(2) * scale} />
               )}
               <path
                 d={path}

@@ -10,6 +10,7 @@ import { Project, service } from "@/core/Project";
 import { EdgeRendererClass } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRendererClass";
 import { SvgUtils } from "@/core/render/svg/SvgUtils";
 import { Settings } from "@/core/service/Settings";
+import { edgeStrokeWidth } from "@/core/render/canvas2d/edgeStrokeWidth";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
 import { Section } from "@/core/stage/stageObject/entity/Section";
@@ -237,7 +238,7 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
       Math.PI / 2,
       0,
       edgeColor,
-      2 * this.project.camera.currentScale,
+      edgeStrokeWidth(2) * this.project.camera.currentScale,
     );
     // 画箭头
     {
@@ -360,7 +361,7 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     const adjustedEnd = arrowTip.add(curveEndDirection.multiply(arrowSize / 2));
 
     const adjustedBezier = new CubicBezierCurve(bezier.start, bezier.ctrlPt1, bezier.ctrlPt2, adjustedEnd);
-    const lineBody = SvgUtils.bezierCurve(adjustedBezier, edgeColor, 2);
+    const lineBody = SvgUtils.bezierCurve(adjustedBezier, edgeColor, edgeStrokeWidth(svgEdgeWidth));
 
     if (edge.text.trim() !== "") {
       const midPoint = bezier.getPointByT(0.5);
@@ -523,18 +524,22 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
       this.project.worldRenderUtils.renderDashedSymmetryCurve(
         curve,
         color,
-        width,
+        edgeStrokeWidth(width),
         10 * this.project.camera.currentScale,
       );
     } else if (lineType === "double") {
       this.project.worldRenderUtils.renderDoubleSymmetryCurve(
         curve,
         color,
-        width,
+        edgeStrokeWidth(width),
         5 * this.project.camera.currentScale,
       );
     } else {
-      this.project.worldRenderUtils.renderSymmetryCurve(curve, color, width * this.project.camera.currentScale);
+      this.project.worldRenderUtils.renderSymmetryCurve(
+        curve,
+        color,
+        edgeStrokeWidth(width) * this.project.camera.currentScale,
+      );
     }
     // 画箭头
     if (!edge || this.shouldRenderTargetArrow(edge)) {

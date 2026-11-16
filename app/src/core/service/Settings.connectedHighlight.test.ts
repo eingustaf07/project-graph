@@ -82,6 +82,18 @@ describe("connected highlight setting compatibility and persistence", () => {
     expect(restored.questionMarkYellow).toBe(true);
     expect(restored.connectedNodeHighlightLocked).toBe(originalLock);
   });
+  it("defaults connection thickness to 1.5 and saves a custom width without changing line style", async () => {
+    const { Settings } = await import("./Settings");
+    expect(Settings.edgeWidthScale).toBe(1.5);
+    const style = Settings.lineStyle;
+    storage.writtenKeys = [];
+    Settings.edgeWidthScale = 1;
+    expect(storage.writtenKeys).toEqual(["edgeWidthScale"]);
+    vi.resetModules();
+    const restored = (await import("./Settings")).Settings;
+    expect(restored.edgeWidthScale).toBe(1);
+    expect(restored.lineStyle).toBe(style);
+  });
   it("defaults question yellow on, while preserving an explicit saved opt-out", async () => {
     expect((await import("./Settings")).Settings.questionMarkYellow).toBe(true);
     storage.values.set("questionMarkYellow", false);

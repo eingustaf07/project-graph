@@ -6,6 +6,7 @@ import { EdgeCutEffect } from "@/core/service/feedbackService/effectEngine/concr
 import { LineCuttingEffect } from "@/core/service/feedbackService/effectEngine/concrete/LineCuttingEffect";
 import { Effect } from "@/core/service/feedbackService/effectEngine/effectObject";
 import { Settings } from "@/core/service/Settings";
+import { edgeStrokeWidth } from "@/core/render/canvas2d/edgeStrokeWidth";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
@@ -113,7 +114,7 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
       edgeWidth = edge.source.getBorderWidth();
     }
     const straightBodyLine = edge.bodyLine;
-    const scaledWidth = edgeWidth * this.project.camera.currentScale;
+    const scaledWidth = edgeStrokeWidth(edgeWidth) * this.project.camera.currentScale;
     const arrowType = Settings.showBidirectionalArrows ? "default" : edge.arrowType || "default";
 
     // 对空心/实心三角形，线体终点缩进到三角形底边，避免线穿入三角形内部
@@ -146,7 +147,7 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     const edgeColor = edge.color.equals(Color.Transparent)
       ? this.project.stageStyleManager.currentStyle.StageObjectBorder
       : edge.color;
-    const lineBody = SvgUtils.line(edge.bodyLine.start, edge.bodyLine.end, edgeColor, 2);
+    const lineBody = SvgUtils.line(edge.bodyLine.start, edge.bodyLine.end, edgeColor, edgeStrokeWidth(edge.edgeWidth));
 
     let textNode: React.ReactNode = <></>;
     if (edge.text.trim() !== "") {

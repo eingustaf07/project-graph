@@ -1252,6 +1252,9 @@ settings:
     description: |
       When enabled, edges connecting two sections will automatically adjust their thickness based on the section size.
       When disabled, all edges will use a fixed thickness.
+  edgeWidthScale:
+    title: Connection thickness multiplier
+    description: Defaults to 1.5 for existing and new connections, including cross-file and cross-window links. Only changes stroke thickness. Set to 1 to restore the previous thickness.
   enableCollisionBoxAutoWidth:
     title: Collision Box Auto Width
     description: |

@@ -280,6 +280,7 @@ export const settingsIcons = {
   darkTheme: Moon,
   arrowKeySelectOnlyInViewport: ScanEye,
   enableAutoEdgeWidth: Minus,
+  edgeWidthScale: Minus,
   showKeyBindHint: Lightbulb,
   showEditModeHint: MessageSquareText,
   textNodeEditModeOutlineOpacity: SquareDashed,

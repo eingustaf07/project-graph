@@ -12,6 +12,7 @@ import {
 } from "@/core/service/dataManageService/crossFileHighlight";
 import { Project, ProjectState } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
+import { edgeStrokeWidth } from "@/core/render/canvas2d/edgeStrokeWidth";
 import { TabWorkspace } from "@/core/TabWorkspace";
 import { ConnectableEntity, type CrossFileNodeLink } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import {
@@ -164,6 +165,8 @@ function Connections() {
   const [showList, setShowList] = useState(false);
   const [lineStyle, setLineStyle] = useState(Settings.lineStyle);
   const [bidirectional, setBidirectional] = useState(Settings.showBidirectionalArrows);
+  const [, refreshWidths] = useState(0);
+  useEffect(() => Settings.watch("edgeWidthScale", () => refreshWidths((n) => n + 1)), []);
   useEffect(() => Settings.watch("showBidirectionalArrows", setBidirectional), []);
   useEffect(() => Settings.watch("lineStyle", setLineStyle), []);
   const [mode, setMode] = useState(Settings.mouseLeftMode);
@@ -521,12 +524,14 @@ function Connections() {
                 d={path}
                 fill="none"
                 stroke={color}
-                strokeWidth={link.lineType === "double" ? 4 : 2}
+                strokeWidth={edgeStrokeWidth(link.lineType === "double" ? 4 : 2)}
                 strokeDasharray={link.lineType === "dashed" ? "6 4" : undefined}
                 markerStart={bidirectional ? "url(#" + marker + ")" : undefined}
                 markerEnd={!bidirectional && link.direction === "undirected" ? undefined : "url(#" + marker + ")"}
               />
-              {link.lineType === "double" && <path d={path} fill="none" stroke="var(--background)" strokeWidth="1.5" />}
+              {link.lineType === "double" && (
+                <path d={path} fill="none" stroke="var(--background)" strokeWidth={edgeStrokeWidth(1.5)} />
+              )}
               {link.text && (
                 <text x={mid.x} y={mid.y - off / 2 - 5} fill={color} textAnchor="middle">
                   {link.text}

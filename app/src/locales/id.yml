@@ -1295,6 +1295,9 @@ settings:
     options:
       mtime: Berdasarkan Waktu Modifikasi File
       path: Berdasarkan Jalur File (Leksikografis)
+  edgeWidthScale:
+    title: Pengali ketebalan koneksi
+    description: Bawaan 1.5 untuk koneksi lama dan baru, termasuk lintas berkas dan jendela. Hanya mengubah ketebalan garis. Atur ke 1 untuk memulihkan ketebalan sebelumnya.
   enableCollisionBoxAutoWidth:
     title: Lebar Otomatis Kotak Tabrakan
     description: |

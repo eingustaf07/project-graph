@@ -4,6 +4,7 @@ import { CubicCatmullRomSplineEdge } from "@/core/stage/stageObject/association/
 import { Project } from "@/core/Project";
 import { Renderer } from "@/core/render/canvas2d/renderer";
 import { Settings } from "@/core/service/Settings";
+import { edgeStrokeWidth } from "@/core/render/canvas2d/edgeStrokeWidth";
 
 export function renderCrEdge(
   project: Project,
@@ -16,7 +17,7 @@ export function renderCrEdge(
   const crShape = edge.getShape();
   const edgeColor = edge.color.a === 0 ? project.stageStyleManager.currentStyle.StageObjectBorder : edge.color;
   // 画曲线
-  project.worldRenderUtils.renderCubicCatmullRomSpline(crShape, edgeColor, 2);
+  project.worldRenderUtils.renderCubicCatmullRomSpline(crShape, edgeColor, edgeStrokeWidth(2));
   if (edge.isSelected) {
     project.collisionBoxRenderer.render(edge.collisionBox, project.stageStyleManager.currentStyle.CollideBoxSelected);
   }

@@ -20,6 +20,7 @@ vi.mock("@/core/Project", () => ({
 }));
 const settings = vi.hoisted(() => ({
   lineStyle: "straight",
+  edgeWidthScale: 1.5,
   showBidirectionalArrows: false,
   dynamicNodeNumbering: undefined as boolean | undefined,
   questionMarkYellow: true,
@@ -251,6 +252,7 @@ describe("vertical connection defaults with real PG objects", () => {
       expect(edge.isIntersectsWithLocation(new Vector(a.rectangle.center.x, 200))).toBe(false);
       p.edgeRenderer.renderLineEdge(edge);
       expect(p.curveRenderer.renderSolidLine).toHaveBeenCalledTimes(path.length - 1);
+      expect(p.curveRenderer.renderSolidLine.mock.calls[0][3]).toBe(edge.edgeWidth * 1.5);
       expect(p.shapeRenderer.renderCircle).not.toHaveBeenCalled();
       expect(arrows).toHaveBeenCalledTimes(2);
       expect(arrows.mock.calls[0][0]).toEqual(path.at(-1));
@@ -261,6 +263,14 @@ describe("vertical connection defaults with real PG objects", () => {
       expect(renderedTangent.y).toBeCloseTo(sourceTangent.y);
       expect(edge.source).toBe(a);
       expect(edge.target).toBe(b);
+      const fontSize = edge.textFontSize;
+      settings.edgeWidthScale = 2;
+      p.curveRenderer.renderSolidLine.mockClear();
+      p.edgeRenderer.renderLineEdge(edge);
+      expect(p.curveRenderer.renderSolidLine.mock.calls[0][3]).toBe(edge.edgeWidth * 2);
+      expect(edge.orthogonalPath).toBe(path);
+      expect(edge.textFontSize).toBe(fontSize);
+      settings.edgeWidthScale = 1.5;
       settings.showBidirectionalArrows = false;
       arrows.mockClear();
       p.edgeRenderer.renderLineEdge(edge);
@@ -271,6 +281,7 @@ describe("vertical connection defaults with real PG objects", () => {
       p.edgeRenderer.renderLineEdge(edge);
       expect(p.curveRenderer.renderDashedLine).not.toHaveBeenCalled();
     } finally {
+      settings.edgeWidthScale = 1.5;
       settings.lineStyle = "straight";
       settings.showBidirectionalArrows = false;
     }

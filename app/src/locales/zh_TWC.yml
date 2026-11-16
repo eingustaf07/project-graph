@@ -1298,6 +1298,9 @@ settings:
     description: |
       開啟後，連接兩個框（Section）之間的連線會根據框的大小自動調整粗細。
       關閉後，所有連線將使用固定粗細。
+  edgeWidthScale:
+    title: 連線粗細倍數
+    description: 預設 1.5 倍，適用既有及新建連線，含跨檔案和跨視窗連線。僅調整描邊粗細，設為 1 可恢復原粗細。
   enableCollisionBoxAutoWidth:
     title: 碰撞箱邊框自動粗細
     description: |

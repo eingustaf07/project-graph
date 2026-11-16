@@ -320,7 +320,13 @@ export const categories = {
       "sectionBackgroundFillMode",
       "sectionInitBorderStyle",
     ],
-    edge: ["lineStyle", "showBidirectionalArrows", "hideArrowWhenPointingToConnectPoint", "enableAutoEdgeWidth"],
+    edge: [
+      "lineStyle",
+      "showBidirectionalArrows",
+      "hideArrowWhenPointingToConnectPoint",
+      "enableAutoEdgeWidth",
+      "edgeWidthScale",
+    ],
     selectedState: [
       "enableCollisionBoxAutoWidth",
       "connectedNodeHighlightScope",

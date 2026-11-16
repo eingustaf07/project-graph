@@ -3,6 +3,7 @@ import { Rectangle } from "@graphif/shapes";
 
 import { ArcEdge } from "@/core/stage/stageObject/association/ArcEdge";
 import { Project } from "@/core/Project";
+import { edgeStrokeWidth } from "@/core/render/canvas2d/edgeStrokeWidth";
 
 export function renderArcEdge(
   project: Project,
@@ -20,7 +21,7 @@ export function renderArcEdge(
   const geo = edge.arcGeometry;
   const startPoint = edge.clippedStart;
   const endPoint = edge.clippedEnd;
-  const scaledWidth = edge.edgeWidth * project.camera.currentScale;
+  const scaledWidth = edgeStrokeWidth(edge.edgeWidth) * project.camera.currentScale;
 
   // 安全兜底：offset 过小导致三点共线，radius 巨大 → 直接画直线
   if (geo.radius > 1e6) {

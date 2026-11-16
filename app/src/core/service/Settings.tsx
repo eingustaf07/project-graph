@@ -332,6 +332,7 @@ export const settingsSchema = z.object({
   autoImportTxtFileWhenOpenPrg: z.boolean().default(false),
   imageImportOrder: z.union([z.literal("mtime"), z.literal("path")]).default("mtime"),
   enableAutoEdgeWidth: z.boolean().default(true),
+  edgeWidthScale: z.number().min(0.5).max(3).default(1.5),
   enableCollisionBoxAutoWidth: z.boolean().default(true),
   newNodeScaleByCamera: z.boolean().default(false),
   newNodeScaleByCameraOffset: z.number().int().min(-5).max(5).default(-1),

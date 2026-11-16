@@ -5,6 +5,7 @@ import { CircleFlameEffect } from "@/core/service/feedbackService/effectEngine/c
 import { LineCuttingEffect } from "@/core/service/feedbackService/effectEngine/concrete/LineCuttingEffect";
 import { Effect } from "@/core/service/feedbackService/effectEngine/effectObject";
 import { Settings } from "@/core/service/Settings";
+import { edgeStrokeWidth } from "@/core/render/canvas2d/edgeStrokeWidth";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
@@ -180,7 +181,7 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
       ? this.project.stageStyleManager.currentStyle.StageObjectBorder
       : edge.color;
     const scale = this.project.camera.currentScale;
-    const width = edge.edgeWidth * scale;
+    const width = edgeStrokeWidth(edge.edgeWidth) * scale;
     for (let i = 1; i < points.length; i++) {
       const a = this.project.renderer.transformWorld2View(points[i - 1]);
       const b = this.project.renderer.transformWorld2View(points[i]);
@@ -260,7 +261,7 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
           points={points.map((p) => p.x + "," + p.y).join(" ")}
           fill="none"
           stroke={color.toString()}
-          strokeWidth={edge.edgeWidth}
+          strokeWidth={edgeStrokeWidth(edge.edgeWidth)}
           strokeDasharray={edge.lineType === "dashed" ? "10 10" : undefined}
         />
         {edge.text.trim() &&
