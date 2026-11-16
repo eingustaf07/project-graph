@@ -4,15 +4,15 @@ import { Settings } from "@/core/service/Settings";
 import { Color } from "@graphif/data-structures";
 import { isQuestionMarked, questionDisplayColor, questionTextColor } from "./questionColor";
 import { conclusionBlue, expandConclusionShortcut } from "@/core/service/dataManageService/nodeConclusions";
-import { conjectureGreen, expandConjectureShortcut } from "@/core/service/dataManageService/nodeConclusions";
+import { conjecturePurple, expandConjectureShortcut } from "@/core/service/dataManageService/nodeConclusions";
 
-it("expands the conjecture prefix and renders conjectures green with task status taking priority", () => {
+it("expands the conjecture prefix and renders conjectures purple with task status taking priority", () => {
   expect(expandConjectureShortcut("/cx可能成立")).toBe("猜想:可能成立");
   expect(expandConjectureShortcut("/CX 内容")).toBe("猜想: 内容");
   expect(expandConjectureShortcut("正文 /cx")).toBe("正文 /cx");
   Settings.questionMarkYellow = true;
   for (const text of ["猜想:历史内容", "猜想：会成立吗？"]) {
-    expect(questionDisplayColor(text, Color.Transparent, true)).toBe(conjectureGreen);
+    expect(questionDisplayColor(text, Color.Transparent, true)).toBe(conjecturePurple);
   }
   expect(questionDisplayColor("❌ 猜想:待验证", Color.Red, true)).toBe(Color.Red);
   expect(questionDisplayColor("✅ 猜想:已完成", Color.Green, true)).toBe(Color.Green);

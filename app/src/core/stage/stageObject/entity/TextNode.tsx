@@ -19,7 +19,7 @@ import type { Value } from "platejs";
 import { numberedNodeText, numberingTextChanged } from "@/core/service/dataManageService/nodeNumbering";
 import {
   conclusionBlue,
-  conjectureGreen,
+  conjecturePurple,
   expandConclusionShortcut,
   expandConjectureShortcut,
   isConjectureText,
@@ -475,7 +475,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
 
   rename(text: string) {
     this.text = expandConjectureShortcut(expandConclusionShortcut(text));
-    if (this.text !== text) this.color = (isConjectureText(this.text) ? conjectureGreen : conclusionBlue).clone();
+    if (this.text !== text) this.color = (isConjectureText(this.text) ? conjecturePurple : conclusionBlue).clone();
     numberingTextChanged(this.project, this);
     // if (this.text.length < TextNode.enableResizeCharCount) {
     //   this.adjustSizeByText();

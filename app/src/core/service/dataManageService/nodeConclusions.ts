@@ -1,7 +1,7 @@
 import { Color } from "@graphif/data-structures";
 
 export const conclusionBlue = new Color(52, 103, 180, 1);
-export const conjectureGreen = new Color(22, 163, 74, 1);
+export const conjecturePurple = new Color(168, 85, 247, 1);
 
 export function expandConjectureShortcut(text: string): string {
   return /^\/cx/i.test(text) ? `猜想:${text.slice(3)}` : text;

@@ -121,12 +121,12 @@ beforeEach(() => {
   settings.isEnableSectionCollision = true;
   settings.isEnableEntityCollision = false;
 });
-it("expands /cx on real text node editing and preserves its green color through serialization", () => {
+it("expands /cx on real text node editing and preserves its purple color through serialization", () => {
   const { p, node } = fixture();
   const conjecture = node(0);
   conjecture.rename("/cx这可能成立");
   expect(conjecture.text).toBe("猜想:这可能成立");
-  expect(conjecture.color.toArray()).toEqual(new Color(22, 163, 74, 1).toArray());
+  expect(conjecture.color.toArray()).toEqual(new Color(168, 85, 247, 1).toArray());
   const restored = deserialize(serialize(conjecture), p) as TextNode;
   expect(restored.text).toBe(conjecture.text);
   expect(restored.color.toArray()).toEqual(conjecture.color.toArray());

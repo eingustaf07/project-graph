@@ -2,7 +2,7 @@ import { Settings } from "@/core/service/Settings";
 import { Color, colorInvert } from "@graphif/data-structures";
 import {
   conclusionBlue,
-  conjectureGreen,
+  conjecturePurple,
   hasTaskStatus,
   isConclusionText,
   isConjectureText,
@@ -20,7 +20,7 @@ export function isQuestionMarked(text: string | undefined): boolean {
 }
 
 export function questionDisplayColor(text: string | undefined, original: Color, conclusions = false): Color {
-  if (conclusions && isConjectureText(text) && !hasTaskStatus(text!)) return conjectureGreen;
+  if (conclusions && isConjectureText(text) && !hasTaskStatus(text!)) return conjecturePurple;
   if (conclusions && isConclusionText(text) && !hasTaskStatus(text!)) return conclusionBlue;
   return showQuestionYellow(text) ? questionYellow : original;
 }
@@ -31,7 +31,7 @@ export function questionTextColor(
   background: Color,
   conclusions = false,
 ): Color {
-  if (conclusions && isConjectureText(text) && !hasTaskStatus(text!)) return colorInvert(conjectureGreen);
+  if (conclusions && isConjectureText(text) && !hasTaskStatus(text!)) return colorInvert(conjecturePurple);
   if (conclusions && isConclusionText(text) && !hasTaskStatus(text!)) return colorInvert(conclusionBlue);
   return showQuestionYellow(text) ? Color.Black : colorInvert(original.a === 1 ? original : background);
 }
