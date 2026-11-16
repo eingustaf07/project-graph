@@ -233,6 +233,9 @@ settings:
   connectedNodeHighlightLocked:
     title: 高亮鎖定
     description: 依目前的關聯範圍自動高亮選取節點。多選時合併結果，取消選取即清除。
+  connectedNodeHighlightAutoFit:
+    title: 高亮自動縮放視野
+    description: 預設關閉。開啟後，高亮鎖定更新時自動容納目前檔案的全部高亮節點；已完整可見時保持視野。也可在 ZZ 底欄切換。
   connectedNodeHighlightScope:
     title: 關聯節點高亮範圍
     description: 沿箭頭回溯及往下尋找，遇到多個可選方向就停在該節點。

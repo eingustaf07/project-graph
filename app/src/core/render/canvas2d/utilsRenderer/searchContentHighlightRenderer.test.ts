@@ -12,6 +12,7 @@ vi.mock("@/core/stage/stageObject/association/Edge", async () => {
 });
 const highlightSettings = vi.hoisted(() => ({
   connectedNodeHighlightLocked: false,
+  connectedNodeHighlightAutoFit: false,
   connectedNodeHighlightScope: "all" as "direct" | "all" | "chain",
 }));
 vi.mock("@/core/service/Settings", () => ({ Settings: highlightSettings }));
@@ -76,6 +77,7 @@ describe("connected highlight overlay", () => {
   it.each([1, 4])("fits locked highlights only when outside the viewport at zoom %s", (scale) => {
     const { project, renderer } = fixture();
     highlightSettings.connectedNodeHighlightLocked = true;
+    highlightSettings.connectedNodeHighlightAutoFit = true;
     project.renderer.w = 1000;
     project.renderer.h = 600;
     const initial = new Vector(250, 30);
@@ -110,6 +112,7 @@ describe("connected highlight overlay", () => {
 
   it("pans an offscreen group that fits without enlarging it and leaves manual highlighting alone", () => {
     const { project, renderer } = fixture();
+    highlightSettings.connectedNodeHighlightAutoFit = true;
     project.renderer.w = 1000;
     project.renderer.h = 600;
     project.camera = { currentScale: 1, targetScale: 1, location: new Vector(9999, 9999), stopImmediately: vi.fn() };
@@ -146,7 +149,48 @@ describe("connected highlight overlay", () => {
   });
   beforeEach(() => {
     highlightSettings.connectedNodeHighlightLocked = false;
+    highlightSettings.connectedNodeHighlightAutoFit = false;
     highlightSettings.connectedNodeHighlightScope = "all";
+  });
+  it("keeps locked highlighting active without moving the camera until auto-fit is enabled, and stops again when disabled", () => {
+    const { a, b, c, other, project, renderer } = fixture();
+    highlightSettings.connectedNodeHighlightLocked = true;
+    project.renderer.w = 1000;
+    project.renderer.h = 600;
+    project.camera = {
+      currentScale: 4,
+      targetScale: 4,
+      location: new Vector(9999, 9999),
+      stopImmediately: vi.fn(),
+    };
+    project.controller = { resetCountdownTimer: vi.fn() };
+    renderer.prepareViewport();
+    renderer.render();
+    expect(renderer.getConnectedHighlightedNodes()).toEqual([a, b, c]);
+    expect(project.camera.stopImmediately).not.toHaveBeenCalled();
+    expect(project.camera.currentScale).toBe(4);
+    expect(project.camera.location).toEqual(new Vector(9999, 9999));
+
+    highlightSettings.connectedNodeHighlightAutoFit = true;
+    renderer.prepareViewport();
+    expect(project.camera.currentScale).toBeCloseTo(976 / 500);
+    expect(project.camera.location).toEqual(new Vector(250, 30));
+
+    highlightSettings.connectedNodeHighlightAutoFit = false;
+    project.camera.stopImmediately.mockClear();
+    a.isSelected = false;
+    other.isSelected = true;
+    renderer.invalidateSelection();
+    renderer.prepareViewport();
+    renderer.render();
+    expect(renderer.getConnectedHighlightedNodes()).toEqual([other]);
+    expect(project.camera.stopImmediately).not.toHaveBeenCalled();
+    expect(highlightSettings.connectedNodeHighlightLocked).toBe(true);
+
+    highlightSettings.connectedNodeHighlightAutoFit = true;
+    renderer.prepareViewport();
+    expect(project.camera.location).toEqual(new Vector(650, 30));
+    expect(project.camera.stopImmediately).toHaveBeenCalledOnce();
   });
   it("follows selection, combines roots, clears when empty and releases the lock", () => {
     const { a, other, project, renderer } = fixture();

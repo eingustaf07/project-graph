@@ -236,6 +236,7 @@ export const settingsIcons = {
   showTreeDirectionHint: TrendingUpDown,
   connectedNodeHighlightScope: CircleDot,
   connectedNodeHighlightLocked: CircleDot,
+  connectedNodeHighlightAutoFit: CircleDot,
   lineStyle: Spline,
   sectionBitTitleRenderType: SquareM,
   sectionBigTitleThresholdRatio: Ratio,

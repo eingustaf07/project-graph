@@ -185,6 +185,9 @@ settings:
   connectedNodeHighlightLocked:
     title: Kunci sorotan ke pilihan
     description: Sorot koneksi simpul terpilih sesuai cakupan saat ini. Kosongkan pilihan untuk menghapus sorotan.
+  connectedNodeHighlightAutoFit:
+    title: Sesuaikan tampilan sorotan otomatis
+    description: Nonaktif secara bawaan. Dengan kunci sorotan aktif, sesuaikan tampilan simpul yang disorot dalam berkas saat sorotan berubah. Pertahankan tampilan jika semuanya terlihat. Tersedia juga di bilah ZZ.
   connectedNodeHighlightScope:
     title: Jangkauan sorotan node terhubung
     description: Ikuti panah ke hulu dan hilir dari node terpilih. Berhenti jika langkah berikutnya bercabang.

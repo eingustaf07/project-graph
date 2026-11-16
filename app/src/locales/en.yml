@@ -169,6 +169,9 @@ settings:
   connectedNodeHighlightLocked:
     title: Lock connected highlighting to selection
     description: Automatically highlight connections for all selected nodes using the current scope. Clear the selection to clear the highlight.
+  connectedNodeHighlightAutoFit:
+    title: Auto-fit highlighted nodes
+    description: Off by default. With highlight lock enabled, fit highlighted nodes in the current file when the highlight changes. Preserve the view if already visible. Also available in the ZZ toolbar.
   connectedNodeHighlightScope:
     title: Connected node highlight range
     description: Follow directed edges through the selected node. Stop when the next step is ambiguous.

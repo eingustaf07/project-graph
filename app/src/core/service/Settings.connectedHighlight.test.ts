@@ -56,6 +56,19 @@ describe("connected highlight setting compatibility and persistence", () => {
     vi.resetModules();
     expect((await import("./Settings")).Settings.soundVolume).toBe(0);
   });
+  it("defaults highlight auto-fit off and persists its toggle independently of highlight lock", async () => {
+    storage.values.set("connectedNodeHighlightLocked", true);
+    const { Settings } = await import("./Settings");
+    expect(Settings.connectedNodeHighlightAutoFit).toBe(false);
+    expect(Settings.connectedNodeHighlightLocked).toBe(true);
+    storage.writtenKeys = [];
+    Settings.connectedNodeHighlightAutoFit = true;
+    expect(storage.writtenKeys).toEqual(["connectedNodeHighlightAutoFit"]);
+    vi.resetModules();
+    const restored = (await import("./Settings")).Settings;
+    expect(restored.connectedNodeHighlightAutoFit).toBe(true);
+    expect(restored.connectedNodeHighlightLocked).toBe(true);
+  });
   it("defaults question yellow on, while preserving an explicit saved opt-out", async () => {
     expect((await import("./Settings")).Settings.questionMarkYellow).toBe(true);
     storage.values.set("questionMarkYellow", false);

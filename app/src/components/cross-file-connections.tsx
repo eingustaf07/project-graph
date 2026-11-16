@@ -25,7 +25,7 @@ import {
 import { Button } from "./ui/button";
 import CrossWindowConnections from "./cross-window-connections";
 import { toast } from "sonner";
-import { PanelsTopLeft, Search, X } from "lucide-react";
+import { PanelsTopLeft, Scan, Search, X } from "lucide-react";
 
 type Point = { x: number; y: number };
 type Row = {
@@ -85,6 +85,29 @@ function SearchButton() {
   );
 }
 
+function HighlightAutoFitButton() {
+  const [enabled, setEnabled] = Settings.use("connectedNodeHighlightAutoFit");
+  const active = useAtomValue(activeResourceTabAtom);
+  return (
+    <Button
+      size="icon"
+      variant={enabled ? "secondary" : "ghost"}
+      aria-label="高亮自动缩放视野"
+      aria-pressed={enabled}
+      title={`高亮自动缩放视野：${enabled ? "已开启，点击关闭" : "已关闭，点击开启"}`}
+      onClick={() => {
+        setEnabled(!enabled);
+        if (active instanceof Project) {
+          active.searchContentHighlightRenderer.prepareViewport();
+          active.controller.resetCountdownTimer();
+        }
+      }}
+    >
+      <Scan />
+    </Button>
+  );
+}
+
 function SearchOnlyToolbar() {
   const active = useAtomValue(activeResourceTabAtom);
   const [mode, setMode] = useState(Settings.mouseLeftMode);
@@ -93,6 +116,7 @@ function SearchOnlyToolbar() {
     ? createPortal(
         <div className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border">
           <SearchButton />
+          <HighlightAutoFitButton />
         </div>,
         document.body,
       )
@@ -578,6 +602,7 @@ function Connections() {
           className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border"
         >
           <SearchButton />
+          <HighlightAutoFitButton />
           {showList && (
             <div className="max-h-56 max-w-lg overflow-auto p-2">
               {related.size === 0 && <p>此文件暂无已知的跨文件连线。</p>}

@@ -84,6 +84,7 @@ export const settingsSchema = z.object({
   showTreeDirectionHint: z.boolean().default(false),
   connectedNodeHighlightScope: z.union([z.literal("direct"), z.literal("all"), z.literal("chain")]).default("all"),
   connectedNodeHighlightLocked: z.boolean().default(false),
+  connectedNodeHighlightAutoFit: z.boolean().default(false),
   lineStyle: z.union([z.literal("straight"), z.literal("bezier"), z.literal("vertical")]).default("straight"),
   hideArrowWhenPointingToConnectPoint: z.boolean().default(true),
   showBidirectionalArrows: z.boolean().default(true),

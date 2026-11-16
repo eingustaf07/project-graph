@@ -155,7 +155,7 @@ export class SearchContentHighlightRenderer {
   }
 
   public prepareViewport() {
-    if (!Settings.connectedNodeHighlightLocked) {
+    if (!Settings.connectedNodeHighlightLocked || !Settings.connectedNodeHighlightAutoFit) {
       this.fittedLocked = false;
       return;
     }
@@ -202,7 +202,7 @@ export class SearchContentHighlightRenderer {
   }
 
   private fitLockedHighlight(nodes: readonly ConnectableEntity[]) {
-    if (!Settings.connectedNodeHighlightLocked) {
+    if (!Settings.connectedNodeHighlightLocked || !Settings.connectedNodeHighlightAutoFit) {
       this.fittedLocked = false;
       return;
     }
