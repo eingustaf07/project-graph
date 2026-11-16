@@ -8,7 +8,8 @@ import { Color, colorInvert, mixColors, Vector } from "@graphif/data-structures"
 import { CubicBezierCurve, Rectangle } from "@graphif/shapes";
 import { paintWithErasures } from "../../eraserMask";
 import { isSectionTitleZoomedOut } from "../../sectionTitleZoom";
-import { questionDisplayColor } from "../../questionColor";
+import { questionDisplayColor, taskFrameDisplayColor } from "../../questionColor";
+import { hasTaskStatus } from "@/core/service/dataManageService/nodeConclusions";
 
 @service("sectionRenderer")
 export class SectionRenderer {
@@ -288,6 +289,9 @@ export class SectionRenderer {
       const title = this.doodleTitleMetrics(section);
       const color =
         section.color.a === 0 ? this.project.stageStyleManager.currentStyle.StageObjectBorder : section.color;
+      const displayColor = hasTaskStatus(section.text)
+        ? taskFrameDisplayColor(section.text, color, this.project.stageStyleManager.currentStyle.Background)
+        : color;
       paintWithErasures(
         this.project,
         section,
@@ -297,7 +301,7 @@ export class SectionRenderer {
             section.frame.size.multiply(this.project.camera.currentScale),
           );
           ctx.save();
-          ctx.strokeStyle = questionDisplayColor(section.text, color).toString();
+          ctx.strokeStyle = questionDisplayColor(section.text, displayColor).toString();
           ctx.lineWidth = Math.max(1, 2 * this.project.camera.currentScale);
           ctx.setLineDash([]);
           ctx.beginPath();
@@ -312,12 +316,12 @@ export class SectionRenderer {
               const size = new Vector(side, side);
               titleRect = new Rectangle(rect.center.subtract(size.multiply(0.5)), size);
             }
-            this.project.textRenderer.renderTextInRectangle(section.text, titleRect, color);
+            this.project.textRenderer.renderTextInRectangle(section.text, titleRect, displayColor);
           } else if (section.text) {
             ctx.font = `${title.fontSize}px ${Settings.defaultFontFamily}`;
             ctx.textAlign = "left";
             ctx.textBaseline = "alphabetic";
-            ctx.fillStyle = color.toString();
+            ctx.fillStyle = displayColor.toString();
             ctx.fillText(section.text, rect.left + 8, rect.top - 8);
           }
           ctx.restore();

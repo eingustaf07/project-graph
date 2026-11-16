@@ -46,6 +46,88 @@ it("renders transparent Ctrl+G containers using the theme border without changin
 });
 import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { deserialize, serialize } from "@graphif/serializer";
+
+it.each([
+  ["✅ ", { _: "Color", r: 52, g: 103, b: 53 }],
+  ["❌ ", { _: "Color", r: 52, g: 12, b: 14 }],
+] as const)(
+  "keeps %s task containers and their full titles visible at normal and covered-title zoom",
+  (prefix, payload) => {
+    const ctx = {
+      save() {},
+      restore() {},
+      setLineDash() {},
+      beginPath() {},
+      rect() {},
+      stroke: vi.fn(),
+      fillText: vi.fn(),
+      strokeStyle: "",
+      fillStyle: "",
+    };
+    const storedColor = deserialize({ ...payload }) as Color;
+    expect(storedColor.a).toBe(1);
+    const frame = Object.assign(new Doodle({} as any), {
+      text: prefix + "需要完整保留的容器标题？",
+      shape: "rectangle",
+      bounded: true,
+      color: storedColor,
+      frame: new Rectangle(new Vector(10, 10), new Vector(400, 250)),
+      erasures: [{ points: [[0.2, 0.4]], radiusX: 0.01, radiusY: 0.02 }],
+    });
+    const before = JSON.stringify({
+      color: serialize(frame.color),
+      rect: serialize(frame.frame),
+      text: frame.text,
+      erasures: frame.erasures,
+    });
+    const p: any = {
+      canvas: { ctx },
+      camera: { currentScale: 1 },
+      renderer: { w: 1000, h: 800, transformWorld2View: (v: Vector) => v.multiply(p.camera.currentScale) },
+      stageStyleManager: { currentStyle: { Background: new Color(23, 23, 23), StageObjectBorder: Color.White } },
+      textRenderer: { renderTextInRectangle: vi.fn() },
+    };
+    const previous = { ...Settings };
+    try {
+      Object.assign(Settings, {
+        questionMarkYellow: true,
+        sectionBitTitleRenderType: "cover",
+        sectionBigTitleCameraScaleThreshold: 0.5,
+        sectionBigTitleThresholdRatio: 0.25,
+      });
+      const renderer = new SectionRenderer(p);
+      renderer.render(frame);
+      expect(ctx.stroke).toHaveBeenCalledOnce();
+      expect(ctx.strokeStyle).not.toBe(storedColor.toString());
+      expect(ctx.fillStyle).toBe(ctx.strokeStyle);
+      expect(ctx.fillText.mock.lastCall![0]).toBe(frame.text);
+      p.camera.currentScale = 0.2;
+      renderer.render(frame);
+      const [title, rect, displayColor] = p.textRenderer.renderTextInRectangle.mock.lastCall!;
+      expect(title).toBe(frame.text);
+      expect(rect.width).toBeCloseTo(80);
+      expect(displayColor.toString()).toBe(ctx.strokeStyle);
+      expect(
+        JSON.stringify({
+          color: serialize(frame.color),
+          rect: serialize(frame.frame),
+          text: frame.text,
+          erasures: frame.erasures,
+        }),
+      ).toBe(before);
+      frame.text = "需要完整保留的容器标题？";
+      frame.color = Color.Transparent;
+      p.camera.currentScale = 1;
+      renderer.render(frame);
+      expect(ctx.strokeStyle).toBe(new Color(255, 235, 59).toString());
+      expect(ctx.fillText.mock.lastCall![0]).toBe(frame.text);
+    } finally {
+      for (const key of Object.keys(Settings)) Reflect.deleteProperty(Settings, key);
+      Object.assign(Settings, previous);
+    }
+  },
+);
 
 it.each(["rectangle", "circle"])(
   "recolors an existing %s border without changing its title, saved color or original appearance when disabled",

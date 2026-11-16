@@ -2,7 +2,13 @@ import { afterEach, expect, it, vi } from "vitest";
 vi.mock("@/core/service/Settings", () => ({ Settings: { questionMarkYellow: false } }));
 import { Settings } from "@/core/service/Settings";
 import { Color } from "@graphif/data-structures";
-import { isQuestionMarked, isYellowQuestionNode, questionDisplayColor, questionTextColor } from "./questionColor";
+import {
+  isQuestionMarked,
+  isYellowQuestionNode,
+  questionDisplayColor,
+  questionTextColor,
+  taskFrameDisplayColor,
+} from "./questionColor";
 import { conclusionBlue, expandConclusionShortcut } from "@/core/service/dataManageService/nodeConclusions";
 import { conjecturePurple, expandConjectureShortcut } from "@/core/service/dataManageService/nodeConclusions";
 
@@ -32,6 +38,44 @@ it("expands /jl only at the start and gives old conclusion nodes blue without cr
 });
 afterEach(() => {
   Settings.questionMarkYellow = false;
+});
+
+it.each([Color.Black, new Color(23, 23, 23), Color.White, new Color(110, 110, 110)])(
+  "keeps task strokes and text readable against background %s without changing stored status colors",
+  (background) => {
+    const brightness = (color: Color) => {
+      const channels = [color.r, color.g, color.b]
+        .map((v) => v / 255)
+        .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    };
+    for (const [text, original] of [
+      ["✅ 问题？", new Color(52, 103, 53)],
+      ["❌ 问题？", new Color(52, 12, 14)],
+    ] as const) {
+      const before = original.toArray();
+      const display = taskFrameDisplayColor(text, original, background);
+      const ratio =
+        (Math.max(brightness(display), brightness(background)) + 0.05) /
+        (Math.min(brightness(display), brightness(background)) + 0.05);
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+      expect(original.toArray()).toEqual(before);
+      expect(taskFrameDisplayColor(text, original, background)).toBe(display);
+      expect(taskFrameDisplayColor("普通框", original, background)).toBe(original);
+    }
+  },
+);
+
+it("refreshes cached frame colors after a status color or theme changes", () => {
+  const color = new Color(52, 103, 53);
+  const background = new Color(23, 23, 23);
+  const green = taskFrameDisplayColor("✅ 问题？", color, background);
+  color.g = 12;
+  color.b = 14;
+  const red = taskFrameDisplayColor("❌ 问题？", color, background);
+  expect(red.toString()).not.toBe(green.toString());
+  background.r = background.g = background.b = 255;
+  expect(taskFrameDisplayColor("❌ 问题？", color, background)).toBe(color);
 });
 it("counts only question nodes that the renderer actually marks yellow, including legacy nodes", () => {
   Settings.questionMarkYellow = true;
