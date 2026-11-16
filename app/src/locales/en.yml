@@ -1,8 +1,8 @@
 findReplace:
   matchMode: Match mode
-  orderedMatch: Ordered match
-  unorderedMatch: Unordered match
-  unorderedHint: Match all entered characters anywhere, including repeated occurrences. Replacement uses contiguous original text.
+  orderedMatch: Full match
+  unorderedMatch: Partial match
+  unorderedHint: Match any entered character. Searching ab finds text containing a or b. Replacement uses contiguous original text.
   resultsLabel: Search results
   title: Find and replace
   findLabel: Find text

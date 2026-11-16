@@ -1,8 +1,8 @@
 findReplace:
   matchMode: 比對方式
-  orderedMatch: 順序比對
-  unorderedMatch: 非順序比對
-  unorderedHint: 包含全部輸入字元，順序不限。重複字元按輸入次數比對；取代使用連續原文。
+  orderedMatch: 全部比對
+  unorderedMatch: 部分比對
+  unorderedHint: 命中任一輸入字元即可。例如輸入 ab，包含 a 或 b 都會找到；取代使用連續原文。
   resultsLabel: 搜尋結果
 
 welcome:

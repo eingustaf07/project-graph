@@ -1,5 +1,7 @@
 vi.mock("@/sub/FindWindow", () => ({ default: { open: vi.fn() } }));
+vi.mock("@/sub/SettingsWindow", () => ({ default: { open: vi.fn() } }));
 import FindWindow from "@/sub/FindWindow";
+import SettingsWindow from "@/sub/SettingsWindow";
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -39,6 +41,7 @@ vi.mock("@/state", () => ({
 vi.mock("jotai", () => ({ useAtomValue: (atom: string) => (atom === "tabs" ? fixture.projects : fixture.active) }));
 vi.mock("@/core/service/Settings", () => ({
   Settings: Object.assign(fixture.settings, {
+    use: () => [false, vi.fn()],
     watch: (key: string, fn: (value: unknown) => void) => {
       const callbacks = fixture.watchers.get(key) ?? new Set();
       callbacks.add(fn);
@@ -118,6 +121,12 @@ it("connects across split canvases, tracks scaled positions, respects floating o
   const root = createRoot(host);
   try {
     await act(() => root.render(<CrossFileConnections />));
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="设置"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(SettingsWindow.open).toHaveBeenCalledWith("settings");
+    expect(SettingsWindow.open).toHaveBeenCalledTimes(1);
     a.node.isSelected = true;
     const targetPoint = endpointOnScreen({ project: b.project, nodeId: b.node.uuid })!;
     const dispatch = async (canvas: HTMLCanvasElement, type: string, p: { x: number; y: number }) => {
@@ -164,6 +173,11 @@ it("connects across split canvases, tracks scaled positions, respects floating o
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(FindWindow.open).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="设置"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(SettingsWindow.open).toHaveBeenCalledTimes(2);
   } finally {
     await act(() => root.unmount());
     host.remove();

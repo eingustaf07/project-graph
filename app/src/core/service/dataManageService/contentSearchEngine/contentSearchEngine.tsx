@@ -58,16 +58,10 @@ export type TextMatchMode = "ordered" | "unordered";
 function textMatcher(query: string, mode: TextMatchMode, caseSensitive: boolean) {
   const needle = caseSensitive ? query : query.toLowerCase();
   if (mode === "ordered") return (value: string) => (caseSensitive ? value : value.toLowerCase()).includes(needle);
-  const required = new Map<string, number>();
-  for (const character of needle) required.set(character, (required.get(character) ?? 0) + 1);
+  const characters = new Set(needle);
   return (value: string) => {
-    const remaining = new Map(required);
     for (const character of caseSensitive ? value : value.toLowerCase()) {
-      const count = remaining.get(character);
-      if (count === undefined) continue;
-      if (count === 1) remaining.delete(character);
-      else remaining.set(character, count - 1);
-      if (!remaining.size) return true;
+      if (characters.has(character)) return true;
     }
     return false;
   };

@@ -25,7 +25,7 @@ import {
 import { Button } from "./ui/button";
 import CrossWindowConnections from "./cross-window-connections";
 import { toast } from "sonner";
-import { PanelsTopLeft, Scan, Search, X } from "lucide-react";
+import { PanelsTopLeft, Scan, Search, Settings as SettingsIcon, X } from "lucide-react";
 
 type Point = { x: number; y: number };
 type Row = {
@@ -85,6 +85,24 @@ function SearchButton() {
   );
 }
 
+function SettingsButton() {
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      aria-label="设置"
+      title="打开设置"
+      onClick={() =>
+        void import("@/sub/SettingsWindow")
+          .then(({ default: SettingsWindow }) => SettingsWindow.open("settings"))
+          .catch((error) => toast.error(String(error)))
+      }
+    >
+      <SettingsIcon />
+    </Button>
+  );
+}
+
 function HighlightAutoFitButton() {
   const [enabled, setEnabled] = Settings.use("connectedNodeHighlightAutoFit");
   const active = useAtomValue(activeResourceTabAtom);
@@ -117,6 +135,7 @@ function SearchOnlyToolbar() {
         <div className="bg-popover fixed bottom-0 left-1/2 z-50 -translate-x-1/2 rounded-t border">
           <SearchButton />
           <HighlightAutoFitButton />
+          <SettingsButton />
         </div>,
         document.body,
       )
@@ -603,6 +622,7 @@ function Connections() {
         >
           <SearchButton />
           <HighlightAutoFitButton />
+          <SettingsButton />
           {showList && (
             <div className="max-h-56 max-w-lg overflow-auto p-2">
               {related.size === 0 && <p>此文件暂无已知的跨文件连线。</p>}

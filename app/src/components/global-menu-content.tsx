@@ -104,6 +104,7 @@ export default function GlobalMenuContent() {
   const { t } = useTranslation("keyBinds");
 
   const isVisible = (item: GlobalMenuConfigItem): boolean => {
+    if (item.id === "clickAppMenuSettingsButton") return false;
     if (item.visible === false) return false;
     return true;
   };

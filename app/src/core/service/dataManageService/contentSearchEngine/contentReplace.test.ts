@@ -125,22 +125,22 @@ function createProject(...objects: any[]) {
   return { project, search: project.contentSearch as ContentSearch, recordStep };
 }
 
-describe("ordered and unordered text matching", () => {
-  it("keeps contiguous matching as the default and can match scattered characters", () => {
-    const { search } = createProject(node("ab"), node("ba"), node("a---b"), node("a"), node("b"));
+describe("full and partial text matching", () => {
+  it("keeps contiguous matching as the default and matches any query character in partial mode", () => {
+    const { search } = createProject(node("ab"), node("ba"), node("a---b"), node("a"), node("b"), node("c"));
     search.startSearch("ab", false);
     expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["ab"]);
     search.matchMode = "unordered";
     search.startSearch("ab", false);
-    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["ab", "ba", "a---b"]);
+    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["ab", "ba", "a---b", "a", "b"]);
   });
-  it("counts repeated characters and supports Unicode code points", () => {
+  it("accepts a single occurrence of repeated input and supports Unicode code points", () => {
     const { search } = createProject(node("a"), node("aa"), node("🙂你"), node("你"));
     search.matchMode = "unordered";
     search.startSearch("aa", false);
-    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["aa"]);
+    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["a", "aa"]);
     search.startSearch("你🙂", false);
-    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["🙂你"]);
+    expect(search.searchResultNodes.map((n: any) => n.text)).toEqual(["🙂你", "你"]);
   });
   it("respects case sensitivity and the selected scope", () => {
     const a = node("BA"),
@@ -162,6 +162,17 @@ describe("ordered and unordered text matching", () => {
     search.startSearch("ab", false);
     search.replaceText("ab", "X", true);
     expect(item.text).toBe("ba X");
+  });
+  it("does not replace characters that only partially match the query", () => {
+    const a = node("a"),
+      b = node("b"),
+      exact = node("ab");
+    const { search } = createProject(a, b, exact);
+    search.matchMode = "unordered";
+    search.startSearch("ab", false);
+    expect(search.searchResultNodes).toEqual([a, b, exact]);
+    search.replaceText("ab", "X", true);
+    expect([a.text, b.text, exact.text]).toEqual(["a", "b", "X"]);
   });
 });
 
