@@ -1,4 +1,4 @@
-import { transEmacsKeyWinToMac } from "@/utils/emacs";
+import { parseSingleEmacsKey, transEmacsKeyWinToMac } from "@/utils/emacs";
 import { isMac } from "@/utils/platform";
 import { createStore } from "@/utils/store";
 import type { Project } from "@/core/Project";
@@ -17,31 +17,40 @@ export interface ExtensionKeyBindRegisterOptions {
  * 专门管理扩展注入的快捷键
  */
 export namespace ExtensionKeyBindManager {
-  function keepTaskStatusSelection(onPress: () => void) {
+  function keepTaskStatusSelection(onPress: () => void, key: string) {
     return async (project?: Project) => {
       const selected = new Set(project?.stage.filter((object) => object.isSelected));
       if (!project || !selected.size) return onPress();
+      const selectedIds = new Set([...selected].map((object) => object.uuid).filter((id) => typeof id === "string"));
+      const lastKey = parseSingleEmacsKey(key.trim().split(/\s+/).at(-1) ?? "").key;
       let interrupted = false;
-      const interrupt = () => {
+      const interruptPointer = (event: PointerEvent) => {
+        if (event.button !== undefined && event.button !== 0) return;
+        interrupted = true;
+      };
+      const interruptKey = (event: KeyboardEvent) => {
+        const pressed = event.key?.toLowerCase();
+        if (["shift", "control", "alt", "meta"].includes(pressed)) return;
+        if (pressed === "tab" && (event.altKey || event.ctrlKey || event.metaKey)) return;
+        if (event.repeat && pressed === lastKey) return;
         interrupted = true;
       };
       if (typeof window !== "undefined") {
-        window.addEventListener("pointerdown", interrupt, true);
-        window.addEventListener("keydown", interrupt, true);
-        window.addEventListener("blur", interrupt);
+        window.addEventListener("pointerdown", interruptPointer, true);
+        window.addEventListener("keydown", interruptKey, true);
       }
       try {
         await onPress();
       } finally {
         if (typeof window !== "undefined") {
-          window.removeEventListener("pointerdown", interrupt, true);
-          window.removeEventListener("keydown", interrupt, true);
-          window.removeEventListener("blur", interrupt);
+          window.removeEventListener("pointerdown", interruptPointer, true);
+          window.removeEventListener("keydown", interruptKey, true);
         }
         // The task extension selects its next pinned task after updating status.
         // Restore only this command's selection, never a subsequent user action.
         if (!interrupted && !project.closing) {
-          for (const object of project.stage) object.isSelected = selected.has(object);
+          for (const object of project.stage) object.isSelected = selected.has(object) || selectedIds.has(object.uuid);
+          project.searchContentHighlightRenderer?.invalidateSelection();
           project.controller.resetCountdownTimer();
         }
       }
@@ -85,7 +94,7 @@ export namespace ExtensionKeyBindManager {
           }
         : ["com.enterhalf.task-arrange", "text-node-todolist"].includes(extensionId) &&
             ["smartOKK", "smartERR"].includes(options.id)
-          ? keepTaskStatusSelection(options.onPress)
+          ? keepTaskStatusSelection(options.onPress, key)
           : options.onPress,
       options.onRelease,
       options.isContinuous,

@@ -110,7 +110,7 @@ it("restores remaining selected objects after an extension failure without resur
   expect(other.isSelected).toBe(false);
 });
 
-it.each(["pointerdown", "keydown", "blur"])("does not override subsequent user interaction: %s", async (eventType) => {
+it.each(["pointerdown", "keydown"])("does not override subsequent user interaction: %s", async (eventType) => {
   vi.stubGlobal("window", new EventTarget());
   const old = { isSelected: true },
     clicked = { isSelected: false };
@@ -126,6 +126,61 @@ it.each(["pointerdown", "keydown", "blur"])("does not override subsequent user i
   });
   await state.register.mock.lastCall![3](project);
   expect(project.stage.map((object) => object.isSelected)).toEqual([false, true]);
+});
+
+it("retains the selection when a held status key repeats while the task extension is still processing", async () => {
+  vi.stubGlobal("window", new EventTarget());
+  state.get.mockResolvedValue({ key: "o k", isEnabled: true });
+  const selected = { uuid: "original", isSelected: true };
+  const next = { uuid: "next", isSelected: false };
+  const project = { stage: [selected, next], controller: { resetCountdownTimer: vi.fn() } };
+  await ExtensionKeyBindManager.register("com.enterhalf.task-arrange", {
+    id: "smartOKK",
+    defaultKey: "o k k",
+    onPress: async () => {
+      window.dispatchEvent(Object.assign(new Event("keydown"), { key: "k", repeat: true }));
+      selected.isSelected = false;
+      next.isSelected = true;
+    },
+  });
+  await state.register.mock.lastCall![3](project);
+  expect(project.stage.map((object) => object.isSelected)).toEqual([true, false]);
+});
+
+it("restores selection by UUID if status updates replace stage instances, without selecting other objects", async () => {
+  const selected = { uuid: "original", isSelected: true };
+  const replacement = { uuid: "original", isSelected: false };
+  const next = { uuid: "next", isSelected: true };
+  const project = { stage: [selected], controller: { resetCountdownTimer: vi.fn() } };
+  await ExtensionKeyBindManager.register("text-node-todolist", {
+    id: "smartERR",
+    defaultKey: "e r r",
+    onPress: async () => {
+      project.stage = [replacement, next];
+    },
+  });
+  await state.register.mock.lastCall![3](project);
+  expect(project.stage.map((object) => object.isSelected)).toEqual([true, false]);
+});
+
+it("does not lose the original window selection when focus leaves or the user only pans", async () => {
+  vi.stubGlobal("window", new EventTarget());
+  const selected = { uuid: "original", isSelected: true };
+  const next = { uuid: "next", isSelected: false };
+  const project = { stage: [selected, next], controller: { resetCountdownTimer: vi.fn() } };
+  await ExtensionKeyBindManager.register("com.enterhalf.task-arrange", {
+    id: "smartERR",
+    defaultKey: "e r r",
+    onPress: async () => {
+      window.dispatchEvent(new Event("blur"));
+      window.dispatchEvent(Object.assign(new Event("pointerdown"), { button: 2 }));
+      window.dispatchEvent(Object.assign(new Event("keydown"), { key: "Shift" }));
+      selected.isSelected = false;
+      next.isSelected = true;
+    },
+  });
+  await state.register.mock.lastCall![3](project);
+  expect(project.stage.map((object) => object.isSelected)).toEqual([true, false]);
 });
 
 it("leaves other extensions' identically named commands unchanged", async () => {

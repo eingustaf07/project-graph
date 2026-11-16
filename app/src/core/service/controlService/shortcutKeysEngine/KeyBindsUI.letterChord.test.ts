@@ -74,6 +74,7 @@ vi.mock("./shortcutKeysRegister", () => ({
 }));
 import { Project } from "@/core/Project";
 import { KeyBindsUI } from "./KeyBindsUI";
+import { ExtensionKeyBindManager } from "../../../extension/ExtensionKeyBindManager";
 import { URI } from "vscode-uri";
 import { doodleCommands } from "./doodleCommands";
 
@@ -112,6 +113,49 @@ beforeEach(async () => {
   await KeyBindsUI.registerAllUIKeyBinds();
   KeyBindsUI.uiStartListen();
 });
+
+it.each([
+  ["smartOKK", "o", "k"],
+  ["smartERR", "e", "r"],
+])(
+  "retains selection through the real %s shortcut while the held last key repeats during async status work",
+  async (id, firstKey, lastKey) => {
+    const selected = { uuid: "selected", isSelected: true, color: "yellow" };
+    const next = { uuid: "next", isSelected: false, color: "none" };
+    const project = Object.assign(fixture.active as Project, {
+      stage: [selected, next],
+      controller: { resetCountdownTimer: vi.fn() },
+      searchContentHighlightRenderer: { invalidateSelection: vi.fn() },
+    });
+    fixture.saved.set(`ext:com.enterhalf.task-arrange:${id}`, { key: `${firstKey} ${lastKey}`, isEnabled: true });
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const callback = vi.fn(async () => {
+      selected.color = id === "smartOKK" ? "green" : "red";
+      await pending;
+      selected.isSelected = false;
+      next.isSelected = true;
+    });
+    await ExtensionKeyBindManager.register("com.enterhalf.task-arrange", {
+      id,
+      defaultKey: `${firstKey} ${lastKey} ${lastKey}`,
+      onPress: callback,
+    });
+    await down(firstKey);
+    await up(firstKey);
+    await down(lastKey);
+    expect(callback).toHaveBeenCalledOnce();
+    await down(lastKey, { repeat: true });
+    await up(lastKey);
+    finish();
+    await flush();
+    expect(project.stage.map((object) => object.isSelected)).toEqual([true, false]);
+    expect(project.searchContentHighlightRenderer.invalidateSelection).toHaveBeenCalledOnce();
+    expect(selected.color).toBe(id === "smartOKK" ? "green" : "red");
+  },
+);
 
 it("keeps YY on the color picker and removes the duplicate document color sidebar binding", async () => {
   fixture.saved.set("openColorPanel", { key: "y y", isEnabled: true });
