@@ -452,6 +452,7 @@ export class StageManager {
       }
     }
     refreshNodeNumbering(this.project);
+    this.project.emit("stage-content-change");
   }
 
   rebuildSectionRuntimeTree() {

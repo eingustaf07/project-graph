@@ -26,7 +26,7 @@ export default function NodeTextPreview({
   return createPortal(
     <aside
       aria-label="节点文字预览"
-      className="pointer-events-auto fixed top-12 right-4 z-50 flex max-h-[60vh] w-80 max-w-[80vw] flex-col overflow-hidden rounded-lg border bg-(--stage-background) shadow-lg"
+      className="pg-floating-surface pointer-events-auto fixed top-12 right-3 z-50 flex max-h-[54vh] w-72 max-w-[80vw] flex-col overflow-hidden border bg-(--stage-background) text-sm"
       onPointerDown={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
       onWheel={(event) => event.stopPropagation()}
@@ -38,7 +38,7 @@ export default function NodeTextPreview({
         if (nodeId) onNavigate(nodeId);
       }}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2">
+      <div className="border-primary/20 flex shrink-0 items-center justify-between gap-2 border-b px-3 py-1">
         <div className="text-sm opacity-70">节点内容（{items.length}）</div>
         <button
           type="button"
@@ -58,7 +58,7 @@ export default function NodeTextPreview({
           <X size={16} />
         </button>
       </div>
-      <div className="min-h-0 overflow-y-auto overscroll-contain px-4 pb-4">
+      <div className="min-h-0 overflow-y-auto overscroll-contain px-3 pb-3">
         <div className="divide-y">
           {items.map((item) => (
             <div

@@ -14,6 +14,21 @@
 } */
 
 @layer components {
+  .pg-floating-surface {
+    border-radius: 3px;
+    border-color: color-mix(in oklab, var(--primary) 40%, var(--border));
+    box-shadow:
+      0 8px 24px rgb(0 0 0 / 18%),
+      inset 0 1px color-mix(in oklab, var(--primary) 18%, transparent);
+    background-image:
+      linear-gradient(135deg, color-mix(in oklab, var(--primary) 24%, transparent) 7px, transparent 7px),
+      linear-gradient(315deg, color-mix(in oklab, var(--primary) 24%, transparent) 7px, transparent 7px);
+    background-size: 20px 20px;
+    background-position:
+      left top,
+      right bottom;
+    background-repeat: no-repeat;
+  }
   * {
     @apply box-border cursor-default select-none [-webkit-user-drag:none];
     font-family: var(

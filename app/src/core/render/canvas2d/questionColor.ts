@@ -40,3 +40,7 @@ function showQuestionYellow(text: string | undefined): boolean {
   // Both installed task extensions toggle these prefixes together with their status colors.
   return isQuestionMarked(text) && !text?.startsWith("✅ ") && !text?.startsWith("❌ ");
 }
+
+export function isYellowQuestionNode(text: string | undefined): boolean {
+  return !isConjectureText(text) && showQuestionYellow(text);
+}

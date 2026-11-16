@@ -53,6 +53,7 @@ afterEach(() => {
 function fixture() {
   const p = {
     stage: [],
+    emit: vi.fn(),
     attachments: new Map(),
     canvas: { element: document.createElement("canvas"), clientToView: (x: number, y: number) => new Vector(x, y) },
     controller: {
@@ -149,7 +150,8 @@ it("right-drags the second canvas without moving the first or repeating backgrou
 
 it("skips hover scans only during a confirmed pan and restores picking on release", () => {
   const { p, control } = fixture();
-  const update = vi.fn(), clear = vi.fn();
+  const update = vi.fn(),
+    clear = vi.fn();
   const connection = { isUsing: true };
   Object.assign(p, { mouseInteraction: { updateByMouseMove: update, clearHover: clear } });
   Object.assign(p.controller, { camera: control, nodeConnection: connection });

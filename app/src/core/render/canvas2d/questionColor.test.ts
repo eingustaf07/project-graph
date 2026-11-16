@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 vi.mock("@/core/service/Settings", () => ({ Settings: { questionMarkYellow: false } }));
 import { Settings } from "@/core/service/Settings";
 import { Color } from "@graphif/data-structures";
-import { isQuestionMarked, questionDisplayColor, questionTextColor } from "./questionColor";
+import { isQuestionMarked, isYellowQuestionNode, questionDisplayColor, questionTextColor } from "./questionColor";
 import { conclusionBlue, expandConclusionShortcut } from "@/core/service/dataManageService/nodeConclusions";
 import { conjecturePurple, expandConjectureShortcut } from "@/core/service/dataManageService/nodeConclusions";
 
@@ -32,6 +32,16 @@ it("expands /jl only at the start and gives old conclusion nodes blue without cr
 });
 afterEach(() => {
   Settings.questionMarkYellow = false;
+});
+it("counts only question nodes that the renderer actually marks yellow, including legacy nodes", () => {
+  Settings.questionMarkYellow = true;
+  expect(isYellowQuestionNode("旧问题？")).toBe(true);
+  expect(isYellowQuestionNode("Why? \n")).toBe(true);
+  for (const text of ["✅ 已解决？", "❌ 失败？", "结论:旧结论？", "猜想:会成立吗？", "普通节点", undefined]) {
+    expect(isYellowQuestionNode(text)).toBe(false);
+  }
+  Settings.questionMarkYellow = false;
+  expect(isYellowQuestionNode("旧问题？")).toBe(false);
 });
 it.each(["为什么？", "Why?", "中文英文?？", "结尾？\n  "])(
   "recognizes Chinese and English trailing question marks: %s",

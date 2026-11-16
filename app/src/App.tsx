@@ -39,6 +39,7 @@ import CommandPalette from "./CommandPalette";
 import { DropWindowCover } from "./DropWindowCover";
 import DockedArea from "./components/docked-area";
 import NodeTextPreview, { centerPreviewNode } from "./components/node-text-preview";
+import YellowQuestionCount from "./components/yellow-question-count";
 import RenderOverlays from "./components/overlay-host";
 import { KeyBindsUI } from "./core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { checkAndFixShortcutStorage } from "./core/service/controlService/shortcutKeysEngine/ShortcutKeyFixer";
@@ -420,6 +421,7 @@ export default function App() {
           <CrossFileConnections />
         </React.Suspense>
         <PieMenu />
+        <YellowQuestionCount />
 
         {/* 右上角关闭的触发角 */}
         {isWindows && (

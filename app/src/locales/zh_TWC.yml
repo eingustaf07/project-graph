@@ -1,3 +1,5 @@
+statusIndicators:
+  yellowQuestions: 問題 {{count}}
 findReplace:
   matchMode: 比對方式
   orderedMatch: 全部比對
@@ -490,6 +492,9 @@ settings:
   questionMarkYellow:
     title: 問號結尾自動標黃
     description: 開啟後，以中文或英文問號結尾的節點顯示為黃色，框標題以問號結尾時邊框顯示為黃色（忽略末尾空白）。舊檔案同樣生效，不修改原配色；關閉或去掉問號後恢復原色。框內第一次出現問號節點時，用其完整內容自動命名框，僅執行一次並保存狀態，後續不自動改名。
+  showYellowQuestionCount:
+    title: 顯示標黃問題數
+    description: 在右下角以一行小字顯示目前檔案實際標黃的問題節點數量。包含舊節點，不重複計算框標題；任務狀態、結論及猜想不計入。不佔版面或攔截滑鼠。
   forceHideTextNodeBorder:
     title: 強制隱藏文字節點邊框
     description: |

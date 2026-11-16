@@ -230,6 +230,7 @@ export const settingsIcons = {
   enableTagTextNodesBigDisplay: Tag,
   forceHideTextNodeBorder: Square,
   questionMarkYellow: Palette,
+  showYellowQuestionCount: CircleDot,
   textNodeInitBorderStyle: SquareDashed,
   newNodeScaleByCamera: Scaling,
   newNodeScaleByCameraOffset: Scaling,

@@ -489,6 +489,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     if (!this._isSyncing) {
       this.project.syncAssociationManager.syncFrom(this, "text");
     }
+    this.project.emit("stage-content-change");
   }
 
   resizeHandle(delta: Vector) {

@@ -1,3 +1,5 @@
+statusIndicators:
+  yellowQuestions: 问题 {{count}}
 findReplace:
   resultsLabel: 查找结果
   matchMode: 匹配方式
@@ -474,6 +476,9 @@ settings:
   questionMarkYellow:
     title: 问号结尾自动标黄
     description: 开启后，以中文或英文问号结尾的节点显示为黄色，框标题以问号结尾时边框显示为黄色（忽略末尾空白）。对已有文件同样生效，不修改原配色；关闭或去掉问号后恢复原色。框内第一次出现问号节点时，用其完整内容自动命名框，仅执行一次并保存状态，后续不自动改名。
+  showYellowQuestionCount:
+    title: 显示标黄问题数
+    description: 在右下角以一行小字显示当前文件中实际标黄的问题节点数量。包含历史节点，不重复统计框标题；绿色、红色任务、蓝色结论和紫色猜想不计入。不占用布局或拦截鼠标。
   forceHideTextNodeBorder:
     title: 强制隐藏文本节点边框
     description: |

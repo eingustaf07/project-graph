@@ -1,3 +1,5 @@
+statusIndicators:
+  yellowQuestions: Questions {{count}}
 findReplace:
   matchMode: Match mode
   orderedMatch: Full match
@@ -1094,6 +1096,9 @@ settings:
   questionMarkYellow:
     title: Yellow for trailing question marks
     description: Display nodes ending in ? or ？ in yellow and highlight frame borders when their titles end in a question mark, ignoring trailing whitespace. Applies to existing files without changing saved colors. Disable or remove the question mark to restore original colors. Name each frame after its first question node once; remember this in the file and never automatically rename it again.
+  showYellowQuestionCount:
+    title: Show yellow question count
+    description: Show a small current-file count at the bottom right. Include existing yellow question nodes, excluding frame titles, task statuses, conclusions and conjectures. Does not reserve layout space or intercept the mouse.
   forceHideTextNodeBorder:
     title: Force Hide Text Node Border
     description: |

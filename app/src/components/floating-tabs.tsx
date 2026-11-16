@@ -45,9 +45,9 @@ export default function FloatingTabs({
               height: tab.floatingRect.height + "px",
             }}
             className={cn(
-              "outline-primary pointer-events-auto absolute flex flex-col overflow-hidden shadow-md outline-0 transition",
+              "pg-floating-surface outline-primary pointer-events-auto absolute flex flex-col overflow-hidden rounded-none outline-0 transition",
               "data-closed:scale-90 data-closed:opacity-0",
-              activeTab === tab && "outline-4",
+              activeTab === tab && "outline-2",
             )}
             onClick={() => onClickInner(tab)}
             onMouseDown={(e) => {
@@ -105,7 +105,7 @@ export default function FloatingTabs({
           >
             <div
               className={cn(
-                "flex p-1",
+                "border-primary/20 flex border-b p-1 text-sm tracking-wide",
                 tab.titleBarOverlay && "pointer-events-none absolute top-0 right-0 z-100 w-max",
               )}
             >

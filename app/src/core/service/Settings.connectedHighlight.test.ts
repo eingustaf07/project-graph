@@ -69,6 +69,19 @@ describe("connected highlight setting compatibility and persistence", () => {
     expect(restored.connectedNodeHighlightAutoFit).toBe(true);
     expect(restored.connectedNodeHighlightLocked).toBe(true);
   });
+  it("saves the compact question counter independently without changing yellow coloring or highlight lock", async () => {
+    const { Settings } = await import("./Settings");
+    expect(Settings.showYellowQuestionCount).toBe(false);
+    const originalLock = Settings.connectedNodeHighlightLocked;
+    storage.writtenKeys = [];
+    Settings.showYellowQuestionCount = true;
+    expect(storage.writtenKeys).toEqual(["showYellowQuestionCount"]);
+    vi.resetModules();
+    const restored = (await import("./Settings")).Settings;
+    expect(restored.showYellowQuestionCount).toBe(true);
+    expect(restored.questionMarkYellow).toBe(true);
+    expect(restored.connectedNodeHighlightLocked).toBe(originalLock);
+  });
   it("defaults question yellow on, while preserving an explicit saved opt-out", async () => {
     expect((await import("./Settings")).Settings.questionMarkYellow).toBe(true);
     storage.values.set("questionMarkYellow", false);

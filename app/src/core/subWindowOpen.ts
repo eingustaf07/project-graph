@@ -7,6 +7,8 @@ import {
 } from "@/core/subWindowOpenModes";
 import { ComponentTab, ComponentTabOptions } from "@/core/Tab";
 import { TabWorkspace } from "@/core/TabWorkspace";
+import { Vector } from "@graphif/data-structures";
+import { Rectangle } from "@graphif/shapes";
 
 export {
   DEFAULT_SUB_WINDOW_OPEN_MODES,
@@ -46,9 +48,17 @@ export function resolveSubWindowOpenOptions(windowId: SubWindowId): Pick<Compone
 export function createSubWindow(windowId: SubWindowId, options: ComponentTabOptions): ComponentTab {
   const openOptions = resolveSubWindowOpenOptions(windowId);
   const docked = openOptions.layout === "docked";
+  const rect = options.rect;
+  const size =
+    rect &&
+    new Vector(
+      Math.max(Math.min(rect.width, 240), rect.width * 0.9),
+      Math.max(Math.min(rect.height, 160), rect.height * 0.9),
+    );
   return TabWorkspace.create({
     ...options,
     ...openOptions,
+    rect: !docked && rect && size ? new Rectangle(rect.center.subtract(size.divide(2)), size) : rect,
     canDock: docked ? true : options.canDock,
     closeWhenClickOutside: docked ? false : options.closeWhenClickOutside,
     closeWhenClickInside: docked ? false : options.closeWhenClickInside,
