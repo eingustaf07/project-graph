@@ -137,7 +137,9 @@ export async function restoreDevelopmentSession(): Promise<boolean> {
       n.isSelected = selected.has(n.uuid);
     });
     p.camera.location = new Vector(saved.camera.x, saved.camera.y);
+    p.camera.targetLocationByScale = p.camera.location.clone();
     p.camera.currentScale = p.camera.targetScale = saved.camera.scale;
+    p.camera.hasResetOnOpen = true;
     p.layout = saved.layout;
     p.floatingRect = deserialize(saved.floatingRect) as Rectangle;
     p.zIndex = saved.zIndex;
