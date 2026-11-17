@@ -24,6 +24,7 @@ fn read_clipboard_image_paths() -> Result<Vec<String>, String> {
 mod chatgpt_auth;
 mod project_ownership;
 mod project_new_window;
+mod ai_popup;
 pub mod project_reference_store;
 mod settings_store;
 mod settings_file;
@@ -108,6 +109,7 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
+            ai_popup::create_main_window(app.handle())?;
             app.manage(project_runtime_bridge::ProjectRuntimeBridgeManager::start(
                 app.handle().clone(),
             )?);
@@ -155,6 +157,7 @@ pub fn run() {
             #[cfg(debug_assertions)]
             cli_desktop_acceptance::wait_for_cli_desktop_acceptance_completion,
             write_stdout,
+            ai_popup::supports_ai_popup,
             write_stderr,
             exit,
             take_pending_open_files,

@@ -43,7 +43,9 @@ export default function FindWindow({ tabId }: { tabId: string }) {
   // 搜索范围
   const [tab] = useAtom(activeResourceTabAtom);
   const project = tab instanceof Project ? tab : undefined;
-  const defaultScope = project?.stageManager.getSelectedEntities().length ? SearchScope.SELECTED : SearchScope.ALL;
+  const defaultScope = project?.stageManager.getStageObjects().some((object) => object.isSelected)
+    ? SearchScope.SELECTED
+    : SearchScope.ALL;
   const [scopeChoice, setScopeChoice] = useState({ project, scope: defaultScope });
   const searchScope = scopeChoice.project === project ? scopeChoice.scope : defaultScope;
   const setSearchScope = (scope: SearchScope) => setScopeChoice({ project, scope });
@@ -115,7 +117,7 @@ export default function FindWindow({ tabId }: { tabId: string }) {
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-4">
       <div className="shrink-0 space-y-2">
         <Input
-          placeholder="搜索文字；/问题 查问号结尾的节点和框，/空 查空白或默认编号，/ok 查绿标，/er 查红标"
+          placeholder="搜索节点、框或连线文字；/问题 查问号结尾，/空 查空白或默认编号，/ok 查绿标，/er 查红标"
           aria-label={t("findLabel")}
           autoFocus
           type="search"

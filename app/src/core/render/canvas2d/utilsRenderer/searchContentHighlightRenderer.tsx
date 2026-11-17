@@ -183,7 +183,7 @@ export class SearchContentHighlightRenderer {
     if (!searchResultNodes.length) return;
     const matchColor = this.project.stageStyleManager.currentStyle.effects.warningShadow.toNewAlpha(0.5);
     for (const stageObject of searchResultNodes) {
-      const bounds = stageObject.collisionBox.getRectangle();
+      const bounds = this.project.contentSearch.getResultBounds(stageObject);
       this.project.shapeRenderer.renderRect(
         this.project.renderer.transformWorld2View(bounds.expandFromCenter(10)),
         Color.Transparent,

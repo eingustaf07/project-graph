@@ -4,6 +4,7 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as React from "react";
 
 import { cn } from "@/utils/cn";
+import { usePortalContainer } from "./portal-container";
 
 function TooltipProvider({ delayDuration = 0, ...props }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" delayDuration={delayDuration} {...props} />;
@@ -27,6 +28,8 @@ function TooltipContent({
   children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+  const portalContainer = usePortalContainer();
+  const ownerWindow = portalContainer?.ownerDocument.defaultView ?? window;
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [offset, setOffset] = React.useState({ left: 0, top: 0 });
 
@@ -37,8 +40,8 @@ function TooltipContent({
 
       if (contentRef.current) {
         const { width, height } = contentRef.current.getBoundingClientRect();
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
+        const viewportWidth = ownerWindow.innerWidth;
+        const viewportHeight = ownerWindow.innerHeight;
 
         let left = x + sideOffset;
         let top = y + sideOffset;
@@ -58,12 +61,12 @@ function TooltipContent({
         setOffset({ left, top });
       }
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [sideOffset]);
+    ownerWindow.addEventListener("mousemove", handleMouseMove);
+    return () => ownerWindow.removeEventListener("mousemove", handleMouseMove);
+  }, [sideOffset, ownerWindow]);
 
   return (
-    <TooltipPrimitive.Portal>
+    <TooltipPrimitive.Portal container={portalContainer}>
       <TooltipPrimitive.Content
         ref={contentRef}
         data-slot="tooltip-content"

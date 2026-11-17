@@ -9,7 +9,6 @@ import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { Direction } from "@/types/directions";
-import { showTreeValidationErrors } from "@/utils/treeValidation";
 import { ProgressNumber, Vector } from "@graphif/data-structures";
 import { Line, Rectangle } from "@graphif/shapes";
 import { v4 } from "uuid";
@@ -461,14 +460,6 @@ export class KeyboardOnlyTreeEngine {
             if (Settings.autoLayoutWhenTreeGenerate) {
               this.project.autoAlign.autoLayoutSelectedFastTreeMode(rootNodeParent, true);
             }
-          } else {
-            if (Settings.autoLayoutWhenTreeGenerate) {
-              showTreeValidationErrors(validationResult, "warning");
-            }
-          }
-        } else {
-          if (Settings.autoLayoutWhenTreeGenerate) {
-            toast.warning("当前结构不符合树形结构：无法确定唯一的根节点");
           }
         }
         if (editEdgeFirst && newEdges.length > 0) {
@@ -639,14 +630,6 @@ export class KeyboardOnlyTreeEngine {
           rootNodeParent.isSelected = false;
           newNode.isSelected = true;
           rootNode.isSelected = false;
-        } else {
-          if (Settings.autoLayoutWhenTreeGenerate) {
-            showTreeValidationErrors(validationResult, "warning");
-          }
-        }
-      } else {
-        if (!directedPlacement && Settings.autoLayoutWhenTreeGenerate) {
-          toast.warning("当前结构不符合树形结构：无法确定唯一的根节点");
         }
       }
 
@@ -800,14 +783,6 @@ export class KeyboardOnlyTreeEngine {
         rootNodeParent.isSelected = false;
         newNode.isSelected = true;
         currentSelectNode.isSelected = false;
-      } else {
-        if (Settings.autoLayoutWhenTreeGenerate) {
-          showTreeValidationErrors(validationResult, "warning");
-        }
-      }
-    } else {
-      if (Settings.autoLayoutWhenTreeGenerate) {
-        toast.warning("当前结构不符合树形结构：无法确定唯一的根节点");
       }
     }
     if (Settings.snapNewNodesToGrid) this.project.stageManager.snapCreatedNodes([newNode]);

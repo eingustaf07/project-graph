@@ -111,7 +111,6 @@ export class Renderer {
     this.project.keyBindHintEngine.render();
     this.renderSpecialKeys();
     this.renderCenterPointer();
-    this.renderZoomLevelStage();
     this.renderDebugDetails();
   }
 
@@ -163,28 +162,6 @@ export class Renderer {
       ctx.fillText(chat.text, location.x + 21, location.y + 29);
       ctx.restore();
     }
-  }
-
-  private renderZoomLevelStage() {
-    if (isFrame) return;
-
-    const currentScale = this.project.camera.currentScale;
-    if (!Number.isFinite(currentScale) || currentScale <= 0) return;
-
-    const base = 3;
-    const stage =
-      currentScale >= 1
-        ? Math.floor(Math.log(currentScale) / Math.log(base)) + 1
-        : -(Math.floor(Math.log(0.1 / currentScale) / Math.log(base)) + 1);
-
-    const margin = 10;
-    const fontSize = 12;
-    this.project.textRenderer.renderTempText(
-      `Z${stage}`,
-      new Vector(margin, this.h - margin - fontSize),
-      fontSize,
-      this.project.stageStyleManager.currentStyle.DetailsDebugText,
-    );
   }
 
   private renderMainStageElements(viewRectangle: Rectangle) {

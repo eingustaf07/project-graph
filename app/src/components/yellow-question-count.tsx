@@ -50,7 +50,7 @@ export default function YellowQuestionCount() {
   return (
     <span
       data-yellow-question-count=""
-      className="text-muted-foreground pointer-events-none absolute right-2 bottom-1 z-30 text-xs leading-none tabular-nums select-none"
+      className="text-muted-foreground pointer-events-none absolute bottom-1 left-2 z-30 text-sm leading-none font-bold tabular-nums select-none"
     >
       {t("yellowQuestions", { count: snapshot.project === project ? snapshot.count : 0 })}
     </span>

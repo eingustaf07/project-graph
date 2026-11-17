@@ -36,11 +36,26 @@ const fixtureClasses = vi.hoisted(() => {
     source: any;
     target: any;
     collisionBox: any;
+    textRectangle: any;
+    get associationList() {
+      return [this.source, this.target].filter(Boolean);
+    }
     rename(text: string) {
       this.text = text;
     }
   }
-  return { Entity, TextNode, Section, UrlNode, Edge, objects: new Map<string, any>() };
+  class MultiTargetUndirectedEdge {
+    uuid = crypto.randomUUID();
+    text = "";
+    isSelected = false;
+    associationList: any[] = [];
+    collisionBox: any;
+    textRectangle: any;
+    rename(text: string) {
+      this.text = text;
+    }
+  }
+  return { Entity, TextNode, Section, UrlNode, Edge, MultiTargetUndirectedEdge, objects: new Map<string, any>() };
 });
 vi.mock("@/core/Project", () => ({
   Project: class {},
@@ -52,6 +67,9 @@ vi.mock("@/core/stage/stageObject/entity/TextNode", () => ({ TextNode: fixtureCl
 vi.mock("@/core/stage/stageObject/entity/Section", () => ({ Section: fixtureClasses.Section }));
 vi.mock("@/core/stage/stageObject/entity/UrlNode", () => ({ UrlNode: fixtureClasses.UrlNode }));
 vi.mock("@/core/stage/stageObject/association/Edge", () => ({ Edge: fixtureClasses.Edge }));
+vi.mock("@/core/stage/stageObject/association/MutiTargetUndirectedEdge", () => ({
+  MultiTargetUndirectedEdge: fixtureClasses.MultiTargetUndirectedEdge,
+}));
 vi.mock("@/core/service/feedbackService/effectEngine/concrete/RectangleNoteEffect", () => ({
   RectangleNoteEffect: class {},
 }));
@@ -124,6 +142,60 @@ function createProject(...objects: any[]) {
   project.contentSearch = new ContentSearch(project);
   return { project, search: project.contentSearch as ContentSearch, recordStep };
 }
+
+describe("connection label search", () => {
+  it.each(["Edge", "MultiTargetUndirectedEdge"] as const)(
+    "finds and selects %s labels at their text location",
+    (kind) => {
+      const a = node("起点"),
+        b = node("终点");
+      const label = new Rectangle(new Vector(700, 300), new Vector(120, 40));
+      const edge: any = Object.assign(new fixtureClasses[kind](), {
+        text: "关键 Label",
+        source: a,
+        target: b,
+        textRectangle: label,
+        collisionBox: new CollisionBox([new Rectangle(Vector.getZero(), new Vector(1000, 1000))]),
+      });
+      const { project, search, recordStep } = createProject(a, b, edge);
+      project.camera.bombMove = vi.fn();
+      expect(search.startSearch("label")).toBe(true);
+      expect(search.searchResultNodes).toEqual([edge]);
+      expect(project.camera.location).toEqual(label.center);
+      expect(search.getResultBounds(edge)).toBe(label);
+      search.panToResult(edge, true);
+      expect(project.stage.filter((object: any) => object.isSelected)).toEqual([edge]);
+      expect(project.camera.bombMove).toHaveBeenCalledWith(label.center);
+      search.isCaseSensitive = true;
+      expect(search.startSearch("label", false)).toBe(false);
+      search.isCaseSensitive = false;
+      search.matchMode = "unordered";
+      expect(search.startSearch("字关", false)).toBe(true);
+      search.searchScope = SearchScope.SELECTED;
+      expect(search.startSearch("Label", false)).toBe(true);
+      edge.isSelected = false;
+      expect(search.startSearch("Label", false)).toBe(false);
+      expect(recordStep).not.toHaveBeenCalled();
+    },
+  );
+  it("replaces multi-node edge labels only when all endpoints are unlocked", () => {
+    const a = node("起点"),
+      b = node("终点"),
+      c = node("第三个端点");
+    const locked = Object.assign(new fixtureClasses.Section(), { locked: true });
+    c.parentSection = locked;
+    const edge = Object.assign(new fixtureClasses.MultiTargetUndirectedEdge(), {
+      text: "foo",
+      associationList: [a, b, c],
+    });
+    const { search } = createProject(a, b, c, edge);
+    expect(search.replaceText("foo", "bar", true)).toMatchObject({ count: 0, lockedCount: 1 });
+    expect(edge.text).toBe("foo");
+    locked.locked = false;
+    expect(search.replaceText("foo", "bar", true).count).toBe(1);
+    expect(edge.text).toBe("bar");
+  });
+});
 
 describe("full and partial text matching", () => {
   it("keeps contiguous matching as the default and matches any query character in partial mode", () => {

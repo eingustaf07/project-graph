@@ -81,6 +81,8 @@ import "streamdown/styles.css";
 import { getOriginalNameOf } from "virtual:original-class-name";
 import { useTranslation } from "react-i18next";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { AIWindowSurface, useAIWindowSurface } from "./AIWindowSurface";
+import { ExternalLink } from "lucide-react";
 
 let pendingInitialText: string | null = null;
 let pendingInitialPrompt: string | null = null;
@@ -91,10 +93,21 @@ export function setAIWindowInitialText(text: string, prompt?: string) {
 }
 
 export default function AIWindow({ tabId }: { tabId: string }) {
-  const [tab] = useAtom(activeResourceTabAtom);
-  const project = tab instanceof Project ? tab : undefined;
+  return (
+    <AIWindowSurface id={tabId}>
+      <AIWindowContent tabId={tabId} />
+    </AIWindowSurface>
+  );
+}
 
-  if (!project) {
+function AIWindowContent({ tabId }: { tabId: string }) {
+  const [tab] = useAtom(activeResourceTabAtom);
+  const surface = useAIWindowSurface();
+  const pinnedProject = useRef<Project | undefined>(undefined);
+  if (!surface.detached) pinnedProject.current = tab instanceof Project ? tab : undefined;
+  const project = pinnedProject.current;
+
+  if (!project || project.closing) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <FolderOpen className="text-muted-foreground size-10" />
@@ -174,6 +187,7 @@ function formatSessionUpdatedAt(timestamp: number): string {
 }
 
 function AIChatWorkspace({ project, tabId }: { project: Project; tabId: string }) {
+  const surface = useAIWindowSurface();
   const projectUri = project.uri.toString();
   const [apiModel] = Settings.use("aiModel");
   const [chatGPTModel] = Settings.use("aiChatGPTModel");
@@ -328,6 +342,15 @@ function AIChatWorkspace({ project, tabId }: { project: Project; tabId: string }
           </TooltipTrigger>
           <TooltipContent>会话历史</TooltipContent>
         </Tooltip>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={surface.detached ? "移回主窗口" : "在新窗口中打开 AI"}
+          title={surface.detached ? "移回主窗口" : "在新窗口中打开 AI"}
+          onClick={surface.detached ? surface.restore : surface.open}
+        >
+          <ExternalLink />
+        </Button>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

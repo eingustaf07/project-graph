@@ -59,7 +59,12 @@ function Set-EntryValue([string]$Path, [string]$Name, [string]$Value) {
     else { Set-Item -Path $Path -Value $Value }
 }
 $command = '"' + $ExecutablePath + '" "%1"'
-$icon = '"' + $ExecutablePath + '",0'
+$iconPath = $ExecutablePath
+$developmentDirectory = Split-Path $ExecutablePath -Parent
+if ((Test-Path -LiteralPath (Join-Path $developmentDirectory 'development.json')) -and (Test-Path -LiteralPath (Join-Path $developmentDirectory 'icon.ico'))) {
+    $iconPath = Join-Path $developmentDirectory 'icon.ico'
+}
+$icon = '"' + $iconPath + '",0'
 $programId = 'ProjectGraph.Current.File'
 Set-EntryValue $StateRoot 'CurrentExecutable' $ExecutablePath
 Set-EntryValue $StateRoot 'DisplayName' $DisplayName
@@ -95,7 +100,7 @@ foreach ($path in $links) {
     $link.WorkingDirectory = [IO.Path]::GetDirectoryName($ExecutablePath)
     $link.Arguments = ''
     $link.Description = $DisplayName
-    $link.IconLocation = $ExecutablePath + ',0'
+    $link.IconLocation = $iconPath + ',0'
     $link.Save()
     [PGEntryShell]::SetShortcutIdentity($path,$DisplayName)
     [PGEntryShell]::SHChangeNotify(0x2000,5,$path,$null)

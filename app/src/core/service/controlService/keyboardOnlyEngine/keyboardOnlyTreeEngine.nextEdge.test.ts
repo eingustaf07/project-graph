@@ -57,6 +57,8 @@ import { AutoLayoutFastTree } from "@/core/service/controlService/autoLayoutEngi
 import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/StageSectionInOutManager";
 import { EntityMoveManager } from "@/core/stage/stageManager/concreteMethods/StageEntityMoveManager";
 import { Settings } from "@/core/service/Settings";
+import { AutoAlign } from "@/core/stage/stageManager/concreteMethods/StageAutoAlignManager";
+import { toast } from "sonner";
 
 function fixture() {
   const p: any = {
@@ -349,6 +351,52 @@ it("opens the new node editor on the next event turn without scanning the tree w
   expect(p.controllerUtils.editTextNode).toHaveBeenCalledWith(created, true);
   expect(p.graphMethods.getRoots).not.toHaveBeenCalled();
 });
+it.each(["invalid", "ambiguous"])(
+  "continues NN creation and editing without a tree-structure popup for %s graphs",
+  (kind) => {
+    const { p, root, engine } = fixture();
+    Settings.autoLayoutWhenTreeGenerate = true;
+    Settings.directionalGrowthPlacement = false;
+    const layout = vi.fn();
+    p.autoLayoutFastTree = { autoLayoutFastTreeMode: layout };
+    p.graphMethods.getRoots = () => (kind === "ambiguous" ? [] : [root]);
+    p.graphMethods.validateTreeStructure = () => ({ isValid: false, issues: [{ type: "cycle", message: "环路" }] });
+    vi.mocked(toast.warning).mockClear();
+    vi.mocked(toast.error).mockClear();
+    engine.onDeepGenerateNode();
+    const created = p.stageManager.getTextNodes().find((n: TextNode) => n.text === "新节点");
+    expect(created).toBeDefined();
+    expect(created.isSelected).toBe(true);
+    vi.advanceTimersByTime(0);
+    expect(p.controllerUtils.editTextNode).toHaveBeenCalledWith(created, true);
+    expect(layout).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  },
+);
+
+it("still rejects non-tree formatting without displaying a long popup", () => {
+  const { p, root } = fixture();
+  const layout = vi.fn();
+  p.autoLayoutFastTree = { autoLayoutFastTreeMode: layout };
+  p.graphMethods.validateTreeStructure = vi.fn(() => ({
+    isValid: false,
+    issues: [{ type: "cycle", message: "环路" }],
+  }));
+  vi.mocked(toast.warning).mockClear();
+  vi.mocked(toast.error).mockClear();
+  const original = root.rectangle.clone();
+  const align = new AutoAlign(p);
+  align.autoLayoutSelectedFastTreeMode(root);
+  expect(layout).not.toHaveBeenCalled();
+  expect(root.rectangle).toEqual(original);
+  expect(toast.warning).not.toHaveBeenCalled();
+  expect(toast.error).not.toHaveBeenCalled();
+  p.graphMethods.validateTreeStructure.mockReturnValue({ isValid: true, issues: [] });
+  align.autoLayoutSelectedFastTreeMode(root, true);
+  expect(layout).toHaveBeenCalledExactlyOnceWith(root, true);
+});
+
 it("still starts editing if automatic layout fails after creation", () => {
   const { p, engine } = fixture();
   Settings.autoLayoutWhenTreeGenerate = true;

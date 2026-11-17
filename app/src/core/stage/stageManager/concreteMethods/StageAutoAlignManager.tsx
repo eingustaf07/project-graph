@@ -5,7 +5,6 @@ import { RectangleRenderEffect } from "@/core/service/feedbackService/effectEngi
 import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
-import { showTreeValidationErrors } from "@/utils/treeValidation";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 
@@ -432,11 +431,7 @@ export class AutoAlign {
   autoLayoutSelectedFastTreeMode(selectedRootEntity: ConnectableEntity, afterGrowth = false) {
     // 检测树形结构（跳过虚线边，虚线边不参与树形结构判断）
     const validationResult = this.project.graphMethods.validateTreeStructure(selectedRootEntity, true);
-    if (!validationResult.isValid) {
-      // 不是树形结构，显示详细的问题提示
-      showTreeValidationErrors(validationResult, "error");
-      return;
-    }
+    if (!validationResult.isValid) return;
     this.project.autoLayoutFastTree.autoLayoutFastTreeMode(selectedRootEntity, afterGrowth);
   }
 }

@@ -3,6 +3,7 @@ import { isConclusionText } from "@/core/service/dataManageService/nodeConclusio
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
+import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
@@ -113,7 +114,7 @@ export class ContentSearch {
       return stageObject.detailsManager.getBeSearchingText();
     }
     // 线上的字
-    if (stageObject instanceof Edge) {
+    if (stageObject instanceof Edge || stageObject instanceof MultiTargetUndirectedEdge) {
       return stageObject.text;
     }
     return "";
@@ -280,7 +281,14 @@ export class ContentSearch {
 
   private jumpToResult(node: StageObject) {
     this.locatedResult = { node, color: Color.Green };
-    this.project.camera.location = node.collisionBox.getRectangle().center.clone();
+    this.project.camera.location = this.getResultBounds(node).center.clone();
+  }
+
+  public getResultBounds(object: StageObject): Rectangle {
+    if ((object instanceof Edge || object instanceof MultiTargetUndirectedEdge) && object.text) {
+      return object.textRectangle;
+    }
+    return object.collisionBox.getRectangle();
   }
 
   public panToResult(node: StageObject, select = false) {
@@ -290,7 +298,7 @@ export class ContentSearch {
       node.isSelected = true;
     }
     this.locatedResult = { node, color: Color.Magenta };
-    this.project.camera.bombMove(node.collisionBox.getRectangle().center);
+    this.project.camera.bombMove(this.getResultBounds(node).center);
   }
 
   public chooseSearchResult(index: number) {
@@ -301,7 +309,11 @@ export class ContentSearch {
   private getReplacementTargets(): ReplacementTarget[] {
     const isLocked = (object: StageObject) => {
       const entities =
-        object instanceof Edge ? [object.source, object.target] : object instanceof Entity ? [object] : [];
+        object instanceof Edge || object instanceof MultiTargetUndirectedEdge
+          ? object.associationList
+          : object instanceof Entity
+            ? [object]
+            : [];
       for (const entity of entities) {
         if (entity instanceof Section && entity.locked) return true;
         const visited = new Set<Section>();
@@ -313,7 +325,12 @@ export class ContentSearch {
       return false;
     };
     return this.getObjectsToSearch().flatMap((object): ReplacementTarget[] => {
-      if (object instanceof TextNode || object instanceof Section || object instanceof Edge) {
+      if (
+        object instanceof TextNode ||
+        object instanceof Section ||
+        object instanceof Edge ||
+        object instanceof MultiTargetUndirectedEdge
+      ) {
         return [
           { uuid: object.uuid, text: object.text, locked: isLocked(object), write: (text) => object.rename(text) },
         ];

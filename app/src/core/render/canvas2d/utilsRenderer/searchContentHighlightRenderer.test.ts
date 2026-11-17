@@ -52,7 +52,10 @@ function fixture() {
     collisionBoxRenderer: { selectionOutset: () => 11.5 },
     renderer: { transformWorld2View: (rect: Rectangle) => rect },
     stageStyleManager: { currentStyle: { CollideBoxSelected: Color.Green, effects: { warningShadow: Color.Red } } },
-    contentSearch: { searchResultNodes: [] },
+    contentSearch: {
+      searchResultNodes: [],
+      getResultBounds: (object: any) => object.collisionBox.getRectangle(),
+    },
   };
   project.stageManager = {
     getEntities: vi.fn(() => project.stage.filter((item: any) => item instanceof ConnectableEntity)),

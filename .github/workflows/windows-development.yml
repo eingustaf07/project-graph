@@ -43,7 +43,7 @@ jobs:
           $dev = Start-Process -FilePath $pnpm -ArgumentList '--filter @graphif/project-graph tauri dev --release --no-watch --no-dev-server-wait' -WindowStyle Hidden -RedirectStandardOutput dev-build.log -RedirectStandardError dev-build-errors.log -PassThru
           $deadline = (Get-Date).AddMinutes(45)
           while ((Get-Date) -lt $deadline) {
-            $native = Get-Process project-graph -ErrorAction SilentlyContinue | Select-Object -First 1
+            $native = Get-Process -Name project-graph,project-graph-pg11 -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$env:GITHUB_WORKSPACE\app\src-tauri\target\release\*" } | Select-Object -First 1
             if ($native) {
               Start-Sleep 5
               Stop-Process -Id $native.Id -ErrorAction SilentlyContinue
@@ -57,7 +57,9 @@ jobs:
           }
           if (!$native) { throw 'Development compilation timed out' }
           $null = New-Item -ItemType Directory -Force development-shell
-          Copy-Item app/src-tauri/target/release/project-graph.exe development-shell/project-graph-pg11.exe
+          $executable = @('app/src-tauri/target/release/project-graph-pg11.exe', 'app/src-tauri/target/release/project-graph.exe') | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (!$executable) { throw 'Development executable missing' }
+          Copy-Item -LiteralPath $executable -Destination development-shell/project-graph-pg11.exe
           Get-FileHash development-shell/project-graph-pg11.exe | Format-List
       - uses: actions/upload-artifact@v4
         with:
