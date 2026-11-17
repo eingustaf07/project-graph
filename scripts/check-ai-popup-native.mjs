@@ -2,16 +2,27 @@ import fs from "node:fs/promises";
 
 const deadline = Date.now() + 60000;
 let target;
+let lastPages = [];
+let lastError;
 while (!target && Date.now() < deadline) {
   try {
     const pages = await (await fetch("http://127.0.0.1:19515/json/list")).json();
-    target = pages.find((page) => page.type === "page" && page.url.startsWith("http://localhost:1420/"));
+    lastPages = pages;
+    target = pages.find(
+      (page) =>
+        page.type === "page" &&
+        /^(http:\/\/localhost:1420\/|tauri:\/\/localhost|http:\/\/tauri.localhost)/.test(page.url),
+    );
   } catch (error) {
+    lastError = String(error);
     if (Date.now() >= deadline) throw error;
   }
   if (!target) await new Promise((resolve) => setTimeout(resolve, 500));
 }
-if (!target) throw Error("Native development window did not expose its diagnostic endpoint");
+if (!target) {
+  await fs.writeFile("ai-popup-targets.json", JSON.stringify({ pages: lastPages, error: lastError }, null, 2));
+  throw Error("Native development window did not expose its diagnostic endpoint");
+}
 const socket = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => {
   socket.addEventListener("open", resolve, { once: true });

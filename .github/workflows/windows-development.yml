@@ -64,7 +64,17 @@ jobs:
           if (!$executable) { throw 'Development executable missing' }
           Copy-Item -LiteralPath $executable -Destination development-shell/project-graph-pg11.exe
           Get-FileHash development-shell/project-graph-pg11.exe | Format-List
+      - name: Retain compiled shell for diagnosis
+        if: failure()
+        shell: pwsh
+        run: |
+          $executable = @('app/src-tauri/target/release/project-graph-pg11.exe', 'app/src-tauri/target/release/project-graph.exe') | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if ($executable) {
+            New-Item -ItemType Directory -Force development-shell | Out-Null
+            Copy-Item -LiteralPath $executable -Destination development-shell/project-graph-pg11.exe
+          }
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: PG-development-shell
           path: development-shell
@@ -76,3 +86,4 @@ jobs:
           path: |
             dev-build*.log
             ai-popup-native.json
+            ai-popup-targets.json
