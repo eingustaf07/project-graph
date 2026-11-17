@@ -38,6 +38,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $null = New-Item -ItemType Directory -Force app/src-tauri/target/release
           Set-Content app/src-tauri/target/release/start-server.ps1 'exit 0'
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=19515 --remote-debugging-address=127.0.0.1'
           $pnpm = (Get-Command pnpm.cmd).Source
           $vite = Start-Process -FilePath $pnpm -ArgumentList '--filter @graphif/project-graph dev' -WindowStyle Hidden -PassThru
           $dev = Start-Process -FilePath $pnpm -ArgumentList '--filter @graphif/project-graph tauri dev --release --no-watch --no-dev-server-wait' -WindowStyle Hidden -RedirectStandardOutput dev-build.log -RedirectStandardError dev-build-errors.log -PassThru
@@ -46,6 +47,8 @@ jobs:
             $native = Get-Process -Name project-graph,project-graph-pg11 -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$env:GITHUB_WORKSPACE\app\src-tauri\target\release\*" } | Select-Object -First 1
             if ($native) {
               Start-Sleep 5
+              node scripts/check-ai-popup-native.mjs ai-popup-native.json
+              if ($LASTEXITCODE -ne 0) { throw 'Native AI popup validation failed' }
               Stop-Process -Id $native.Id -ErrorAction SilentlyContinue
               break
             }
@@ -70,4 +73,6 @@ jobs:
         if: always()
         with:
           name: PG-development-build-logs
-          path: dev-build*.log
+          path: |
+            dev-build*.log
+            ai-popup-native.json
