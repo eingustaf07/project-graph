@@ -344,12 +344,14 @@ function AIChatWorkspace({ project, tabId }: { project: Project; tabId: string }
         </Tooltip>
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
+          className="shrink-0 gap-1 px-2"
           aria-label={surface.detached ? "移回主窗口" : "在新窗口中打开 AI"}
           title={surface.detached ? "移回主窗口" : "在新窗口中打开 AI"}
           onClick={surface.detached ? surface.restore : surface.open}
         >
-          <ExternalLink />
+          <ExternalLink className="size-4" />
+          <span>{surface.detached ? "移回" : "新窗口"}</span>
         </Button>
         <Tooltip>
           <TooltipTrigger asChild>
