@@ -70,6 +70,21 @@ export namespace KeyBindsUI {
   }
 
   let allUIKeyBinds: UIKeyBind[] = [];
+  let currentTriggerEvent: Event | undefined;
+
+  export function getCurrentTriggerEvent(): Event | undefined {
+    return currentTriggerEvent;
+  }
+
+  function invokePress(binding: UIKeyBind, project?: Project, event?: Event) {
+    const previous = currentTriggerEvent;
+    currentTriggerEvent = event;
+    try {
+      return binding.onPress(project);
+    } finally {
+      currentTriggerEvent = previous;
+    }
+  }
   const inputInterceptors = new Set<KeyBindInputInterceptor>();
 
   export function registerInputInterceptor(interceptor: KeyBindInputInterceptor): () => void {
@@ -121,7 +136,7 @@ export namespace KeyBindsUI {
     const keyBind = getUIKeyBind(id);
     if (!keyBind || !keyBind.isEnabled || !(await keyBind.when(project))) return false;
     const actionProject = keyBind.id.startsWith("ext:") && project ? proxy(project) : project;
-    await keyBind.onPress(actionProject);
+    await invokePress(keyBind, actionProject);
     if (keyBind.onRelease) {
       await new Promise((resolve) => setTimeout(resolve, 100));
       await keyBind.onRelease(actionProject);
@@ -585,7 +600,7 @@ export namespace KeyBindsUI {
     );
   }
 
-  async function check(): Promise<boolean> {
+  async function check(triggerEvent?: Event): Promise<boolean> {
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!shouldProcessKeyboardEvent()) {
       // 清空队列，防止事件积累
@@ -686,7 +701,11 @@ export namespace KeyBindsUI {
         }
       }
       cancelPendingDoodle();
-      uiKeyBind.onPress(uiKeyBind.id.startsWith("ext:") && activeProject ? proxy(activeProject) : activeProject);
+      invokePress(
+        uiKeyBind,
+        uiKeyBind.id.startsWith("ext:") && activeProject ? proxy(activeProject) : activeProject,
+        triggerEvent,
+      );
       if (uiKeyBind.onRelease && uiKeyBind.key.length === 1) {
         pressedSingleKeyBinds.add(uiKeyBind.key);
       }
@@ -730,7 +749,7 @@ export namespace KeyBindsUI {
       event.preventDefault();
       return;
     }
-    await check();
+    await check(event);
   }
   async function onMouseUp(event: MouseEvent) {
     for (const interceptor of inputInterceptors) {
@@ -859,7 +878,7 @@ export namespace KeyBindsUI {
           binding.onRelease?.(activeProject);
         }
       }
-      if (!event.repeat) await chord.onPress(activeProject);
+      if (!event.repeat) await invokePress(chord, activeProject, event);
       return;
     }
     if (letter !== "tab") pendingTab = undefined;
@@ -884,14 +903,14 @@ export namespace KeyBindsUI {
         if (pressedContinuousKeyBindIds.has(uiKeyBind.id)) continue;
         if (!(await uiKeyBind.when(activeProject))) continue;
         pressedContinuousKeyBindIds.add(uiKeyBind.id);
-        uiKeyBind.onPress(activeProject);
+        invokePress(uiKeyBind, activeProject, event);
         continuousExecuted = true;
       }
     }
     // 持续型路径处理后，不 return——序列型照常入队检测（两者不冲突）
 
     // ——序列型快捷键路径——
-    const sequenceExecuted = await check();
+    const sequenceExecuted = await check(event);
 
     // 只要有快捷键被执行，就阻止浏览器默认行为（防止 Tab 跳焦点、方向键滚动页面等）
     if (continuousExecuted || sequenceExecuted) {
@@ -951,7 +970,7 @@ export namespace KeyBindsUI {
   async function onWheel(event: WheelEvent) {
     enqueue(event);
     if (await interceptInput(event)) return;
-    await check();
+    await check(event);
   }
 
   /**

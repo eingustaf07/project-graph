@@ -6,17 +6,19 @@ const state = vi.hoisted(() => ({
   save: vi.fn(),
   register: vi.fn(),
   split: vi.fn(),
+  triggerEvent: undefined as Event | undefined,
 }));
 vi.mock("@/utils/platform", () => ({ isMac: false }));
 vi.mock("@/utils/store", () => ({ createStore: async () => state }));
 vi.mock("../service/controlService/shortcutKeysEngine/KeyBindsUI", () => ({
-  KeyBindsUI: { registerOneUIKeyBind: state.register },
+  KeyBindsUI: { registerOneUIKeyBind: state.register, getCurrentTriggerEvent: () => state.triggerEvent },
 }));
 vi.mock("./edgeSplit", () => ({ splitSelectedExtensionEdge: state.split }));
 import { ExtensionKeyBindManager } from "./ExtensionKeyBindManager";
 
 beforeEach(() => {
   vi.resetAllMocks();
+  state.triggerEvent = undefined;
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -162,6 +164,27 @@ it("restores selection by UUID if status updates replace stage instances, withou
   await state.register.mock.lastCall![3](project);
   expect(project.stage.map((object) => object.isSelected)).toEqual([true, false]);
 });
+
+it.each(["smartOKK", "smartERR"])(
+  "does not mistake the originating non-repeat event for a new user action: %s",
+  async (id) => {
+    vi.stubGlobal("window", new EventTarget());
+    const key = id === "smartOKK" ? "k" : "r";
+    state.triggerEvent = Object.assign(new Event("keydown"), { key, repeat: false });
+    const selected = { uuid: "original", isSelected: true };
+    const project = { stage: [selected], controller: { resetCountdownTimer: vi.fn() } };
+    await ExtensionKeyBindManager.register("com.enterhalf.task-arrange", {
+      id,
+      defaultKey: id === "smartOKK" ? "o k" : "e r",
+      onPress: async () => {
+        window.dispatchEvent(state.triggerEvent!);
+        selected.isSelected = false;
+      },
+    });
+    await state.register.mock.lastCall![3](project);
+    expect(selected.isSelected).toBe(true);
+  },
+);
 
 it("does not lose the original window selection when focus leaves or the user only pans", async () => {
   vi.stubGlobal("window", new EventTarget());

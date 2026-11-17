@@ -5,6 +5,7 @@ vi.mock("@/core/Project", () => ({ Project: class {}, service: () => (target: un
 vi.mock("@/core/service/Settings", () => ({ Settings: { antialiasing: "disabled" } }));
 vi.mock("@/state", () => ({ activeTabAtom: "active", store: { get: () => state.active } }));
 import { Canvas } from "./Canvas";
+import { keyboardEventOrigin } from "@/utils/keyboardEventOrigin";
 
 const canvases: Canvas[] = [];
 beforeEach(() => vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as CanvasRenderingContext2D));
@@ -90,4 +91,22 @@ it("removes window keyboard listeners when the canvas is disposed", () => {
   window.dispatchEvent(new Event("focus"));
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "n" }));
   expect(project.loop).not.toHaveBeenCalled();
+});
+
+it("preserves the original key identity and repeat/physical-key fields when redirecting to the canvas", () => {
+  const { project, canvas } = fixture();
+  state.active = project;
+  const captured: KeyboardEvent[] = [];
+  canvas.element.addEventListener("keydown", (event) => captured.push(event));
+  const source = new KeyboardEvent("keydown", { key: "K", code: "KeyK", repeat: true, shiftKey: true, location: 2 });
+  window.dispatchEvent(source);
+  expect(captured).toHaveLength(1);
+  const forwarded = captured[0];
+  expect(forwarded).not.toBe(source);
+  expect(keyboardEventOrigin(forwarded)).toBe(source);
+  expect(forwarded.repeat).toBe(true);
+  expect(forwarded.code).toBe("KeyK");
+  expect(forwarded.location).toBe(2);
+  expect(forwarded.shiftKey).toBe(true);
+  expect(forwarded.bubbles).toBe(false);
 });

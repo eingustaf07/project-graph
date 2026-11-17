@@ -2,6 +2,7 @@ import { parseSingleEmacsKey, transEmacsKeyWinToMac } from "@/utils/emacs";
 import { isMac } from "@/utils/platform";
 import { createStore } from "@/utils/store";
 import type { Project } from "@/core/Project";
+import { keyboardEventOrigin } from "@/utils/keyboardEventOrigin";
 import { KeyBindsUI, type KeyBindIcon } from "../service/controlService/shortcutKeysEngine/KeyBindsUI";
 
 export interface ExtensionKeyBindRegisterOptions {
@@ -19,6 +20,7 @@ export interface ExtensionKeyBindRegisterOptions {
 export namespace ExtensionKeyBindManager {
   function keepTaskStatusSelection(onPress: () => void, key: string) {
     return async (project?: Project) => {
+      const triggerEvent = KeyBindsUI.getCurrentTriggerEvent();
       const selected = new Set(project?.stage.filter((object) => object.isSelected));
       if (!project || !selected.size) return onPress();
       const selectedIds = new Set([...selected].map((object) => object.uuid).filter((id) => typeof id === "string"));
@@ -29,6 +31,9 @@ export namespace ExtensionKeyBindManager {
         interrupted = true;
       };
       const interruptKey = (event: KeyboardEvent) => {
+        if (keyboardEventOrigin(event) === keyboardEventOrigin(triggerEvent)) {
+          return;
+        }
         const pressed = event.key?.toLowerCase();
         if (["shift", "control", "alt", "meta"].includes(pressed)) return;
         if (pressed === "tab" && (event.altKey || event.ctrlKey || event.metaKey)) return;

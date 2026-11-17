@@ -75,13 +75,16 @@ vi.mock("./shortcutKeysRegister", () => ({
 import { Project } from "@/core/Project";
 import { KeyBindsUI } from "./KeyBindsUI";
 import { ExtensionKeyBindManager } from "../../../extension/ExtensionKeyBindManager";
+import { forwardKeyboardEvent } from "@/utils/keyboardEventOrigin";
 import { URI } from "vscode-uri";
 import { doodleCommands } from "./doodleCommands";
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 async function down(key: string, extra: KeyboardEventInit = {}) {
-  window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...extra }));
+  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...extra });
+  window.dispatchEvent(event);
   await flush();
+  return event;
 }
 async function up(key: string) {
   window.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
@@ -145,8 +148,14 @@ it.each([
     });
     await down(firstKey);
     await up(firstKey);
-    await down(lastKey);
+    const triggerEvent = await down(lastKey);
     expect(callback).toHaveBeenCalledOnce();
+    window.dispatchEvent(triggerEvent);
+    await flush();
+    const canvas = document.createElement("canvas");
+    document.body.append(canvas);
+    canvas.dispatchEvent(forwardKeyboardEvent(triggerEvent));
+    await flush();
     await down(lastKey, { repeat: true });
     await up(lastKey);
     finish();

@@ -2,6 +2,7 @@ import { Project, service } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { activeTabAtom, store } from "@/state";
 import { Vector } from "@graphif/data-structures";
+import { forwardKeyboardEvent } from "@/utils/keyboardEventOrigin";
 
 /**
  * 将Canvas标签和里面的ctx捏在一起封装成一个类
@@ -61,15 +62,7 @@ export class Canvas {
         // Rendering may be paused while another window is active. The first key
         // must resume this canvas, rather than requiring a mouse action first.
         project.loop();
-        element.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: event.key,
-            altKey: event.altKey,
-            ctrlKey: event.ctrlKey,
-            shiftKey: event.shiftKey,
-            metaKey: event.metaKey,
-          }),
-        );
+        element.dispatchEvent(forwardKeyboardEvent(event));
       },
       keyboardOptions,
     );
@@ -80,15 +73,7 @@ export class Canvas {
           this.project.controller.pressingKeySet.clear();
           return;
         }
-        element.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: event.key,
-            altKey: event.altKey,
-            ctrlKey: event.ctrlKey,
-            shiftKey: event.shiftKey,
-            metaKey: event.metaKey,
-          }),
-        );
+        element.dispatchEvent(forwardKeyboardEvent(event));
       },
       keyboardOptions,
     );
